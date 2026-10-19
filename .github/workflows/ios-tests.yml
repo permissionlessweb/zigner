@@ -4,11 +4,26 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Only when something the iOS app builds changed. macOS arm64 runners are the
+# scarcest GitHub has: a run that cannot get one fails after ~15 minutes with
+# "The job was not acquired by Runner", which read as a red iOS check on
+# Android-only and docs-only changes. The Rust core is included because the
+# app links it through the FFI.
 on:
   pull_request:
+    paths:
+      - "ios/**"
+      - "rust/**"
+      - ".github/workflows/ios-tests.yml"
+      - ".github/actions/install-ios-dep/**"
   push:
     branches:
       - master
+    paths:
+      - "ios/**"
+      - "rust/**"
+      - ".github/workflows/ios-tests.yml"
+      - ".github/actions/install-ios-dep/**"
 
 jobs:
   run-tests:

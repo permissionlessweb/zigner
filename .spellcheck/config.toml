@@ -52,7 +52,14 @@ transform_regex = [
     # en-dash compounds (Reed–Solomon)
     "^[A-Za-z]+–[A-Za-z]+$",
     # interpolation placeholders {origin}, \n{domain}
-    "^\\\\?n?\\{[a-z_]+\\}$"
+    "^\\\\?n?\\{[a-z_]+\\}$",
+    # identifiers with underscores: payload_len, OP_RETURN, RELEASE_KEY_BYTES
+    "^[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+$",
+    # short and full git commit hashes (bd9c63e)
+    "^[0-9a-f]{7,40}$",
+    # pixel sizes (512px) and integer types (u16, i64)
+    "^[0-9]+px$",
+    "^[ui][0-9]+$"
 ]
 
 allow_concatenation = true
