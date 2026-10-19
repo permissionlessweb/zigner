@@ -11,7 +11,13 @@
 //!                   (e.g. the compact empty-memo hardcode vs a real memo) is
 //!                   caught here as a rejected merge - not a false green.
 //!
-//! Generate fixtures first (zcli):
+//! Shapes come in two consensus branches built by the SAME wallet code zafu
+//! ships (zcli `crates/zcash-wasm`): NU6.3 (`<shape>`) and NU7 (`nu7_<shape>`,
+//! branch 0x77190ad9, NU7 expiry). The NU7 set is the cross-repo proof that a
+//! wallet-built NU7 PCZT is signed by the shipped module.
+//!
+//! Regenerate (zcli):
+//!   ZIGNER_FIXTURES_DIR=$PWD/rust/pczt_signing/tests/fixtures \
 //!   cargo test --release --test dump_ironwood_send_fixtures -- --nocapture
 
 use module_host::ModuleRuntime;
@@ -25,11 +31,24 @@ const FIXTURE_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures")
 const MNEMONIC: &str =
     "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
 
-const SHAPES: &[&str] = &["single", "memo", "zt", "multinote"];
+const SHAPES: &[&str] = &[
+    "single",
+    "memo",
+    "zt",
+    "multinote",
+    "nu7_single",
+    "nu7_memo",
+    "nu7_zt",
+    "nu7_multinote",
+];
 
-fn fixture(shape: &str, kind: &str) -> Option<Vec<u8>> {
-    let hex = std::fs::read_to_string(format!("{FIXTURE_DIR}/ironwood_{shape}_{kind}.hex")).ok()?;
-    Some(hex::decode(hex.trim()).expect("fixture hex"))
+/// Fixtures are committed, so a missing one is a failure: skipping would turn
+/// a deleted or misnamed fixture into a silent green.
+fn fixture(shape: &str, kind: &str) -> Vec<u8> {
+    let path = format!("{FIXTURE_DIR}/ironwood_{shape}_{kind}.hex");
+    let hex = std::fs::read_to_string(&path)
+        .unwrap_or_else(|e| panic!("[{shape}] fixture missing: {path}: {e}"));
+    hex::decode(hex.trim()).expect("fixture hex")
 }
 
 fn runtime() -> ModuleRuntime {
@@ -41,16 +60,9 @@ fn runtime() -> ModuleRuntime {
 /// FULL path across every shape - the "get ours working" assertion.
 #[test]
 fn ironwood_send_full_path_signs_every_shape() {
-    if fixture("single", "full").is_none() {
-        eprintln!("SKIP: generate fixtures in zcli first");
-        return;
-    }
     let mut rt = runtime();
     for shape in SHAPES {
-        let Some(bytes) = fixture(shape, "full") else {
-            eprintln!("[{shape}] SKIP (no fixture)");
-            continue;
-        };
+        let bytes = fixture(shape, "full");
         let mut payload = vec![0x53, 0x04, 0x03];
         payload.extend_from_slice(&bytes);
         rt.summarize_request(&payload)
@@ -75,19 +87,11 @@ fn ironwood_send_full_path_signs_every_shape() {
 /// whether the device's signatures actually merge into the retained tx.
 #[test]
 fn ironwood_send_compact_signatures_merge_every_shape() {
-    if fixture("single", "compact").is_none() {
-        eprintln!("SKIP: generate fixtures in zcli first");
-        return;
-    }
     let mut rt = runtime();
     let mut failures = Vec::new();
 
     for shape in SHAPES {
-        let (Some(compact), Some(retained)) = (fixture(shape, "compact"), fixture(shape, "retained"))
-        else {
-            eprintln!("[{shape}] SKIP (no fixture)");
-            continue;
-        };
+        let (compact, retained) = (fixture(shape, "compact"), fixture(shape, "retained"));
         let mut payload = vec![0x53, 0x04, 0x05];
         payload.extend_from_slice(&compact);
 
@@ -126,9 +130,7 @@ fn ironwood_send_compact_signatures_merge_every_shape() {
             }
         }
         if rejected > 0 || applied == 0 {
-            failures.push(format!(
-                "{shape}: {applied} merged, {rejected} rejected"
-            ));
+            failures.push(format!("{shape}: {applied} merged, {rejected} rejected"));
             eprintln!("[{shape}] COMPACT: {applied} merged, {rejected} REJECTED  <-- BREAK");
         } else {
             eprintln!("[{shape}] COMPACT: {applied} signatures merged clean");
@@ -148,5 +150,8 @@ fn ironwood_send_compact_signatures_merge_every_shape() {
         "compact broke on some shapes - a sighash-committed field is no longer \
          losslessly regenerable: {failures:?}"
     );
-    eprintln!("compact: signatures merge clean on all {} shapes", SHAPES.len());
+    eprintln!(
+        "compact: signatures merge clean on all {} shapes",
+        SHAPES.len()
+    );
 }
