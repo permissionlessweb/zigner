@@ -34,6 +34,25 @@ ignore = [
     "RUSTSEC-2026-0098",
     "RUSTSEC-2026-0099",
     "RUSTSEC-2026-0104",
+    # rsa Marvin timing attack - no patched release exists. Linked via age's
+    # ssh support. The attack needs an RSA *decryption* timing oracle; this
+    # device decrypts only with its own Ed25519 identity
+    # (age_backup::device_identity) and uses RSA solely to encrypt TO a
+    # user-supplied ssh-rsa public key, which is not the vulnerable operation.
+    "RUSTSEC-2023-0071",
+    # im / bitmaps / sized-chunks unmaintained (no vulnerability) - transitive
+    # via penumbra-sdk-dex v2.0.4; they leave with the penumbra stack.
+    "RUSTSEC-2026-0247",
+    "RUSTSEC-2026-0248",
+    "RUSTSEC-2026-0251",
+    # h2 0.3 / rustls 0.21 network-client advisories - only in generate_message,
+    # the host-side Substrate metadata tool (NOT shipped in the APK; it runs on
+    # a developer machine against a configured RPC node). Fixes need h2 0.4 /
+    # rustls 0.23, which its jsonrpsee pin cannot take. Goes away when the
+    # Substrate tooling is deleted.
+    "RUSTSEC-2026-0258",
+    "RUSTSEC-2026-0346",
+    "RUSTSEC-2026-0349",
 ]
 
 [licenses]

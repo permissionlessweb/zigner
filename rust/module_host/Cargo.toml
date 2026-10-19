@@ -10,7 +10,7 @@ license = "MIT"
 # would have to cross-compile under the NDK (zstd-sys does not, without
 # hand-set CC_*) and would also complicate an F-Droid build-from-source.
 bsdiff = "0.2"
-ruzstd = { version = "0.7", default-features = false, features = ["std"] }
+ruzstd = { version = "0.9.1", default-features = false, features = ["std"] }
 wasmi = "0.38"
 rand_core = { version = "0.6", features = ["getrandom"] }
 ed25519-dalek = { version = "2", default-features = false, features = ["std"] }

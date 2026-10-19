@@ -97,10 +97,7 @@ impl ZcashSignRequestData {
         ]);
         offset += 4;
 
-        let sighash;
-        let orchard_alphas;
-
-        if shielding {
+        let (sighash, orchard_alphas) = if shielding {
             // shielding format: multiple transparent inputs, no orchard alphas
             // [input_count: 2B LE][per-input: sighash(32B) + address_index(4B LE)]...[action_count=0: 2B LE]
             if offset + 2 > data.len() {
@@ -129,14 +126,12 @@ impl ZcashSignRequestData {
                 offset += 32; // sighash
                 offset += 4; // address_index
             }
-            sighash = first_sighash;
-
             // action count (should be 0 for shielding)
             if offset + 2 > data.len() {
                 return Err(Error::ZcashParseError("action count truncated".to_string()));
             }
             offset += 2; // skip action_count (0)
-            orchard_alphas = Vec::new();
+            (first_sighash, Vec::new())
         } else {
             // regular send format: single sighash + orchard alphas
             if offset + 32 > data.len() {
@@ -144,7 +139,6 @@ impl ZcashSignRequestData {
             }
             let mut sh = [0u8; 32];
             sh.copy_from_slice(&data[offset..offset + 32]);
-            sighash = sh;
             offset += 32;
 
             // action count
@@ -165,8 +159,8 @@ impl ZcashSignRequestData {
                 alphas.push(alpha);
                 offset += 32;
             }
-            orchard_alphas = alphas;
-        }
+            (sh, alphas)
+        };
 
         // summary (length-prefixed string)
         let summary = if offset + 2 <= data.len() {

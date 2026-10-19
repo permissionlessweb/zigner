@@ -2,7 +2,7 @@
 
 All notable changes to zigner are documented in this file.
 
-## 0.12.0 - unreleased
+## 0.12.0 - 2026-10-20
 
 Minor. NU7-ready signing on the zakura stack, a reproducible protocol
 module, and device-security screens that only state what they measured.
@@ -38,6 +38,11 @@ module, and device-security screens that only state what they measured.
   branches up to index 5,000, so a swap address past the first 20 signs. An
   input no key of this account owns is now refused instead of returned
   unsigned.
+- **FROST round 2 is bound to round 1.** Round 2 used to sign whatever
+  sighash and randomizers its own QR carried, so a hostile coordinator could
+  show one transaction in round 1 and collect a signature share for another
+  in round 2. The device now records exactly what you approved in round 1
+  and refuses round 2 unless it matches.
 - **FROST:** Approve & Sign is offered only when the device verified the
   request's sighash itself. A missing PCZT, a missing viewing key or a
   verifier error now blocks signing instead of showing the coordinator's
@@ -80,6 +85,13 @@ module, and device-security screens that only state what they measured.
   container with pinned rustc and clang, and CI plus tag releases refuse an
   asset that is not a build of the published source
   (`scripts/verify-baked-module.sh`).
+- `ruzstd` 0.7 → 0.9.1 for RUSTSEC-2026-0344 (decompression bomb). It
+  decodes module-update deltas; in this release that path is unreachable
+  (packages fail the 2-of-3 signature check first - the release keys are
+  still placeholders), but it would be live after the key ceremony.
+- `cargo deny` advisories are clean again, each remaining ignore with its
+  reason in `rust/deny.toml`. Note the CI job is `continue-on-error`, so a
+  green tick there has never meant "no advisories".
 
 ### Fixes
 

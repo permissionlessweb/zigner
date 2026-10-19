@@ -287,6 +287,7 @@ fun ScanNavSubgraph(
 						scanViewModel.frostSignKeyPackage = k
 						scanViewModel.frostSignEphemeralSeed = seed
 					},
+					onApproved = { scanViewModel.frostSignApproved = it },
 					onScanNext = scanNextFrost,
 					modifier = Modifier.statusBarsPadding(),
 					onDone = { dismissFrost(); scanViewModel.clearFrostSignState() },
@@ -302,6 +303,7 @@ fun ScanNavSubgraph(
 					previousNoncesPerAction = scanViewModel.frostSignNoncesPerAction,
 					previousKeyPackage = scanViewModel.frostSignKeyPackage,
 					previousEphemeralSeed = scanViewModel.frostSignEphemeralSeed,
+					approved = scanViewModel.frostSignApproved,
 					onNoncesUpdated = { noncesArr, k, seed ->
 						scanViewModel.frostSignNoncesPerAction = noncesArr
 						scanViewModel.frostSignKeyPackage = k
