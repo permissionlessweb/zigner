@@ -1,5 +1,6 @@
 package net.rotko.zigner.screens.scan
 
+import net.rotko.zigner.screens.scan.transaction.frost.FrostRound2Binding
 import android.content.Context
 import timber.log.Timber
 import android.widget.Toast
@@ -159,6 +160,9 @@ class ScanViewModel : ViewModel() {
 	var frostSignKeyPackage: String = ""
 	var frostSignEphemeralSeed: String = ""
 	var frostSignWalletId: String = ""
+	// What the user approved in round 1 (verified sighash + per-action alphas).
+	// Round 2 signs only if its QR repeats exactly this - see FrostRound2Binding.
+	var frostSignApproved: FrostRound2Binding.Approved? = null
 
 	fun clearFrostDkgState() {
 		frostDkgSecret = ""
@@ -169,6 +173,7 @@ class ScanViewModel : ViewModel() {
 		frostSignNoncesPerAction = emptyList()
 		frostSignKeyPackage = ""
 		frostSignEphemeralSeed = ""
+		frostSignApproved = null
 	}
 
 	// Auth challenge state

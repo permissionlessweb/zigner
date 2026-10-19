@@ -38,6 +38,11 @@ module, and device-security screens that only state what they measured.
   branches up to index 5,000, so a swap address past the first 20 signs. An
   input no key of this account owns is now refused instead of returned
   unsigned.
+- **FROST round 2 is bound to round 1.** Round 2 used to sign whatever
+  sighash and randomizers its own QR carried, so a hostile coordinator could
+  show one transaction in round 1 and collect a signature share for another
+  in round 2. The device now records exactly what you approved in round 1
+  and refuses round 2 unless it matches.
 - **FROST:** Approve & Sign is offered only when the device verified the
   request's sighash itself. A missing PCZT, a missing viewing key or a
   verifier error now blocks signing instead of showing the coordinator's

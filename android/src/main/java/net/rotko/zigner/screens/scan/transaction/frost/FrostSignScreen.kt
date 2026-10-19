@@ -67,6 +67,10 @@ fun FrostSignScreen(
 	previousKeyPackage: String = "",
 	previousEphemeralSeed: String = "",
 	onNoncesUpdated: (noncesPerAction: List<String>, keyPackage: String, ephemeralSeed: String) -> Unit = { _, _, _ -> },
+	/** Round 1: called once the user approved and commitments exist. */
+	onApproved: (FrostRound2Binding.Approved) -> Unit = {},
+	/** Round 2: what round 1 approved on this device, or null if nothing was. */
+	approved: FrostRound2Binding.Approved? = null,
 	onScanNext: Callback,
 	onDone: Callback,
 	modifier: Modifier = Modifier,
@@ -95,6 +99,11 @@ fun FrostSignScreen(
 						state = FrostSignState.REVIEW
 					}
 					2 -> {
+						// Refuse before touching any key material if this round-2
+						// request is not the transaction approved in round 1.
+						FrostRound2Binding.check(approved, sighashHex, alphasJson)?.let { reason ->
+							throw IllegalStateException(reason)
+						}
 						runRound2(
 							sighashHex, alphasJson, bundledCommitmentsJson,
 							previousNoncesPerAction, previousKeyPackage, previousEphemeralSeed,
@@ -204,6 +213,9 @@ fun FrostSignScreen(
 										generateCommitments(
 											loadedKeyPackage, loadedEphemeralSeed, alphasJson, onNoncesUpdated,
 										) { qr -> qrData = qr }
+										// Recorded only after commitments succeed, and only
+										// on this verified path (Approve needs v.verified).
+										onApproved(FrostRound2Binding.approve(sighashHex, alphasJson))
 										state = FrostSignState.DISPLAY_QR
 									} catch (e: Exception) {
 										errorMsg = e.message ?: "failed to generate commitments"
