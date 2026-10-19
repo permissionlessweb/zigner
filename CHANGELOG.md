@@ -80,6 +80,13 @@ module, and device-security screens that only state what they measured.
   container with pinned rustc and clang, and CI plus tag releases refuse an
   asset that is not a build of the published source
   (`scripts/verify-baked-module.sh`).
+- `ruzstd` 0.7 → 0.9.1 for RUSTSEC-2026-0344 (decompression bomb). It
+  decodes module-update deltas; in this release that path is unreachable
+  (packages fail the 2-of-3 signature check first - the release keys are
+  still placeholders), but it would be live after the key ceremony.
+- `cargo deny` advisories are clean again, each remaining ignore with its
+  reason in `rust/deny.toml`. Note the CI job is `continue-on-error`, so a
+  green tick there has never meant "no advisories".
 
 ### Fixes
 

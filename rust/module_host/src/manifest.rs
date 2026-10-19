@@ -320,7 +320,8 @@ pub const MAX_MODULE_BYTES: usize = 16 * 1024 * 1024;
 /// fails, instead of expanding without limit before the hash check catches it.
 pub fn apply_patch(base: &[u8], patch: &[u8]) -> Result<Vec<u8>, ManifestError> {
     use std::io::Read;
-    let decoder = ruzstd::StreamingDecoder::new(patch).map_err(|_| ManifestError::PatchFailed)?;
+    let decoder =
+        ruzstd::decoding::StreamingDecoder::new(patch).map_err(|_| ManifestError::PatchFailed)?;
     let mut raw = Vec::new();
     decoder
         .take(MAX_MODULE_BYTES as u64)
