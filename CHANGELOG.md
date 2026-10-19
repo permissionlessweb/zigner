@@ -2,7 +2,7 @@
 
 All notable changes to zigner are documented in this file.
 
-## 0.12.0 - unreleased
+## 0.12.0 - 2026-10-20
 
 Minor. NU7-ready signing on the zakura stack, a reproducible protocol
 module, and device-security screens that only state what they measured.
