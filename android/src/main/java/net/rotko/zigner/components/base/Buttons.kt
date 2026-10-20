@@ -1,10 +1,10 @@
 package net.rotko.zigner.components.base
 
 import android.content.res.Configuration
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Divider
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
@@ -52,7 +52,7 @@ fun PrimaryButton(
 ) {
 	Box(
 		modifier = modifier
-			.clip(RoundedCornerShape(dimensionResource(id = R.dimen.buttonCornerRadius)))
+			.clip(RectangleShape)
 			.run {
 				if (isEnabled) {
 					clickable(onClick = onClicked)
@@ -62,7 +62,7 @@ fun PrimaryButton(
 			}
 			.background(
 				if (isEnabled) activeBackground else MaterialTheme.colors.primaryButtonDisabledBackground,
-				RoundedCornerShape(dimensionResource(id = R.dimen.buttonCornerRadius))
+				RectangleShape
 			),
 		contentAlignment = Alignment.Center,
 	) {
@@ -90,7 +90,7 @@ fun PrimaryButtonGreyDisabled(
 ) {
 	Column(
 		modifier = modifier
-			.clip(RoundedCornerShape(dimensionResource(id = R.dimen.buttonCornerRadius)))
+			.clip(RectangleShape)
 			.run {
 				if (isEnabled) {
 					clickable(onClick = onClicked)
@@ -104,7 +104,7 @@ fun PrimaryButtonGreyDisabled(
 				} else {
 					MaterialTheme.colors.fill6
 				},
-				RoundedCornerShape(dimensionResource(id = R.dimen.buttonCornerRadius))
+				RectangleShape
 			)
 			.padding(vertical = 12.dp), // in other places 16, but this is exception to show in header
 		horizontalAlignment = Alignment.CenterHorizontally,
@@ -153,7 +153,7 @@ private fun SecondaryButton(
 ) {
 	Column(
 		modifier = modifier
-			.clip(RoundedCornerShape(dimensionResource(id = R.dimen.buttonCornerRadius)))
+			.clip(RectangleShape)
 			.run {
 				if (isEnabled) {
 					clickable(onClick = onClicked)
@@ -165,7 +165,7 @@ private fun SecondaryButton(
 				if (withBackground) {
 					background(
 						MaterialTheme.colors.fill18,
-						RoundedCornerShape(dimensionResource(id = R.dimen.buttonCornerRadius)),
+						RectangleShape,
 					)
 				} else {
 					this

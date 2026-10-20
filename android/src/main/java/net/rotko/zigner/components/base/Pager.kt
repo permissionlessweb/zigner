@@ -1,9 +1,9 @@
 package net.rotko.zigner.components.base
 
 import android.content.res.Configuration
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -32,7 +32,7 @@ fun PageIndicatorLine(
 					.height(4.dp)
 					.background(
 						color = if (index + 1 <= selectedIndex) selectedColor else unSelectedColor,
-						shape = RoundedCornerShape(4.dp)
+						shape = RectangleShape
 					)
 			)
 			if (index + 1 != totalDots) {

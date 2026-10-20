@@ -1,9 +1,9 @@
 package net.rotko.zigner.screens.scan.transaction.transactionElements
 
 import android.content.res.Configuration
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
@@ -24,7 +24,7 @@ fun TCPenumbraSummary(summary: PenumbraTransactionSummary) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RectangleShape)
             .background(MaterialTheme.colors.fill6)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -112,7 +112,7 @@ fun TCPenumbraSpend(spend: PenumbraSpendAction) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RectangleShape)
             .background(MaterialTheme.colors.fill6)
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -148,7 +148,7 @@ fun TCPenumbraOutput(output: PenumbraOutputAction) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RectangleShape)
             .background(MaterialTheme.colors.fill6)
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -195,7 +195,7 @@ fun TCPenumbraSwap(swap: PenumbraSwapAction) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RectangleShape)
             .background(MaterialTheme.colors.fill6)
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -253,7 +253,7 @@ fun TCPenumbraDelegate(delegate: PenumbraDelegateAction) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RectangleShape)
             .background(MaterialTheme.colors.fill6)
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -300,7 +300,7 @@ fun TCPenumbraVote(vote: PenumbraVoteAction) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RectangleShape)
             .background(MaterialTheme.colors.fill6)
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -347,7 +347,7 @@ fun TCPenumbraGenericAction(action: PenumbraGenericAction) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RectangleShape)
             .background(MaterialTheme.colors.fill6)
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -408,7 +408,7 @@ fun TCPenumbraSchema(schema: PenumbraSchemaInfo) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RectangleShape)
             .background(MaterialTheme.colors.fill6)
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)

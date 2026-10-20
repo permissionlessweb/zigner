@@ -1,6 +1,7 @@
 package net.rotko.zigner.screens.settings.frost
 
 import android.content.Context
+import androidx.compose.ui.graphics.RectangleShape
 import android.content.res.Configuration
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -11,7 +12,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
@@ -403,7 +403,7 @@ private fun FrostWalletCard(
 	onClick: Callback,
 ) {
 	val accent = networkAccent("zcash")
-	val shape = RoundedCornerShape(16.dp)
+	val shape = RectangleShape
 	Column(
 		modifier = Modifier
 			.fillMaxWidth()
@@ -444,7 +444,7 @@ private fun FrostWalletCard(
 						modifier = Modifier
 							.padding(start = 6.dp)
 							.size(28.dp)
-							.clip(RoundedCornerShape(6.dp))
+							.clip(RectangleShape)
 							.clickable(onClick = onRenameTap),
 						contentAlignment = Alignment.Center,
 					) {
@@ -559,7 +559,7 @@ private fun NetworkPill(label: String, accent: androidx.compose.ui.graphics.Colo
 		style = SignerTypeface.CaptionM,
 		color = accent,
 		modifier = Modifier
-			.clip(RoundedCornerShape(6.dp))
+			.clip(RectangleShape)
 			.background(accent.copy(alpha = 0.12f))
 			.padding(horizontal = 8.dp, vertical = 3.dp),
 	)

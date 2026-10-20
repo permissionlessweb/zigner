@@ -1,8 +1,8 @@
 package net.rotko.zigner.screens.settings.frost
 
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.OutlinedTextField
@@ -34,7 +34,7 @@ fun FrostRenameDialog(
 	Dialog(onDismissRequest = onCancel) {
 		Column(
 			modifier = Modifier
-				.clip(RoundedCornerShape(12.dp))
+				.clip(RectangleShape)
 				.background(MaterialTheme.colors.background)
 				.padding(20.dp),
 		) {

@@ -63,7 +63,6 @@ private fun UnknownNetworkIcon(
 	) {
 		AutoSizeText(
 			text = chars,
-			fontWeight = FontWeight.Bold,
 			color = networkColors.text,
 		)
 	}

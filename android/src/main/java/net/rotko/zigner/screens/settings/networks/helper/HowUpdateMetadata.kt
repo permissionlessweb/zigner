@@ -1,11 +1,11 @@
 package net.rotko.zigner.screens.settings.networks.helper
 
 import android.content.res.Configuration
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
@@ -60,7 +60,7 @@ internal fun HowUpdateMetadata(
 					.fillMaxWidth(1f)
 					.background(
 						MaterialTheme.colors.fill12,
-						RoundedCornerShape(dimensionResource(id = R.dimen.qrShapeCornerRadius))
+						RectangleShape
 					)
 					.padding(16.dp)
 			) {
@@ -104,7 +104,7 @@ internal fun HowUpdateMetadata(
 					.fillMaxWidth(1f)
 					.background(
 						MaterialTheme.colors.fill12,
-						RoundedCornerShape(dimensionResource(id = R.dimen.qrShapeCornerRadius))
+						RectangleShape
 					)
 					.padding(16.dp)
 			) {
@@ -140,7 +140,7 @@ internal fun HowUpdateMetadata(
 					.fillMaxWidth(1f)
 					.background(
 						MaterialTheme.colors.fill12,
-						RoundedCornerShape(dimensionResource(id = R.dimen.qrShapeCornerRadius))
+						RectangleShape
 					)
 					.padding(16.dp)
 			) {

@@ -1,6 +1,7 @@
 package net.rotko.zigner.screens.keysetdetails.items
 
 import android.content.res.Configuration
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
@@ -80,12 +80,12 @@ fun WalletHeaderCard(
 		modifier = modifier
 			.fillMaxWidth()
 			.padding(horizontal = 16.dp)
-			.clip(RoundedCornerShape(20.dp))
+			.clip(RectangleShape)
 			.background(MaterialTheme.colors.backgroundSecondary)
 			.border(
 				width = 1.dp,
 				color = MaterialTheme.colors.appliedStroke,
-				shape = RoundedCornerShape(20.dp),
+				shape = RectangleShape,
 			)
 			.padding(horizontal = 16.dp, vertical = 16.dp),
 	) {
@@ -197,7 +197,7 @@ private fun NetworkBadgesRow(networkLogos: List<String>) {
 private fun ShowRootChip(onClick: Callback) {
 	Row(
 		modifier = Modifier
-			.clip(RoundedCornerShape(8.dp))
+			.clip(RectangleShape)
 			.background(MaterialTheme.colors.appliedStroke)
 			.clickable(onClick = onClick)
 			.padding(horizontal = 10.dp, vertical = 6.dp),

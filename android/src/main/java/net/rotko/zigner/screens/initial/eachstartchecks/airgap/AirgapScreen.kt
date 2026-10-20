@@ -1,10 +1,10 @@
 package net.rotko.zigner.screens.initial.eachstartchecks.airgap
 
 import android.content.res.Configuration
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
@@ -100,7 +100,7 @@ private fun AirgapScreen(
 			)
 
 			Surface(
-				shape = RoundedCornerShape(dimensionResource(id = R.dimen.innerFramesCornerRadius)),
+				shape = RectangleShape,
 				border = BorderStroke(1.dp, color = MaterialTheme.colors.fill12),
 				color = MaterialTheme.colors.fill6,
 				modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)

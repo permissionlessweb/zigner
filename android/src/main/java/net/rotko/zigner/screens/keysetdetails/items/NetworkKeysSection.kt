@@ -1,6 +1,7 @@
 package net.rotko.zigner.screens.keysetdetails.items
 
 import android.content.res.Configuration
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -23,7 +24,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
@@ -96,7 +96,7 @@ private fun NetworkKeysSectionContent(
 	modifier: Modifier = Modifier,
 ) {
 	val accent = networkAccent(network.networkLogo)
-	val shape = RoundedCornerShape(16.dp)
+	val shape = RectangleShape
 	val chevronRotation by animateFloatAsState(
 		targetValue = if (expanded) 180f else 0f,
 		animationSpec = tween(durationMillis = 220),
@@ -149,7 +149,7 @@ private fun NetworkKeysSectionContent(
 				modifier = Modifier
 					.padding(end = 12.dp)
 					.size(28.dp)
-					.clip(RoundedCornerShape(8.dp))
+					.clip(RectangleShape)
 					.background(networkAccentTint(network.networkLogo)),
 				contentAlignment = Alignment.Center,
 			) {

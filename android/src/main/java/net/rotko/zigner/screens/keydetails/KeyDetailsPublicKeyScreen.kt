@@ -1,6 +1,7 @@
 package net.rotko.zigner.screens.keydetails
 
 import android.content.res.Configuration
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -18,7 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.AlertDialog
 import androidx.compose.material.CircularProgressIndicator
@@ -153,7 +154,7 @@ fun KeyDetailsPublicKeyScreen(
 				}
 
 				val plateShape =
-					RoundedCornerShape(dimensionResource(id = R.dimen.qrShapeCornerRadius))
+					RectangleShape
 				Column(
 					modifier = Modifier
 						.padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 8.dp)
@@ -337,7 +338,7 @@ fun KeyDetailsPublicKeyScreen(
 							style = SignerTypeface.LabelM,
 							color = if (showFvk) Color.White else MaterialTheme.colors.primary,
 							modifier = Modifier
-								.clip(RoundedCornerShape(8.dp, 0.dp, 0.dp, 8.dp))
+								.clip(RectangleShape)
 								.background(if (showFvk) selectedBg else unselectedBg)
 								.clickable { showFvk = true }
 								.padding(horizontal = 24.dp, vertical = 10.dp)
@@ -348,7 +349,7 @@ fun KeyDetailsPublicKeyScreen(
 							style = SignerTypeface.LabelM,
 							color = if (!showFvk) Color.White else MaterialTheme.colors.primary,
 							modifier = Modifier
-								.clip(RoundedCornerShape(0.dp, 8.dp, 8.dp, 0.dp))
+								.clip(RectangleShape)
 								.background(if (!showFvk) selectedBg else unselectedBg)
 								.clickable { showFvk = false }
 								.padding(horizontal = 24.dp, vertical = 10.dp)
@@ -432,7 +433,7 @@ fun KeyDetailsPublicKeyScreen(
 								style = SignerTypeface.LabelM,
 								color = Color.White,
 								modifier = Modifier
-									.clip(RoundedCornerShape(8.dp))
+									.clip(RectangleShape)
 									.background(MaterialTheme.colors.pink500)
 									.clickable {
 										diversifierIndex++
@@ -477,7 +478,7 @@ fun KeyDetailsPublicKeyScreen(
 								.padding(horizontal = 24.dp)
 								.background(
 									MaterialTheme.colors.red500fill12,
-									RoundedCornerShape(8.dp)
+									RectangleShape
 								)
 								.padding(12.dp),
 							verticalAlignment = Alignment.CenterVertically,
@@ -524,7 +525,7 @@ private fun ZcashVerifiedBalanceSection(
 	anchorHeight: UInt? = null,
 	anchorTime: UInt? = null,
 ) {
-	val plateShape = RoundedCornerShape(dimensionResource(id = R.dimen.qrShapeCornerRadius))
+	val plateShape = RectangleShape
 	Column(
 		modifier = Modifier
 			.padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 8.dp)
@@ -615,7 +616,7 @@ private fun ZcashVerifiedBalanceSection(
 
 @Composable
 private fun BottomKeyPlate(
-	plateShape: RoundedCornerShape,
+	plateShape: Shape,
 	model: KeyDetailsModel,
 	isFvkNetwork: Boolean = false
 ) {
@@ -695,7 +696,7 @@ private fun BottomKeyPlate(
 @Composable
 private fun ExposedKeyAlarm() {
 	val innerShape =
-		RoundedCornerShape(dimensionResource(id = R.dimen.innerFramesCornerRadius))
+		RectangleShape
 	Row(
 		modifier = Modifier
 			.padding(vertical = 8.dp, horizontal = 24.dp)

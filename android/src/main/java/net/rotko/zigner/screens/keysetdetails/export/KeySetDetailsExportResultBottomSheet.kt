@@ -1,13 +1,13 @@
 package net.rotko.zigner.screens.keysetdetails.export
 
 import android.content.res.Configuration
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -49,7 +49,7 @@ fun KeySetDetailsExportResultBottomSheet(
 			onClose = onClose
 		)
 		val plateShape =
-			RoundedCornerShape(dimensionResource(id = R.dimen.qrShapeCornerRadius))
+			RectangleShape
 		//scrollable part
 		Column(
 			modifier = Modifier

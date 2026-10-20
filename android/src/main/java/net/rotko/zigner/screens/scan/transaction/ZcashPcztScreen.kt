@@ -1,11 +1,11 @@
 package net.rotko.zigner.screens.scan.transaction
 
 import android.graphics.BitmapFactory
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.MaterialTheme
@@ -306,7 +306,7 @@ fun ZcashPcztScreen(
 							modifier = Modifier
 								.fillMaxWidth()
 								.aspectRatio(1f)
-								.clip(RoundedCornerShape(12.dp))
+								.clip(RectangleShape)
 								.background(Color.White),
 							contentAlignment = Alignment.Center,
 						) {
@@ -385,7 +385,7 @@ private fun VerificationCard(insp: ZcashPcztInspection) {
 	Column(
 		modifier = Modifier
 			.fillMaxWidth()
-			.clip(RoundedCornerShape(12.dp))
+			.clip(RectangleShape)
 			.background(MaterialTheme.colors.fill6)
 			.padding(16.dp),
 		verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -428,7 +428,7 @@ private fun PcztGlossaryNote(insp: ZcashPcztInspection) {
 		color = MaterialTheme.colors.textTertiary,
 		modifier = Modifier
 			.fillMaxWidth()
-			.clip(RoundedCornerShape(8.dp))
+			.clip(RectangleShape)
 			.background(MaterialTheme.colors.fill6)
 			.padding(12.dp),
 	)
@@ -468,7 +468,7 @@ private fun UnrecognizedSpendsPage(
 				color = MaterialTheme.colors.textTertiary,
 				modifier = Modifier
 					.fillMaxWidth()
-					.clip(RoundedCornerShape(8.dp))
+					.clip(RectangleShape)
 					.background(MaterialTheme.colors.fill6)
 					.padding(12.dp),
 			)
@@ -509,7 +509,7 @@ private fun PcztAdvancedContent(insp: ZcashPcztInspection, urParts: List<String>
 				color = if (sp.known) MaterialTheme.colors.textSecondary else MaterialTheme.colors.red500,
 				modifier = Modifier
 					.fillMaxWidth()
-					.clip(RoundedCornerShape(6.dp))
+					.clip(RectangleShape)
 					.background(MaterialTheme.colors.fill6)
 					.padding(8.dp),
 			)
@@ -531,7 +531,7 @@ private fun PcztAdvancedContent(insp: ZcashPcztInspection, urParts: List<String>
 				color = MaterialTheme.colors.textSecondary,
 				modifier = Modifier
 					.fillMaxWidth()
-					.clip(RoundedCornerShape(6.dp))
+					.clip(RectangleShape)
 					.background(MaterialTheme.colors.fill6)
 					.padding(8.dp),
 			)

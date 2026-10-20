@@ -1,9 +1,11 @@
 package net.rotko.zigner.screens.scan.transaction.transactionElements
 
 import android.content.res.Configuration
+import net.rotko.zigner.ui.theme.pink500
+import net.rotko.zigner.ui.theme.warn
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
@@ -24,7 +26,7 @@ fun TCZcashSummary(summary: ZcashTransactionSummary) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RectangleShape)
             .background(MaterialTheme.colors.fill6)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -38,9 +40,9 @@ fun TCZcashSummary(summary: ZcashTransactionSummary) {
             Text(
                 text = if (summary.mainnet) "Mainnet" else "Testnet",
                 style = SignerTypeface.LabelM,
-                color = if (summary.mainnet) Color(0xFF3498db) else Color(0xFFe74c3c),
+                color = if (summary.mainnet) MaterialTheme.colors.pink500 else MaterialTheme.colors.warn,
                 modifier = Modifier
-                    .clip(RoundedCornerShape(4.dp))
+                    .clip(RectangleShape)
                     .background(MaterialTheme.colors.fill6)
                     .padding(horizontal = 6.dp, vertical = 2.dp)
             )
@@ -108,7 +110,7 @@ fun TCZcashOrchardSpend(spend: ZcashOrchardSpend) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RectangleShape)
             .background(MaterialTheme.colors.fill6)
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -155,7 +157,7 @@ fun TCZcashOrchardOutput(output: ZcashOrchardOutput) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RectangleShape)
             .background(MaterialTheme.colors.fill6)
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)

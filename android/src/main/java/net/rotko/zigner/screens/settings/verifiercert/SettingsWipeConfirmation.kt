@@ -49,7 +49,6 @@ fun SettingsWipeAllConfirmation(
 		val spanStyles = listOf(
 			AnnotatedString.Range(
 				SpanStyle(
-					fontWeight = FontWeight.Bold,
 					color = MaterialTheme.colors.pink300
 				),
 				start = startPosition,

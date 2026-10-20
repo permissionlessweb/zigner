@@ -1,6 +1,9 @@
 package net.rotko.zigner.screens.scan.camera
 
 import android.content.res.Configuration
+import net.rotko.zigner.ui.theme.ZafuTextDim
+import net.rotko.zigner.ui.theme.ZafuSurfaceSecondary
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -34,8 +37,8 @@ fun ScanProgressBar(
 	val progress =
 		(captured.toFloat() / (total ?: 1).toFloat()).coerceIn(0f, 1f)
 
-	val SNACKBAR_BACKGROUND = Color(0xFF454549)
-	val PROGRESS_TEXT_COLOR = Color(0x7AFFFFFF)
+	val SNACKBAR_BACKGROUND = ZafuSurfaceSecondary
+	val PROGRESS_TEXT_COLOR = ZafuTextDim
 
 	val innerRound = dimensionResource(id = R.dimen.qrShapeCornerRadius)
 	val innerShape =
@@ -76,7 +79,7 @@ fun ScanProgressBar(
 		LinearProgressIndicator(
 			progress = progress,
 			modifier = Modifier.fillMaxWidth(1f)
-				.clip(RoundedCornerShape(2.dp)),
+				.clip(RectangleShape),
 			color = MaterialTheme.colors.pink300,
 			backgroundColor = MaterialTheme.colors.fill18,
 		)

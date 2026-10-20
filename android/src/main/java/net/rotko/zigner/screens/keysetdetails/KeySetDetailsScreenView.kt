@@ -1,6 +1,7 @@
 package net.rotko.zigner.screens.keysetdetails
 
 import android.content.res.Configuration
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -15,7 +16,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
@@ -191,7 +191,7 @@ fun KeySetDetailsScreenView(
 
 @Composable
 private fun AddDerivedKeyInlineButton(onClick: Callback) {
-	val shape = RoundedCornerShape(14.dp)
+	val shape = RectangleShape
 	Row(
 		modifier = Modifier
 			.fillMaxWidth()
@@ -335,7 +335,7 @@ private fun KeySetDetailsEmptyList(onAdd: Callback) {
 		Column(
 			modifier = Modifier
 				.fillMaxWidth()
-				.clip(RoundedCornerShape(dimensionResource(id = R.dimen.bigCornerRadius)))
+				.clip(RectangleShape)
 				.background(MaterialTheme.colors.fill6)
 				.padding(24.dp),
 			horizontalAlignment = Alignment.CenterHorizontally,
@@ -377,7 +377,7 @@ private fun MultisigSection(
 
 	if (wallets.isEmpty()) return
 
-	val shape = RoundedCornerShape(16.dp)
+	val shape = RectangleShape
 	val chevronRotation by animateFloatAsState(
 		targetValue = if (expanded) 180f else 0f,
 		animationSpec = tween(durationMillis = 220),
@@ -466,7 +466,7 @@ private fun MultisigWalletRow(
 					style = SignerTypeface.CaptionM,
 					color = MaterialTheme.colors.textTertiary,
 					modifier = Modifier
-						.clip(RoundedCornerShape(4.dp))
+						.clip(RectangleShape)
 						.background(MaterialTheme.colors.appliedStroke)
 						.padding(horizontal = 6.dp, vertical = 2.dp),
 				)

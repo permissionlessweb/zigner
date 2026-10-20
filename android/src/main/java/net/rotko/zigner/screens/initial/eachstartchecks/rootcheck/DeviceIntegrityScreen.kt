@@ -1,6 +1,8 @@
 package net.rotko.zigner.screens.initial.eachstartchecks.rootcheck
 
 import android.content.res.Configuration.UI_MODE_NIGHT_NO
+import net.rotko.zigner.ui.theme.red500fill12
+import net.rotko.zigner.ui.theme.red500
 import android.content.res.Configuration.UI_MODE_NIGHT_YES
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -36,8 +38,8 @@ import net.rotko.zigner.ui.theme.textTertiary
  */
 @Composable
 fun DeviceIntegrityScreen(report: DeviceIntegrity.Report, onProceed: Callback) {
-	val iconBackground = Color(0x1FAC7D1F)
-	val iconTint = Color(0xFFFD4935)
+	val iconBackground = MaterialTheme.colors.red500fill12
+	val iconTint = MaterialTheme.colors.red500
 
 	val findings = buildList {
 		if (report.bootloaderUnlocked) add(stringResource(R.string.device_integrity_bootloader_unlocked))

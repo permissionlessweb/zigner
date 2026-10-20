@@ -1,13 +1,13 @@
 package net.rotko.zigner.components.sharedcomponents
 
 import android.widget.Toast
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.ProgressIndicatorDefaults
@@ -106,7 +106,7 @@ fun SnackBarCircularCountDownTimer(
 	}
 
 	val innerShape =
-		RoundedCornerShape(dimensionResource(id = R.dimen.innerFramesCornerRadius))
+		RectangleShape
 	val localDensity = LocalDensity.current
 
 	var timeLeft by remember { mutableStateOf<Int>(timeoutSeconds) }

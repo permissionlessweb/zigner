@@ -1,6 +1,7 @@
 package net.rotko.zigner.screens.settings.frost
 
 import android.content.Context
+import androidx.compose.ui.graphics.RectangleShape
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -8,7 +9,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.*
@@ -231,7 +231,7 @@ fun FrostBackupAgeScreen(onBack: Callback) {
 				Row(
 					modifier = Modifier
 						.fillMaxWidth()
-						.clip(RoundedCornerShape(8.dp))
+						.clip(RectangleShape)
 						.background(MaterialTheme.colors.fill6)
 						.padding(horizontal = 12.dp, vertical = 12.dp),
 					verticalAlignment = Alignment.CenterVertically,
@@ -254,7 +254,7 @@ fun FrostBackupAgeScreen(onBack: Callback) {
 					Row(
 						modifier = Modifier
 							.fillMaxWidth()
-							.clip(RoundedCornerShape(8.dp))
+							.clip(RectangleShape)
 							.background(MaterialTheme.colors.fill6)
 							.padding(start = 12.dp, top = 12.dp, bottom = 12.dp),
 						verticalAlignment = Alignment.CenterVertically,

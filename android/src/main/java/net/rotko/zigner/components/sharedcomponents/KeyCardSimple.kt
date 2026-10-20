@@ -1,9 +1,9 @@
 package net.rotko.zigner.components.sharedcomponents
 
 import android.content.res.Configuration
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
@@ -33,7 +33,7 @@ fun KeyCardPassword(
 			.fillMaxWidth()
 			.background(
 				MaterialTheme.colors.red500fill12,
-				RoundedCornerShape(dimensionResource(id = R.dimen.qrShapeCornerRadius))
+				RectangleShape
 			)
 			.padding(16.dp),
 		verticalAlignment = Alignment.CenterVertically,

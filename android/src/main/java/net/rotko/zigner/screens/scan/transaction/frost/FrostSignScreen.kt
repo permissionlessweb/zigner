@@ -1,9 +1,9 @@
 package net.rotko.zigner.screens.scan.transaction.frost
 
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.MaterialTheme
@@ -304,7 +304,7 @@ private fun VerdictBanner(v: FrostVerdict) {
 		color = color,
 		modifier = Modifier
 			.fillMaxWidth()
-			.clip(RoundedCornerShape(8.dp))
+			.clip(RectangleShape)
 			.background(MaterialTheme.colors.fill6)
 			.padding(12.dp),
 	)
@@ -315,7 +315,7 @@ private fun OutputCard(title: String, body: String, danger: Boolean) {
 	Column(
 		modifier = Modifier
 			.fillMaxWidth()
-			.clip(RoundedCornerShape(12.dp))
+			.clip(RectangleShape)
 			.background(MaterialTheme.colors.fill6)
 			.padding(16.dp),
 		verticalArrangement = Arrangement.spacedBy(4.dp),

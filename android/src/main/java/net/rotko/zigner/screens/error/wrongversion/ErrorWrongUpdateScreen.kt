@@ -1,6 +1,7 @@
 package net.rotko.zigner.screens.error.wrongversion
 
 import android.content.res.Configuration
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -13,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
@@ -96,11 +96,11 @@ fun ErrorWrongUpdateScreen(onBackupClicked: Callback) {
 				modifier = Modifier
 					.background(
 						MaterialTheme.colors.fill6,
-						RoundedCornerShape(dimensionResource(id = R.dimen.qrShapeCornerRadius))
+						RectangleShape
 					)
 					.border(
 						width = 1.dp, MaterialTheme.colors.fill12,
-						RoundedCornerShape(dimensionResource(id = R.dimen.qrShapeCornerRadius))
+						RectangleShape
 					)
 			) {
 				Text(
@@ -131,7 +131,6 @@ private fun getDescriptionHelpText(): AnnotatedString {
 		withStyle(
 			SpanStyle(
 				color = MaterialTheme.colors.pink300,
-				fontWeight = FontWeight.Bold
 			)
 		) {
 			withAnnotation(

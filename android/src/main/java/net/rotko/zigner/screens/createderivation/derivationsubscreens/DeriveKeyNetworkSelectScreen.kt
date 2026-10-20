@@ -1,6 +1,7 @@
 package net.rotko.zigner.screens.createderivation.derivationsubscreens
 
 import android.content.res.Configuration
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -11,7 +12,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
@@ -80,7 +80,7 @@ fun DeriveKeyNetworkSelectScreen(
 					.padding(horizontal = 8.dp, vertical = 8.dp)
 					.background(
 						MaterialTheme.colors.fill6,
-						RoundedCornerShape(dimensionResource(id = R.dimen.plateDefaultCornerRadius))
+						RectangleShape
 					)
 			) {
 				networks.forEach { network ->
@@ -128,7 +128,7 @@ fun DeriveKeyNetworkSelectScreen(
 @Composable
 fun NetworkHelpAlarm(modifier: Modifier = Modifier) {
 	val innerShape =
-		RoundedCornerShape(dimensionResource(id = R.dimen.innerFramesCornerRadius))
+		RectangleShape
 	Row(
 		modifier = modifier
 			.padding(vertical = 8.dp)
