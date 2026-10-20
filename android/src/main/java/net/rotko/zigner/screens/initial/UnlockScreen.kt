@@ -1,6 +1,7 @@
 package net.rotko.zigner.screens.initial
 
 import android.content.res.Configuration
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import net.rotko.zigner.components.base.ScrollArt
 import timber.log.Timber
@@ -36,7 +37,7 @@ import net.rotko.zigner.ui.theme.textTertiary
 
 @Composable
 fun UnlockAppAuthScreen(onUnlockClicked: Callback) {
-	Column(modifier = Modifier.fillMaxSize()) {
+	Column(modifier = Modifier.fillMaxSize().navigationBarsPadding()) {
 		ScrollArt(art = R.drawable.art_enso, modifier = Modifier.weight(1f))
 		Text(
 			modifier = Modifier

@@ -1,6 +1,7 @@
 package net.rotko.zigner.screens.keysetdetails.empty
 
 import android.content.res.Configuration
+import androidx.compose.foundation.layout.navigationBarsPadding
 import net.rotko.zigner.components.base.ScrollArt
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -37,7 +38,8 @@ fun NoKeySetEmptyWelcomeScreen(
 ) {
 	Column(
 		modifier = Modifier
-			.fillMaxHeight(1f),
+			.fillMaxHeight(1f)
+			.navigationBarsPadding(),
 		horizontalAlignment = Alignment.CenterHorizontally
 	) {
 		ScrollArt(art = R.drawable.art_samurai, modifier = Modifier.weight(1f))
