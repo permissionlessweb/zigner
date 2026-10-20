@@ -1,6 +1,7 @@
 package net.rotko.zigner.screens.keysetdetails.empty
 
 import android.content.res.Configuration
+import net.rotko.zigner.components.base.ScrollArt
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -39,11 +40,11 @@ fun NoKeySetEmptyWelcomeScreen(
 			.fillMaxHeight(1f),
 		horizontalAlignment = Alignment.CenterHorizontally
 	) {
-		Spacer(modifier = Modifier.weight(0.5f))
+		ScrollArt(art = R.drawable.art_samurai, modifier = Modifier.weight(1f))
 		Text(
 			text = stringResource(R.string.key_sets_empty_title),
 			color = MaterialTheme.colors.primary,
-			style = SignerTypeface.TitleM,
+			style = SignerTypeface.TitleXl,
 			textAlign = TextAlign.Center,
 			modifier = Modifier
 				.padding(horizontal = 64.dp),
@@ -56,9 +57,7 @@ fun NoKeySetEmptyWelcomeScreen(
 			modifier = Modifier
 				.padding(horizontal = 64.dp),
 		)
-		//space for button to make text in the center of the rest of screen
-		Spacer(modifier = Modifier.padding(top = (56 + 24 + 24).dp))
-		Spacer(modifier = Modifier.weight(0.5f))
+		Spacer(modifier = Modifier.padding(top = 24.dp))
 		ExposedIcon(
 			networkState = networkState,
 			onClick = onExposedShow,

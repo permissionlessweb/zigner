@@ -62,6 +62,7 @@ import net.rotko.zigner.domain.KeyDetailsModel
 import net.rotko.zigner.domain.intoImageBitmap
 import net.rotko.zigner.ui.helpers.PreviewData
 import net.rotko.zigner.ui.theme.SignerNewTheme
+import net.rotko.zigner.ui.theme.onGold
 import net.rotko.zigner.ui.theme.SignerTypeface
 import net.rotko.zigner.ui.theme.appliedStroke
 import net.rotko.zigner.ui.theme.fill12
@@ -336,7 +337,7 @@ fun KeyDetailsPublicKeyScreen(
 						Text(
 							text = if (isCosmosNet) "Export" else "FVK",
 							style = SignerTypeface.LabelM,
-							color = if (showFvk) Color.White else MaterialTheme.colors.primary,
+							color = if (showFvk) MaterialTheme.colors.onGold else MaterialTheme.colors.primary,
 							modifier = Modifier
 								.clip(RectangleShape)
 								.background(if (showFvk) selectedBg else unselectedBg)
@@ -347,7 +348,7 @@ fun KeyDetailsPublicKeyScreen(
 						Text(
 							text = "Receive",
 							style = SignerTypeface.LabelM,
-							color = if (!showFvk) Color.White else MaterialTheme.colors.primary,
+							color = if (!showFvk) MaterialTheme.colors.onGold else MaterialTheme.colors.primary,
 							modifier = Modifier
 								.clip(RectangleShape)
 								.background(if (!showFvk) selectedBg else unselectedBg)

@@ -174,3 +174,7 @@ fun networkAccentTint(networkLogo: String): Color = networkAccent(networkLogo).c
 
 val Colors.warn: Color
 	get() = ZafuWarn
+
+/** Text on a gold action surface: dark ink on sumi gold, paper on washi gold. */
+val Colors.onGold: Color
+	get() = if (isLight) Color(0xFFF6EFE2) else Color(0xFF141008)

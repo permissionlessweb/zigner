@@ -27,7 +27,7 @@ fun PrimaryButtonWide(
 	label: String,
 	modifier: Modifier = Modifier,
 	isEnabled: Boolean = true,
-	activeText: Color = Color.White,
+	activeText: Color = MaterialTheme.colors.onGold,
 	activeBackground: Color = MaterialTheme.colors.pink500,
 	onClicked: Callback,
 ) {
@@ -46,7 +46,7 @@ fun PrimaryButton(
 	label: String,
 	modifier: Modifier = Modifier,
 	isEnabled: Boolean = true,
-	activeText: Color = Color.White,
+	activeText: Color = MaterialTheme.colors.onGold,
 	activeBackground: Color = MaterialTheme.colors.pink500,
 	onClicked: Callback
 ) {
@@ -69,7 +69,7 @@ fun PrimaryButton(
 		Text(
 			text = label,
 			color = if (isEnabled) activeText else MaterialTheme.colors.primaryButtonDisabledText,
-			style = SignerTypeface.TitleS,
+			style = SignerTypeface.LabelL,
 			textAlign = TextAlign.Center,
 			maxLines = 1,
 			modifier = Modifier
@@ -112,11 +112,11 @@ fun PrimaryButtonGreyDisabled(
 		Text(
 			text = label,
 			color = if (isEnabled) {
-				Color.White
+				MaterialTheme.colors.onGold
 			} else {
 				MaterialTheme.colors.textDisabled
 			},
-			style = SignerTypeface.TitleS,
+			style = SignerTypeface.LabelL,
 			maxLines = 1,
 			modifier = Modifier.padding(horizontal = dimensionResource(id = R.dimen.buttonHorizontalTextPadding))
 		)
@@ -177,7 +177,7 @@ private fun SecondaryButton(
 		Text(
 			text = label,
 			color = textColor,
-			style = SignerTypeface.TitleS,
+			style = SignerTypeface.LabelL,
 			maxLines = 1,
 		)
 	}

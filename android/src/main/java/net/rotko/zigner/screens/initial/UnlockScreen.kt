@@ -1,6 +1,8 @@
 package net.rotko.zigner.screens.initial
 
 import android.content.res.Configuration
+import androidx.compose.foundation.layout.fillMaxSize
+import net.rotko.zigner.components.base.ScrollArt
 import timber.log.Timber
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
@@ -34,43 +36,24 @@ import net.rotko.zigner.ui.theme.textTertiary
 
 @Composable
 fun UnlockAppAuthScreen(onUnlockClicked: Callback) {
-	Column(modifier = Modifier.padding(24.dp)) {
-		Spacer(Modifier.weight(0.5f))
-		Image(
-			imageVector = Icons.Outlined.LockOpen,
-			contentDescription = null,
-			colorFilter = ColorFilter.tint(MaterialTheme.colors.pink500),
-			modifier = Modifier
-				.padding(horizontal = 8.dp)
-				.size(80.dp)
-				.align(Alignment.CenterHorizontally)
-		)
-		Spacer(modifier = Modifier.padding(top = 32.dp))
+	Column(modifier = Modifier.fillMaxSize()) {
+		ScrollArt(art = R.drawable.art_enso, modifier = Modifier.weight(1f))
 		Text(
 			modifier = Modifier
 				.fillMaxWidth(1f)
-				.padding(horizontal = 8.dp),
+				.padding(horizontal = 24.dp),
 			text = stringResource(R.string.unlock_screen_title),
 			color = MaterialTheme.colors.primary,
-			style = SignerTypeface.TitleL,
-			textAlign = TextAlign.Center,
-		)
-		Spacer(modifier = Modifier.padding(top = 16.dp))
-		Text(
-			modifier = Modifier
-				.fillMaxWidth(1f)
-				.padding(horizontal = 8.dp),
-			text = stringResource(R.string.unlock_screen_description),
-			color = MaterialTheme.colors.textTertiary,
-			style = SignerTypeface.BodyL,
+			style = SignerTypeface.TitleXl,
 			textAlign = TextAlign.Center,
 		)
 		Spacer(modifier = Modifier.padding(top = 40.dp))
 		PrimaryButtonWide(
 			label = stringResource(R.string.unlock_app_button),
 			onClicked = onUnlockClicked,
+			modifier = Modifier.padding(horizontal = 24.dp),
 		)
-		Spacer(Modifier.weight(0.5f))
+		Spacer(modifier = Modifier.padding(top = 32.dp))
 	}
 }
 
