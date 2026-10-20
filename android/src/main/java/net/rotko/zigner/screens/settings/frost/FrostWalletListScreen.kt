@@ -73,10 +73,10 @@ fun FrostWalletListScreen(
 			scope.launch {
 				try {
 					withContext(Dispatchers.IO) { writeFile(ctx, uri, envelope) }
-					toast = "backup saved"
+					toast = "Backup saved"
 				} catch (e: Exception) {
 					Timber.e(e, "[frost-backup] save failed")
-					error = e.message ?: "save failed"
+					error = e.message ?: "Save failed"
 				}
 			}
 		}
@@ -94,7 +94,7 @@ fun FrostWalletListScreen(
 					importEnvelopeJson = text
 				} catch (e: Exception) {
 					Timber.e(e, "[frost-backup] read failed")
-					error = e.message ?: "read failed"
+					error = e.message ?: "Read failed"
 				}
 			}
 		}
@@ -165,7 +165,7 @@ fun FrostWalletListScreen(
 						saveLauncher.launch(pendingFilename)
 					} catch (e: Exception) {
 						Timber.e(e, "[frost-backup] export failed")
-						error = e.message ?: "export failed"
+						error = e.message ?: "Export failed"
 					}
 				}
 			},
@@ -184,11 +184,11 @@ fun FrostWalletListScreen(
 						withContext(Dispatchers.Default) {
 							frostRenameWallet(wallet.walletId, newLabel)
 						}
-						toast = "renamed to \"$newLabel\""
+						toast = "Renamed to \"$newLabel\""
 						loadWallets()
 					} catch (e: Exception) {
 						Timber.e(e, "[frost-rename] failed")
-						error = e.message ?: "rename failed"
+						error = e.message ?: "Rename failed"
 					}
 				}
 			},
@@ -224,13 +224,13 @@ fun FrostWalletListScreen(
 							val newId = withContext(Dispatchers.Default) {
 								frostImportBackupEnvelope(json, passphrase)
 							}
-							toast = "wallet restored"
+							toast = "Wallet restored"
 							Timber.d("[frost-backup] imported wallet=$newId")
 						}
 						loadWallets()
 					} catch (e: Exception) {
 						Timber.e(e, "[frost-backup] import failed")
-						error = e.message ?: "import failed"
+						error = e.message ?: "Import failed"
 					}
 				}
 			},
@@ -268,7 +268,7 @@ private fun FrostWalletListContent(
 			.statusBarsPadding(),
 	) {
 		ScreenHeaderClose(
-			title = "Multisig Wallets",
+			title = "Multisig wallets",
 			onClose = onBack,
 		)
 
@@ -470,7 +470,7 @@ private fun FrostWalletCard(
 					)
 					Spacer(modifier = Modifier.width(6.dp))
 					Text(
-						text = "threshold",
+						text = "Threshold",
 						style = SignerTypeface.BodyM,
 						color = MaterialTheme.colors.textSecondary,
 					)
@@ -624,7 +624,7 @@ private fun PreviewFrostWalletListPopulated() {
 				),
 				FrostWalletSummaryFfi(
 					walletId = "1234567890abcdef1234567890abcdef",
-					label = "Test Wallet",
+					label = "Test wallet",
 					minSigners = 3.toUShort(),
 					maxSigners = 5.toUShort(),
 					mainnet = false,

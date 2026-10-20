@@ -59,7 +59,7 @@ fun CircularCountDownTimer(
 			val animatedProgress by animateFloatAsState(
 				targetValue = progress,
 				animationSpec = ProgressIndicatorDefaults.ProgressAnimationSpec,
-				label = "circular countdown animation",
+				label = "Circular countdown animation",
 			)
 			CircularProgressIndicator(
 				progress = animatedProgress,
@@ -138,7 +138,7 @@ fun SnackBarCircularCountDownTimer(
 			val animatedProgress by animateFloatAsState(
 				targetValue = progress,
 				animationSpec = ProgressIndicatorDefaults.ProgressAnimationSpec,
-				label = "snack bar countdown animation",
+				label = "Snack bar countdown animation",
 			)
 			CircularProgressIndicator(
 				progress = animatedProgress,

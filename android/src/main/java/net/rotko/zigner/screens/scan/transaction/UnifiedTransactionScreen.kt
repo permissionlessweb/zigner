@@ -52,7 +52,7 @@ fun UnifiedTransactionScreen(
 			.background(MaterialTheme.colors.backgroundPrimary)
 	) {
 		ScreenHeader(
-			title = "Sign Transaction",
+			title = "Sign transaction",
 			onBack = onDecline,
 		)
 
@@ -118,7 +118,7 @@ fun UnifiedTransactionScreen(
 			verticalArrangement = Arrangement.spacedBy(8.dp),
 		) {
 			PrimaryButtonWide(
-				label = "Approve & Sign",
+				label = "Approve & sign",
 				onClicked = onApprove,
 			)
 			SecondaryButtonWide(
@@ -218,14 +218,14 @@ private fun PenumbraSimpleContent(req: SignRequest.Penumbra) {
 	}
 	if (r.voteCount > 0u) {
 		HighlightCard(
-			title = "Governance Vote",
+			title = "Governance vote",
 			subtitle = "${r.voteCount} delegator vote(s)",
 			color = MaterialTheme.colors.pink500,
 		)
 	}
 	if (r.lqtVoteCount > 0u) {
 		HighlightCard(
-			title = "Liquidity Tournament",
+			title = "Liquidity tournament",
 			subtitle = "${r.lqtVoteCount} LQT vote(s)",
 			color = MaterialTheme.colors.pink500,
 		)
@@ -305,7 +305,7 @@ private fun CosmosSimpleContent(req: SignRequest.Cosmos) {
 
 			if (msg.blind) {
 				Text(
-					text = "Blind signing — verify in Advanced tab",
+					text = "Blind signing — verify in advanced tab",
 					style = SignerTypeface.CaptionM,
 					color = MaterialTheme.colors.red500,
 				)
@@ -441,7 +441,7 @@ internal fun ZcashPcztSimpleContent(req: SignRequest.ZcashPczt) {
 @Composable
 private fun AdvancedTabContent(signRequest: SignRequest) {
 	Text(
-		text = "Raw Payload",
+		text = "Raw payload",
 		style = SignerTypeface.LabelM,
 		color = MaterialTheme.colors.textTertiary,
 		modifier = Modifier.padding(bottom = 4.dp),
@@ -450,7 +450,7 @@ private fun AdvancedTabContent(signRequest: SignRequest) {
 	val payload = signRequest.rawPayload
 	if (payload.isEmpty()) {
 		Text(
-			text = "(no raw payload available)",
+			text = "(No raw payload available)",
 			style = SignerTypeface.CaptionM,
 			color = MaterialTheme.colors.textTertiary,
 		)

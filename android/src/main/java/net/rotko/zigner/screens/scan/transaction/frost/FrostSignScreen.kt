@@ -131,7 +131,7 @@ fun FrostSignScreen(
 				modifier = Modifier.weight(1f),
 			)
 			if (state != FrostSignState.ERROR) {
-				DontQuitIcon(message = "don't leave this screen — quitting cancels signing")
+				DontQuitIcon(message = "Don't leave this screen — quitting cancels signing")
 			}
 		}
 		Spacer(modifier = Modifier.height(8.dp))
@@ -205,7 +205,7 @@ fun FrostSignScreen(
 					// only the coordinator's claim and still offer to sign.
 					if (v.verified) {
 						PrimaryButtonWide(
-							label = "Approve & Sign",
+							label = "Approve & sign",
 							onClicked = {
 								state = FrostSignState.LOADING
 								scope.launch {
@@ -218,7 +218,7 @@ fun FrostSignScreen(
 										onApproved(FrostRound2Binding.approve(sighashHex, alphasJson))
 										state = FrostSignState.DISPLAY_QR
 									} catch (e: Exception) {
-										errorMsg = e.message ?: "failed to generate commitments"
+										errorMsg = e.message ?: "Failed to generate commitments"
 										state = FrostSignState.ERROR
 									}
 								}
@@ -240,7 +240,7 @@ fun FrostSignScreen(
 				val frames = remember(qrData) { toAnimatedQrFrames(qrData, "zafu-frost-sign") }
 				Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
 					if (frames == null) Text(
-						"failed to prepare QR payload",
+						"Failed to prepare QR payload",
 						style = SignerTypeface.BodyL,
 						color = MaterialTheme.colors.red500,
 					) else AnimatedQrKeysInfo<List<List<UByte>>>(
@@ -261,12 +261,12 @@ fun FrostSignScreen(
 				Spacer(modifier = Modifier.height(8.dp))
 				if (round == 1) {
 					Text(
-						text = "After zafu collects peer commitments, scan the round-2 trigger QR",
+						text = "After Zafu collects peer commitments, scan the round-2 trigger QR",
 						style = SignerTypeface.CaptionM,
 						color = MaterialTheme.colors.textTertiary,
 						modifier = Modifier.padding(bottom = 8.dp),
 					)
-					PrimaryButtonWide(label = "Scan Round 2", onClicked = onScanNext)
+					PrimaryButtonWide(label = "Scan round 2", onClicked = onScanNext)
 				} else {
 					PrimaryButtonWide(label = "Done", onClicked = onDone)
 				}
@@ -275,7 +275,7 @@ fun FrostSignScreen(
 			FrostSignState.ERROR -> {
 				Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
 					Column(horizontalAlignment = Alignment.CenterHorizontally) {
-						Text("Signing Failed", style = SignerTypeface.TitleS, color = MaterialTheme.colors.red500)
+						Text("Signing failed", style = SignerTypeface.TitleS, color = MaterialTheme.colors.red500)
 						Spacer(modifier = Modifier.height(8.dp))
 						Text(errorMsg, style = SignerTypeface.BodyL, color = MaterialTheme.colors.textSecondary)
 					}
@@ -405,7 +405,7 @@ private suspend fun computeFrostVerdict(
 		)
 	} catch (e: Exception) {
 		Timber.e(e, "[FROST] frostVerifyPczt failed")
-		FrostVerdict(false, false, e.message ?: "verification error", emptyList())
+		FrostVerdict(false, false, e.message ?: "Verification error", emptyList())
 	}
 }
 

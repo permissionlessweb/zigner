@@ -65,7 +65,7 @@ fun TappableAddress(
                     .padding(horizontal = 8.dp, vertical = 6.dp),
             )
             Text(
-                text = "tap to collapse",
+                text = "Tap to collapse",
                 style = SignerTypeface.CaptionM,
                 color = MaterialTheme.colors.textTertiary,
                 modifier = Modifier.padding(top = 2.dp, start = 2.dp),
@@ -77,7 +77,7 @@ fun TappableAddress(
                 color = MaterialTheme.colors.textTertiary,
             )
             Text(
-                text = "tap to reveal full address",
+                text = "Tap to reveal full address",
                 style = SignerTypeface.CaptionM,
                 color = MaterialTheme.colors.textTertiary,
                 modifier = Modifier.padding(top = 2.dp, start = 2.dp),

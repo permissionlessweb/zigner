@@ -47,7 +47,7 @@ class SettingsGeneralViewModel: ViewModel() {
 		return context.packageManager.getPackageInfo(
 			context.packageName,
 			0
-		).versionName ?: "unknown"
+		).versionName ?: "Unknown"
 	}
 
 	val networkState: StateFlow<NetworkState> =

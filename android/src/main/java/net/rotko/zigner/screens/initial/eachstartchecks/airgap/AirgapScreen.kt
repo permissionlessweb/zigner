@@ -132,7 +132,7 @@ private fun AirgapScreen(
 			)
 			if (onEnableOnlineMode != null) {
 				SecondaryButtonWide(
-					label = "Use Online Mode Instead",
+					label = "Use online mode instead",
 					modifier = Modifier.padding(bottom = 24.dp),
 					onClicked = onEnableOnlineMode,
 				)

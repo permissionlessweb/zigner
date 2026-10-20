@@ -430,7 +430,7 @@ fun KeyDetailsPublicKeyScreen(
 							contentAlignment = Alignment.Center
 						) {
 							Text(
-								text = "New Address",
+								text = "New address",
 								style = SignerTypeface.LabelM,
 								color = Color.White,
 								modifier = Modifier
@@ -541,7 +541,7 @@ private fun ZcashVerifiedBalanceSection(
 			verticalAlignment = Alignment.CenterVertically,
 		) {
 			Text(
-				text = "Verified Balance",
+				text = "Verified balance",
 				style = SignerTypeface.LabelM,
 				color = MaterialTheme.colors.textTertiary
 			)
@@ -598,7 +598,7 @@ private fun ZcashVerifiedBalanceSection(
 						color = MaterialTheme.colors.primary
 					)
 					Text(
-						text = "height ${NumberFormat.getNumberInstance(Locale.US).format(note.blockHeight.toLong())}",
+						text = "Height ${NumberFormat.getNumberInstance(Locale.US).format(note.blockHeight.toLong())}",
 						style = SignerTypeface.CaptionM,
 						color = MaterialTheme.colors.textTertiary
 					)

@@ -154,7 +154,7 @@ data class KeySetModel(
 	companion object {
 		fun createStub(name: String? = null, number: Int? = null) =
 			KeySetModel(
-				name ?: "first seed name",
+				name ?: "First seed name",
 				PreviewData.Identicon.jdenticonIcon,
 				listOf("westend", "some"),
 				number?.toUInt() ?: 1.toUInt()
@@ -246,7 +246,7 @@ data class NetworkInfoModel(
 		fun createStub(networkName: String? = null): NetworkInfoModel =
 			NetworkInfoModel(
 				networkTitle = networkName ?: "Westend",
-				networkLogo = networkName?.lowercase() ?: "westend",
+				networkLogo = networkName?.lowercase() ?: "Westend",
 				networkSpecsKey = "01e143f23803ac50e8f6f8e62695d1ce9e4e1d68aa36c1cd2cfd15340213f3423e"
 			)
 	}
@@ -276,7 +276,7 @@ data class NetworkModel(
 	companion object {
 		fun createStub(networkName: String? = null): NetworkModel = NetworkModel(
 			key = "0191b171bb158e2d3848fa23a9f1c25182fb8e20313b2c1eb49219da7a70ce90c3",
-			logo = networkName ?: "polkadot",
+			logo = networkName ?: "Polkadot",
 			title = networkName?.lowercase() ?: "Polkadot",
 			pathId = "polkadot"
 		)

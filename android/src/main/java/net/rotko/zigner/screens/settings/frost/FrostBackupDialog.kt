@@ -65,7 +65,7 @@ fun FrostBackupDialog(
 			if (requireConfirmField) {
 				Spacer(modifier = Modifier.height(8.dp))
 				Text(
-					text = "⚠ this passphrase cannot be reset. losing it means the backup is unusable.",
+					text = "⚠ this passphrase cannot be reset. Losing it means the backup is unusable.",
 					style = SignerTypeface.CaptionM,
 					color = MaterialTheme.colors.red400,
 				)
@@ -75,7 +75,7 @@ fun FrostBackupDialog(
 			OutlinedTextField(
 				value = passphrase,
 				onValueChange = { passphrase = it },
-				label = { Text("passphrase") },
+				label = { Text("Passphrase") },
 				visualTransformation = PasswordVisualTransformation(),
 				keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
 				singleLine = true,
@@ -91,7 +91,7 @@ fun FrostBackupDialog(
 			)
 			if (passphrase.isNotEmpty() && passphrase.length < MIN_FROST_PASSPHRASE_LEN) {
 				Text(
-					text = "at least $MIN_FROST_PASSPHRASE_LEN characters",
+					text = "At least $MIN_FROST_PASSPHRASE_LEN characters",
 					style = SignerTypeface.CaptionM,
 					color = MaterialTheme.colors.red400,
 					modifier = Modifier.padding(top = 4.dp),
@@ -103,7 +103,7 @@ fun FrostBackupDialog(
 				OutlinedTextField(
 					value = confirm,
 					onValueChange = { confirm = it },
-					label = { Text("confirm passphrase") },
+					label = { Text("Confirm passphrase") },
 					visualTransformation = PasswordVisualTransformation(),
 					keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
 					singleLine = true,
@@ -119,7 +119,7 @@ fun FrostBackupDialog(
 				)
 				if (confirm.isNotEmpty() && passphrase != confirm) {
 					Text(
-						text = "passphrases don't match",
+						text = "Passphrases don't match",
 						style = SignerTypeface.CaptionM,
 						color = MaterialTheme.colors.red400,
 						modifier = Modifier.padding(top = 4.dp),
@@ -134,7 +134,7 @@ fun FrostBackupDialog(
 				verticalAlignment = Alignment.CenterVertically,
 			) {
 				SecondaryButtonWide(
-					label = "cancel",
+					label = "Cancel",
 					modifier = Modifier.weight(1f),
 					onClicked = onCancel,
 				)

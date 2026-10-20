@@ -53,7 +53,7 @@ fun ReleaseKeyScreen(
 				releaseSigningPubkey(seedPhrase)
 			}
 		} catch (e: Exception) {
-			error = e.message ?: "derivation failed"
+			error = e.message ?: "Derivation failed"
 		}
 	}
 

@@ -155,7 +155,7 @@ fun ZcashPcztScreen(
 			.padding(16.dp)
 	) {
 		Text(
-			text = "Zcash Transaction (PCZT)",
+			text = "Zcash transaction (PCZT)",
 			style = SignerTypeface.TitleL,
 			color = MaterialTheme.colors.primary,
 			modifier = Modifier.padding(bottom = 16.dp)
@@ -249,7 +249,7 @@ fun ZcashPcztScreen(
 				Spacer(modifier = Modifier.height(8.dp))
 				Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
 					PrimaryButtonWide(
-						label = "Approve & Sign",
+						label = "Approve & sign",
 						onClicked = {
 							state = PcztState.SIGNING
 							scope.launch {
@@ -321,7 +321,7 @@ fun ZcashPcztScreen(
 				}
 				if (signedQrFrames.size > 1) {
 					Text(
-						text = "frame ${currentFrameIdx + 1} / ${signedQrFrames.size}",
+						text = "Frame ${currentFrameIdx + 1} / ${signedQrFrames.size}",
 						style = SignerTypeface.CaptionM,
 						color = MaterialTheme.colors.textTertiary,
 						modifier = Modifier.padding(top = 8.dp).align(Alignment.CenterHorizontally),
@@ -453,7 +453,7 @@ private fun UnrecognizedSpendsPage(
 			verticalArrangement = Arrangement.spacedBy(12.dp),
 		) {
 			Text(
-				text = "\u26A0 Unrecognized spends",
+				text = "\u26A0 unrecognized spends",
 				style = SignerTypeface.TitleS,
 				color = MaterialTheme.colors.red500,
 			)
@@ -463,7 +463,7 @@ private fun UnrecognizedSpendsPage(
 				color = MaterialTheme.colors.textSecondary,
 			)
 			Text(
-				text = "If you have sent funds since your last sync, this can be expected — the change from earlier sends is not verified on this device yet. Otherwise, this transaction may spend notes you do not recognize. Re-sync your notes from zafu and verify the recipient and amount carefully before proceeding.",
+				text = "If you have sent funds since your last sync, this can be expected — the change from earlier sends is not verified on this device yet. Otherwise, this transaction may spend notes you do not recognize. Re-sync your notes from Zafu and verify the recipient and amount carefully before proceeding.",
 				style = SignerTypeface.CaptionM,
 				color = MaterialTheme.colors.textTertiary,
 				modifier = Modifier

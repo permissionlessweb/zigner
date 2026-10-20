@@ -48,17 +48,13 @@ import net.rotko.zigner.ui.theme.backgroundSecondary
 import net.rotko.zigner.ui.theme.networkAccent
 import net.rotko.zigner.ui.theme.textSecondary
 import net.rotko.zigner.ui.theme.textTertiary
+import net.rotko.zigner.ui.theme.red500fill12
+import net.rotko.zigner.ui.theme.red500
 
 /**
- * Wallet identity card used at the top of the KeySetDetails screen.
- *
- * Replaces the legacy "big root QR + identicon + base58" block with a Zafu-style
- * wallet header: name, an "air-gapped cold signer" tagline, the set of networks
- * this wallet holds keys for as colored chips, and a small ExposedIcon
- * (only rendered when radios have actually been detected as on).
- *
- * The card is one neutral surface — chain accents only appear on the network
- * chips, so the rest of the screen can carry the network colours.
+ * Top of the home screen: the wallet's name (tap to switch wallets) and, only
+ * when it matters, a small tag saying this phone is or was online. Everything
+ * else that used to sit here repeated the list below or meant nothing.
  */
 @Composable
 fun WalletHeaderCard(
@@ -69,153 +65,53 @@ fun WalletHeaderCard(
 	onExposedClicked: Callback,
 	modifier: Modifier = Modifier,
 ) {
-	val showRootQr = hasSubstrateNetworks(model)
-	val distinctNetworks = remember(model.keysAndNetwork) {
-		model.keysAndNetwork
-			.map { it.network.networkLogo }
-			.distinct()
-	}
-
-	Column(
+	Row(
 		modifier = modifier
 			.fillMaxWidth()
-			.padding(horizontal = 16.dp)
-			.clip(RectangleShape)
-			.background(MaterialTheme.colors.backgroundSecondary)
-			.border(
-				width = 1.dp,
-				color = MaterialTheme.colors.appliedStroke,
-				shape = RectangleShape,
-			)
-			.padding(horizontal = 16.dp, vertical = 16.dp),
-	) {
-		Row(verticalAlignment = Alignment.CenterVertically) {
-			IdentIconImage(
-				identicon = model.root.identicon,
-				size = 40.dp,
-			)
-			Spacer(modifier = Modifier.width(12.dp))
-			Column(
-				modifier = Modifier
-					.weight(1f)
-					.clickable(onClick = onSeedSelect),
-			) {
-				Row(verticalAlignment = Alignment.CenterVertically) {
-					Text(
-						text = model.root.seedName,
-						color = MaterialTheme.colors.primary,
-						style = SignerTypeface.TitleL,
-					)
-					Icon(
-						imageVector = Icons.Outlined.ExpandMore,
-						contentDescription = null,
-						tint = MaterialTheme.colors.textTertiary,
-						modifier = Modifier
-							.padding(start = 4.dp)
-							.size(20.dp),
-					)
-				}
-				Text(
-					text = "Air-gapped cold signer",
-					color = MaterialTheme.colors.textSecondary,
-					style = SignerTypeface.CaptionM,
-				)
-			}
-			ExposedIcon(
-				networkState = networkState,
-				onClick = onExposedClicked,
-			)
-		}
-
-		if (distinctNetworks.isNotEmpty()) {
-			Spacer(modifier = Modifier.padding(top = 14.dp))
-			NetworkBadgesRow(networkLogos = distinctNetworks)
-		}
-
-		Spacer(modifier = Modifier.padding(top = 12.dp))
-		Row(verticalAlignment = Alignment.CenterVertically) {
-			Text(
-				text = model.root.base58.abbreviateString(BASE58_STYLE_ABBREVIATE),
-				color = MaterialTheme.colors.textTertiary,
-				style = SignerTypeface.BodyM,
-				modifier = Modifier.weight(1f),
-			)
-			if (showRootQr) {
-				ShowRootChip(onClick = onShowRoot)
-			}
-		}
-	}
-}
-
-@Composable
-private fun NetworkBadgesRow(networkLogos: List<String>) {
-	val maxVisible = 6
-	val visible = networkLogos.take(maxVisible)
-	val overflow = networkLogos.size - visible.size
-
-	Row(
+			.padding(horizontal = 24.dp),
 		verticalAlignment = Alignment.CenterVertically,
-		horizontalArrangement = Arrangement.spacedBy(8.dp),
-		modifier = Modifier.fillMaxWidth(),
 	) {
-		visible.forEach { logo ->
-			NetworkIcon(
-				networkLogoName = logo,
-				size = 22.dp,
-				modifier = Modifier.border(
-					width = 1.dp,
-					color = networkAccent(logo).copy(alpha = 0.4f),
-					shape = CircleShape,
-				),
+		Row(
+			modifier = Modifier
+				.weight(1f)
+				.clickable(onClick = onSeedSelect),
+			verticalAlignment = Alignment.CenterVertically,
+		) {
+			Text(
+				text = model.root.seedName,
+				color = MaterialTheme.colors.primary,
+				style = SignerTypeface.TitleXl,
+			)
+			Icon(
+				imageVector = Icons.Outlined.ExpandMore,
+				contentDescription = null,
+				tint = MaterialTheme.colors.textTertiary,
+				modifier = Modifier
+					.padding(start = 6.dp)
+					.size(24.dp),
 			)
 		}
-		if (overflow > 0) {
-			Box(
-				modifier = Modifier
-					.size(22.dp)
-					.clip(CircleShape)
-					.background(MaterialTheme.colors.appliedStroke),
-				contentAlignment = Alignment.Center,
-			) {
-				Text(
-					text = "+$overflow",
-					color = MaterialTheme.colors.textSecondary,
-					style = SignerTypeface.CaptionS,
-				)
-			}
-		}
-		Spacer(modifier = Modifier.weight(1f))
-		Text(
-			text = if (networkLogos.size == 1) "1 network" else "${networkLogos.size} networks",
-			color = MaterialTheme.colors.textSecondary,
-			style = SignerTypeface.CaptionM,
-		)
+		NetworkStatusTag(networkState.value, onExposedClicked)
 	}
 }
 
 @Composable
-private fun ShowRootChip(onClick: Callback) {
-	Row(
+private fun NetworkStatusTag(state: NetworkState?, onClick: Callback) {
+	val label = when (state) {
+		NetworkState.Active -> "Online"
+		NetworkState.Past -> "Was online"
+		else -> return
+	}
+	Text(
+		text = label,
+		color = MaterialTheme.colors.red500,
+		style = SignerTypeface.LabelS,
 		modifier = Modifier
 			.clip(RectangleShape)
-			.background(MaterialTheme.colors.appliedStroke)
+			.background(MaterialTheme.colors.red500fill12)
 			.clickable(onClick = onClick)
 			.padding(horizontal = 10.dp, vertical = 6.dp),
-		verticalAlignment = Alignment.CenterVertically,
-	) {
-		Icon(
-			imageVector = Icons.Filled.QrCode2,
-			contentDescription = null,
-			tint = MaterialTheme.colors.primary,
-			modifier = Modifier.size(16.dp),
-		)
-		Spacer(modifier = Modifier.width(6.dp))
-		Text(
-			text = "Show root",
-			color = MaterialTheme.colors.primary,
-			style = SignerTypeface.CaptionM,
-		)
-	}
+	)
 }
 
 internal fun hasSubstrateNetworks(model: KeySetDetailsModel): Boolean =

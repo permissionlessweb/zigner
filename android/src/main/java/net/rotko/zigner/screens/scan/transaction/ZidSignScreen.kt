@@ -72,7 +72,7 @@ fun ZidSignScreen(
 			.padding(16.dp)
 	) {
 		Text(
-			text = "ZID Identity Sign",
+			text = "ZID identity sign",
 			style = SignerTypeface.TitleL,
 			color = MaterialTheme.colors.primary,
 			modifier = Modifier.padding(bottom = 16.dp)

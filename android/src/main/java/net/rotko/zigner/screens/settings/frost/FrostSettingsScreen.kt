@@ -64,7 +64,7 @@ fun FrostSettingsScreen(
 				error = null
 			} catch (e: Exception) {
 				Timber.e(e, "[frost-settings] age restore failed")
-				error = e.message ?: "restore failed"
+				error = e.message ?: "Restore failed"
 			}
 		}
 	}
@@ -91,7 +91,7 @@ fun FrostSettingsScreen(
 					}
 				} catch (e: Exception) {
 					Timber.e(e, "[frost-settings] read failed")
-					error = e.message ?: "read failed"
+					error = e.message ?: "Read failed"
 				}
 			}
 		}
@@ -184,7 +184,7 @@ fun FrostSettingsScreen(
 						error = null
 					} catch (e: Exception) {
 						Timber.e(e, "[frost-settings] restore failed")
-						error = e.message ?: "restore failed"
+						error = e.message ?: "Restore failed"
 					}
 				}
 			},

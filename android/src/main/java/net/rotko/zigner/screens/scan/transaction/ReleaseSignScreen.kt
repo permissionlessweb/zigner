@@ -156,7 +156,7 @@ fun ReleaseSignScreen(
 							}
 							state = ReleaseSignState.DISPLAY_SIGNATURE
 						} catch (e: Exception) {
-							errorMsg = e.message ?: "signing failed"
+							errorMsg = e.message ?: "Signing failed"
 							state = ReleaseSignState.ERROR
 						}
 					}

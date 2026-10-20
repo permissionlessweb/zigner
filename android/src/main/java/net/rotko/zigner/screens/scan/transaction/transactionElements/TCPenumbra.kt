@@ -30,7 +30,7 @@ fun TCPenumbraSummary(summary: PenumbraTransactionSummary) {
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            text = "Penumbra Transaction",
+            text = "Penumbra transaction",
             style = SignerTypeface.TitleS,
             color = MaterialTheme.colors.primary
         )
@@ -91,7 +91,7 @@ fun TCPenumbraSummary(summary: PenumbraTransactionSummary) {
 
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
-                text = "Effect Hash:",
+                text = "Effect hash:",
                 style = SignerTypeface.BodyL,
                 color = MaterialTheme.colors.textTertiary
             )
@@ -414,7 +414,7 @@ fun TCPenumbraSchema(schema: PenumbraSchemaInfo) {
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Text(
-            text = "Protocol Schema",
+            text = "Protocol schema",
             style = SignerTypeface.LabelM,
             color = MaterialTheme.colors.textTertiary
         )

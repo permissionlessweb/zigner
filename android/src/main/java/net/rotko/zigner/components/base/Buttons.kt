@@ -249,10 +249,10 @@ private fun PreviewButtons() {
 				onClickedCta = {},
 				isCtaEnabled = false,
 			)
-			PrimaryButtonGreyDisabled(label = "grey enabled") {
+			PrimaryButtonGreyDisabled(label = "Grey enabled") {
 			}
 			PrimaryButtonGreyDisabled(
-				label = "grey disabled",
+				label = "Grey disabled",
 				isEnabled = false,
 			) {
 			}

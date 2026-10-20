@@ -46,7 +46,7 @@ fun ZcashNoteSyncScreen(
 	) {
 		// Header
 		Text(
-			text = "Zcash Note Sync",
+			text = "Zcash note sync",
 			style = SignerTypeface.TitleL,
 			color = MaterialTheme.colors.primary,
 			modifier = Modifier.padding(bottom = 16.dp)
@@ -98,7 +98,7 @@ fun ZcashNoteSyncScreen(
 					verticalAlignment = Alignment.CenterVertically
 				) {
 					Text(
-						text = "Verified Balance",
+						text = "Verified balance",
 						style = SignerTypeface.LabelM,
 						color = MaterialTheme.colors.textTertiary
 					)

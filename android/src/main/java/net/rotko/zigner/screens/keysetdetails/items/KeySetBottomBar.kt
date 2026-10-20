@@ -25,6 +25,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import net.rotko.zigner.domain.Callback
 import net.rotko.zigner.ui.theme.SignerNewTheme
+import net.rotko.zigner.ui.theme.onGold
+import net.rotko.zigner.ui.theme.pink500
 import net.rotko.zigner.ui.theme.SignerTypeface
 
 /**
@@ -51,7 +53,7 @@ fun KeySetBottomBar(
 				.fillMaxWidth()
 				.height(56.dp)
 				.clip(RectangleShape)
-				.background(MaterialTheme.colors.primary)
+				.background(MaterialTheme.colors.pink500)
 				.clickable(onClick = onScan),
 			verticalAlignment = Alignment.CenterVertically,
 			horizontalArrangement = Arrangement.Center,
@@ -59,13 +61,13 @@ fun KeySetBottomBar(
 			Icon(
 				imageVector = Icons.Outlined.QrCodeScanner,
 				contentDescription = null,
-				tint = MaterialTheme.colors.primaryVariant,
+				tint = MaterialTheme.colors.onGold,
 				modifier = Modifier.size(22.dp),
 			)
 			Spacer(modifier = Modifier.width(10.dp))
 			Text(
 				text = "Scan",
-				color = MaterialTheme.colors.primaryVariant,
+				color = MaterialTheme.colors.onGold,
 				style = SignerTypeface.LabelL,
 			)
 		}

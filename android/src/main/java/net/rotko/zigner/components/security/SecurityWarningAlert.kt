@@ -56,7 +56,7 @@ fun SecurityWarningAlert(
         }
 
         Text(
-            text = "Security Warning",
+            text = "Security warning",
             color = MaterialTheme.colors.red400,
             style = SignerTypeface.TitleL,
             textAlign = TextAlign.Center,
@@ -92,7 +92,7 @@ fun SecurityWarningAlert(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = "Security Status:",
+                text = "Security status:",
                 style = SignerTypeface.LabelM,
                 color = MaterialTheme.colors.textTertiary
             )

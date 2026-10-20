@@ -25,6 +25,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.Icon
+import net.rotko.zigner.domain.BASE58_STYLE_ABBREVIATE
+import net.rotko.zigner.domain.abbreviateString
+import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
@@ -73,17 +76,40 @@ fun NetworkKeysSection(
 	modifier: Modifier = Modifier,
 	initiallyExpanded: Boolean = true,
 ) {
-	var expanded by rememberSaveable(network.networkSpecsKey) {
-		mutableStateOf(initiallyExpanded)
+	// One plain row per key: network, address, open. Paths, key counts and
+	// collapse toggles meant nothing to people and are gone from home.
+	Column(modifier = modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+		keys.forEach { key ->
+			Row(
+				modifier = Modifier
+					.fillMaxWidth()
+					.clickable { onKeyClick(key.addressKey, network.networkSpecsKey) }
+					.padding(vertical = 16.dp),
+				verticalAlignment = Alignment.CenterVertically,
+			) {
+				NetworkIcon(networkLogoName = network.networkLogo, size = 32.dp)
+				Spacer(modifier = Modifier.width(14.dp))
+				Column(modifier = Modifier.weight(1f)) {
+					Text(
+						text = network.networkTitle,
+						color = MaterialTheme.colors.primary,
+						style = SignerTypeface.TitleS,
+					)
+					Text(
+						text = key.base58.abbreviateString(BASE58_STYLE_ABBREVIATE),
+						color = MaterialTheme.colors.textTertiary,
+						style = SignerTypeface.BodyS,
+					)
+				}
+				Icon(
+					imageVector = Icons.Outlined.ChevronRight,
+					contentDescription = null,
+					tint = MaterialTheme.colors.textTertiary,
+				)
+			}
+			SignerDivider()
+		}
 	}
-	NetworkKeysSectionContent(
-		network = network,
-		keys = keys,
-		expanded = expanded,
-		onToggle = { expanded = !expanded },
-		onKeyClick = onKeyClick,
-		modifier = modifier,
-	)
 }
 
 @Composable
@@ -100,7 +126,7 @@ private fun NetworkKeysSectionContent(
 	val chevronRotation by animateFloatAsState(
 		targetValue = if (expanded) 180f else 0f,
 		animationSpec = tween(durationMillis = 220),
-		label = "chevron-rotation",
+		label = "Chevron-rotation",
 	)
 
 	Column(

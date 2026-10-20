@@ -33,7 +33,7 @@ fun TCZcashSummary(summary: ZcashTransactionSummary) {
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
-                text = "Zcash Transaction",
+                text = "Zcash transaction",
                 style = SignerTypeface.TitleS,
                 color = MaterialTheme.colors.primary
             )
@@ -116,7 +116,7 @@ fun TCZcashOrchardSpend(spend: ZcashOrchardSpend) {
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Text(
-            text = "Orchard Spend",
+            text = "Orchard spend",
             style = SignerTypeface.LabelM,
             color = MaterialTheme.colors.pink300
         )

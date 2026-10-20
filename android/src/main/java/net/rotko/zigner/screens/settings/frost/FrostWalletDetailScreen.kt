@@ -126,10 +126,10 @@ fun FrostWalletDetailScreen(
 			scope.launch {
 				try {
 					withContext(Dispatchers.IO) { writeFile(ctx, uri, envelope) }
-					toast = "backup saved"
+					toast = "Backup saved"
 				} catch (e: Exception) {
 					Timber.e(e, "[frost-backup] save failed")
-					error = e.message ?: "save failed"
+					error = e.message ?: "Save failed"
 				}
 			}
 		}
@@ -189,11 +189,11 @@ fun FrostWalletDetailScreen(
 						withContext(Dispatchers.Default) {
 							frostRenameWallet(walletId, newLabel)
 						}
-						toast = "renamed to \"$newLabel\""
+						toast = "Renamed to \"$newLabel\""
 						reload()
 					} catch (e: Exception) {
 						Timber.e(e, "[frost-rename] failed")
-						error = e.message ?: "rename failed"
+						error = e.message ?: "Rename failed"
 					}
 				}
 			},
@@ -222,7 +222,7 @@ fun FrostWalletDetailScreen(
 						saveLauncher.launch(filename)
 					} catch (e: Exception) {
 						Timber.e(e, "[frost-backup] export failed")
-						error = e.message ?: "export failed"
+						error = e.message ?: "Export failed"
 					}
 				}
 			},
@@ -245,7 +245,7 @@ fun FrostWalletDetailScreen(
 						onDeleted()
 					} catch (e: Exception) {
 						Timber.e(e, "[frost-delete] failed")
-						error = e.message ?: "delete failed"
+						error = e.message ?: "Delete failed"
 					}
 				}
 			},
@@ -420,7 +420,7 @@ private fun IdentityCard(
 					)
 					Spacer(modifier = Modifier.width(8.dp))
 					Text(
-						text = "threshold",
+						text = "Threshold",
 						style = SignerTypeface.BodyL,
 						color = MaterialTheme.colors.textSecondary,
 					)
