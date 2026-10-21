@@ -5107,7 +5107,7 @@ mod tests {
     use super::*;
 
     /// Byte layout pinned so zafu's `unwrapSignerEnvelope` test vectors stay
-    /// valid: {1: bytes, 2: {1: baked, 2: active, 3: abi}}.
+    /// valid: `{1: bytes, 2: {1: baked, 2: active, 3: abi}}`.
     #[test]
     fn module_response_cbor_carries_kernel_info() {
         let out = encode_module_response_cbor(&[9, 9], 256);
