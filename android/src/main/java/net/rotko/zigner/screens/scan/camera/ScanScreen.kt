@@ -73,7 +73,7 @@ fun ScanScreen(
 			// not "off, enable it", it is not a request zigner reads at all.
 			policyContext.getString(R.string.scan_unsupported_request)
 		} else {
-			"${cap.label} scanning is off. Enable it in settings if you meant to use it."
+			"Zigner doesn't read ${cap.label} codes."
 		}
 		Toast.makeText(
 			policyContext,
