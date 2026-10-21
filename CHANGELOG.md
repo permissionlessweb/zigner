@@ -8,6 +8,14 @@ Minor. NU7-ready signing on the zakura stack, a reproducible protocol
 module, and device-security screens that only state what they measured.
 `BAKED_MODULE_VERSION` 2 → 3.
 
+### Penumbra
+
+- **Penumbra signing works again.** The camera gate added in 0.11.3 left
+  Penumbra off with no switch to turn it on, so every Penumbra request was
+  refused with "enable it in settings" - a setting that did not exist.
+  Penumbra is now on by default; Substrate and Cosmos stay off, and their
+  refusal no longer points at a missing setting.
+
 ### Zcash
 
 - **NU7 (ZIP 259, branch `0x77190ad9`)** on the protocol-module path

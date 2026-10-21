@@ -62,13 +62,14 @@ object ScanPolicy {
 	/**
 	 * On by default: the flows this device is for.
 	 *
-	 * Substrate, Penumbra and Cosmos are deliberately NOT here. They stay
-	 * compiled in and one toggle away, but they are not reachable from the
-	 * camera until someone asks for them. That is the whole point - an
-	 * attacker cannot reach a parser the user never enabled.
+	 * Penumbra is here because zafu signs Penumbra through this device; it
+	 * was off with no switch to turn it on (setEnabled has no UI), so every
+	 * Penumbra request was refused. Substrate and Cosmos stay off: nothing
+	 * we ship sends them, and an attacker cannot reach a parser that is off.
 	 */
 	val DEFAULT_ON = setOf(
 		ScanCapability.ZCASH,
+		ScanCapability.PENUMBRA,
 		ScanCapability.MODULE,
 		ScanCapability.BACKUP,
 		ScanCapability.AUTH,
