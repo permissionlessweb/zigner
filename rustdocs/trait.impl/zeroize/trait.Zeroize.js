@@ -1,0 +1,9 @@
+(function() {
+    const implementors = Object.fromEntries([["db_handling",[["impl Zeroize for <a class=\"struct\" href=\"db_handling/cosmos/struct.CosmosKeyPair.html\" title=\"struct db_handling::cosmos::CosmosKeyPair\">CosmosKeyPair</a>",0],["impl Zeroize for <a class=\"struct\" href=\"db_handling/ledger_ed25519/struct.LedgerKeyPair.html\" title=\"struct db_handling::ledger_ed25519::LedgerKeyPair\">LedgerKeyPair</a>",0],["impl Zeroize for <a class=\"struct\" href=\"db_handling/interface_signer/struct.SeedDraft.html\" title=\"struct db_handling::interface_signer::SeedDraft\">SeedDraft</a>",0],["impl Zeroize for <a class=\"struct\" href=\"db_handling/penumbra/keys/struct.SpendKeyBytes.html\" title=\"struct db_handling::penumbra::keys::SpendKeyBytes\">SpendKeyBytes</a>",0]]],["navigator",[["impl Zeroize for <a class=\"struct\" href=\"navigator/screens/struct.EnteredInfo.html\" title=\"struct navigator::screens::EnteredInfo\">EnteredInfo</a>",0]]],["transaction_signing",[["impl Zeroize for <a class=\"struct\" href=\"transaction_signing/zcash/struct.OrchardSpendingKey.html\" title=\"struct transaction_signing::zcash::OrchardSpendingKey\">OrchardSpendingKey</a>",0],["impl Zeroize for <a class=\"struct\" href=\"transaction_signing/penumbra/struct.SpendKeyBytes.html\" title=\"struct transaction_signing::penumbra::SpendKeyBytes\">SpendKeyBytes</a>",0],["impl Zeroize for <a class=\"struct\" href=\"transaction_signing/zcash/struct.TransparentSpendingKey.html\" title=\"struct transaction_signing::zcash::TransparentSpendingKey\">TransparentSpendingKey</a>",0]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":59,"fragment_lengths":[724,175,617]}

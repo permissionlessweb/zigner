@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Error","SignatureType","SufficientContent"],"fn":["attestation_digest","create_signature","handle_sign","handle_stub","sign_content"],"mod":["cosmos","penumbra","zcash"],"struct":["SignatureAndChecksum"],"type":["Result"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Error","MetadataBundle"],"fn":["cut_method_extensions","decode_call","decode_extensions","decode_metadata_proof","parse_extensions","parse_method","parse_set"],"mod":["cards","decoding_commons","method"],"struct":["MetadataProof"],"type":["Result"]};

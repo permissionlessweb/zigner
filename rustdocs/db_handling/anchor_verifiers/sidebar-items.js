@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["VerifierSource"],"fn":["add_verifier","bootstrap_default","enabled_pubkeys","list_verifiers","remove_verifier","update_verifier"],"struct":["VerifierEntry","VerifierRecord"]};

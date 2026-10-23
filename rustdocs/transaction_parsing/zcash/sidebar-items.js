@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ZCASH_CRYPTO_TYPE","ZCASH_SIGN_REQUEST_TYPE"],"fn":["is_zcash_transaction","process_zcash_sign_request"],"struct":["ZcashSignRequestData"]};

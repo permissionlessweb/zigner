@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["clear_zcash_notes","derive_zcash_keys","get_verified_anchor","get_verified_balance","get_verified_notes","get_zcash_address","is_attestation_required","set_attestation_required","store_verified_notes","store_zcash_address"],"type":["VerifiedAnchor","VerifiedNote","VerifiedNoteInput"]};

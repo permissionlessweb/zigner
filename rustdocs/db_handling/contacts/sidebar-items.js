@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["clear_contacts","delete_contact","get_contact_label","get_contacts","import_contacts","store_contact"],"struct":["Contact"]};

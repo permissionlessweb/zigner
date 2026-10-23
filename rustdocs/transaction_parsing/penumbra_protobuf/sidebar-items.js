@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["decode_transaction_plan","to_generic_action"]};

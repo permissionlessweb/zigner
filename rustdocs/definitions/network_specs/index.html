@@ -1,0 +1,225 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Network specs, verifiers, and related types"><title>definitions::network_specs - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="definitions" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js" ><script src="../../static.files/storage-41dd4d93.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module network_specs</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../definitions/index.html">definitions</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module network_<wbr>specs</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#verifiers-in-cold-database" title="Verifiers in cold database">Verifiers in cold database</a><ul><li><a href="#verifiers-of-data-entering-the-vault" title="Verifiers of data entering the Vault">Verifiers of data entering the Vault</a></li><li><a href="#verifiers-of-data-already-in-the-vault" title="Verifiers of data already in the Vault">Verifiers of data already in the Vault</a></li></ul></li><li><a href="#network-specs-in-cold-database" title="Network specs in cold database">Network specs in cold database</a><ul><li><a href="#adding-new-network-specs" title="Adding new network specs">Adding new network specs</a></li><li><a href="#updating-network-specs-replacing-old-ones-with-new-ones-without-deleting" title="Updating network specs (replacing old ones with new ones without deleting">Updating network specs (replacing old ones with new ones without deleting</a></li><li><a href="#deleting-network-specs-1" title="Deleting network specs">Deleting network specs</a></li><li><a href="#balance-representation-decimals-and-units" title="Balance representation: decimals and units">Balance representation: decimals and units</a></li><li><a href="#examples-balance-representation" title="Examples: balance representation">Examples: balance representation</a></li></ul></li></ul><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate definitions</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">definitions</a></div><h1>Module <span>network_<wbr>specs</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/definitions/network_specs.rs.html#1-585">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Network specs, verifiers, and related types</p>
+<p>Vault could be used only for networks introduced to the database.</p>
+<p>Each network has associated set of parameters called here network specs.
+Cold database stores <a href="struct.OrderedNetworkSpecs.html" title="struct definitions::network_specs::OrderedNetworkSpecs"><code>OrderedNetworkSpecs</code></a>.
+Hot database stores <a href="struct.NetworkSpecs.html" title="struct definitions::network_specs::NetworkSpecs"><code>NetworkSpecs</code></a>. Air-gap transfers with
+<code>add_specs</code> payload also contain <a href="struct.NetworkSpecs.html" title="struct definitions::network_specs::NetworkSpecs"><code>NetworkSpecs</code></a>.
+Network specs rarely change and are generally are introduced into
+Vault only once for each network.</p>
+<p>Vault has verifier system storing public keys that Vault trusts are providing
+correct updates to the information.</p>
+<p>Cold database stores <a href="enum.CurrentVerifier.html" title="enum definitions::network_specs::CurrentVerifier"><code>CurrentVerifier</code></a> for each network and general verifier.</p>
+<h2 id="verifiers-in-cold-database"><a class="doc-anchor" href="#verifiers-in-cold-database">§</a>Verifiers in cold database</h2>
+<p>Vault is expected to be safe to use as long as the information uploaded
+into it through air-gap is the correct one.</p>
+<p>Damaged network specs or network metadata could result in transactions
+being parsed incorrectly.</p>
+<p>Verifier system is introduced to have important transferable data signed
+by a trusted party to exclude accidental or intentional errors. It is
+especially important in keeping fast-changing network metadata updated.</p>
+<h3 id="verifiers-of-data-entering-the-vault"><a class="doc-anchor" href="#verifiers-of-data-entering-the-vault">§</a>Verifiers of data entering the Vault</h3>
+<p>The data scanned into Vault has an associated <a href="struct.Verifier.html" title="struct definitions::network_specs::Verifier"><code>Verifier</code></a>.</p>
+<p>If the information is verified, <a href="struct.Verifier.html" title="struct definitions::network_specs::Verifier"><code>Verifier</code></a> is <code>Some(VerifierValue)</code>.</p>
+<p>If the information is not verified, <a href="struct.Verifier.html" title="struct definitions::network_specs::Verifier"><code>Verifier</code></a> is <code>None</code>.</p>
+<p>Payloads with verified data contain trusted party public key and signature
+for the data transferred, that are checked when the data is processed in
+Vault. Unverified data gets processed as is, without any verification.
+Unverified data should be used cautiously, and avoided unless absolutely
+necessary.</p>
+<p><a href="enum.VerifierValue.html" title="enum definitions::network_specs::VerifierValue"><code>VerifierValue</code></a> is public key of the trusted party using a certain
+encryption algorithm. At this moment, only <code>Standard</code> variant supporting
+<a href="https://docs.rs/sp-runtime/6.0.0/sp_runtime/enum.MultiSigner.html"><code>MultiSigner</code></a>
+is available.</p>
+<h3 id="verifiers-of-data-already-in-the-vault"><a class="doc-anchor" href="#verifiers-of-data-already-in-the-vault">§</a>Verifiers of data already in the Vault</h3>
+<p>There is <a href="enum.CurrentVerifier.html" title="enum definitions::network_specs::CurrentVerifier"><code>CurrentVerifier</code></a> for each network known to Vault, and
+general verifier <a href="struct.Verifier.html" title="struct definitions::network_specs::Verifier"><code>Verifier</code></a> for some selected networks and for types.</p>
+<h4 id="network-verifiers"><a class="doc-anchor" href="#network-verifiers">§</a>Network verifiers</h4>
+<p>Each network in Vault has an associated <a href="enum.CurrentVerifier.html" title="enum definitions::network_specs::CurrentVerifier"><code>CurrentVerifier</code></a>, having two
+variants: <code>Valid</code> and <code>Dead</code>. Networks could be used by the Vault only if
+their verifier is <code>CurrentVerifier::Valid</code> with associated
+<a href="enum.ValidCurrentVerifier.html" title="enum definitions::network_specs::ValidCurrentVerifier"><code>ValidCurrentVerifier</code></a> value. Networks having <code>CurrentVerifier::Dead</code> no
+longer could be used or updated, unless the Vault is completely wiped and
+reset.</p>
+<p>Network verifier information is stored in <code>VERIFIERS</code> tree of the cold
+database, with <a href="../keyring/struct.VerifierKey.html" title="struct definitions::keyring::VerifierKey"><code>VerifierKey</code></a> in key form as
+a key and encoded <a href="enum.CurrentVerifier.html" title="enum definitions::network_specs::CurrentVerifier"><code>CurrentVerifier</code></a> as a value. <code>VerifierKey</code> is derived
+from network genesis hash. If the network supports more than one encryption
+algorithm, network specs for all encryption algorithms and network metadata
+would have the same <a href="enum.CurrentVerifier.html" title="enum definitions::network_specs::CurrentVerifier"><code>CurrentVerifier</code></a>.</p>
+<p><code>ValidCurrentVerifier</code> has two variants: <code>General</code> and <code>Custom</code>.</p>
+<p><code>ValidCurrentVerifier::General</code> means that the network is verified by the
+general verifier known to Vault. As installed or freshly wiped Vault
+has default networks Polkadot, Kusama, and Westend having
+<code>ValidCurrentVerifier::General</code>.</p>
+<p><code>ValidCurrentVerifier::Custom</code> means that the network is verified by
+some <code>Verifier</code> other than the general verifier.</p>
+<p>Updating network metadata could be done only if the metadata is signed by
+exactly same <a href="enum.CurrentVerifier.html" title="enum definitions::network_specs::CurrentVerifier"><code>CurrentVerifier</code></a> as already recorded in the database for
+this network.</p>
+<p>The messages for updating network specs or loading network specs for same
+network, but with different encryption algorithm, could be signed with
+same <a href="enum.CurrentVerifier.html" title="enum definitions::network_specs::CurrentVerifier"><code>CurrentVerifier</code></a> or an upgraded one.</p>
+<h4 id="general-verifier"><a class="doc-anchor" href="#general-verifier">§</a>General verifier</h4>
+<p>General verifier is the default <a href="struct.Verifier.html" title="struct definitions::network_specs::Verifier"><code>Verifier</code></a> known to the Vault. It is the
+data source the Vault relies upon the most.</p>
+<p>General verifier is set up during Vault initialization, and is by
+default Parity-associated key.</p>
+<p>General verifier value is stored in <code>SETTREE</code> tree of the cold database
+under key <code>GENERALVERIFIER</code>.</p>
+<p>General verifier is used for verification of network specs and metadata
+for some networks (ideally, the ones most used on particular Vault
+device), and types information. Data previously verified by any
+general verifier other than <code>None</code> could be updated only if the update
+is signed by the same verifier. When general verifier is <code>None</code>, it gets
+updated to <a href="struct.Verifier.html" title="struct definitions::network_specs::Verifier"><code>Verifier</code></a> of the first user-accepted verified updating payload
+(i.e. with trust on first use).</p>
+<p>Users can remove existing general verifier, this will re-initialize Vault
+with general verifier set to <code>None</code> and reset the Vault data to defaults.</p>
+<p>It is not recommended to use Vault without any general verifier, so it is
+best to set up the user-trusted party as the general verifier right after
+removing the old general verifier, by downloading and accepting some
+trusted data with network specs or types information.</p>
+<p>Note that setting general verifier from <code>None</code> to <code>Some(VerifierValue)</code>
+will remove all previously known data (i.e. network specs, network metadata,
+types information) associated with previous general verifier value <code>None</code>.
+This is done to avoid false trust to data that appeared before the
+verification began.</p>
+<p>Note that if the network specs get removed due to general verifier change,
+the addresses within this network are not deleted from the database, just
+never displayed in the user interface. Vault will recall them if the
+network specs get re-loaded verified with correct general verifier.</p>
+<p>Let’s consider a case when user has removed the default general verifier.
+After the reset, general verifier value becomes <code>None</code>, however, the Vault
+still has the network specs and metadata for default networks, and types
+information. User plans to operate the Vault with Parity-unrelated network,
+and loads verified network specs for it. The received data verifier becomes
+the new general verifier, and the data for default networks and default
+types gets removed.</p>
+<h4 id="upgrading-verifiers"><a class="doc-anchor" href="#upgrading-verifiers">§</a>Upgrading verifiers</h4>
+<p>Once <code>ValidCurrentVerifier::Custom</code> is set to <code>Some(VerifierValue)</code>, it
+could not be changed to any other value except general verifier. Note that
+in this case general verifier is also already set to <code>Some(VerifierValue)</code>,
+since general verifier could not be <code>None</code> if there is not-<code>None</code> custom
+verifier.</p>
+<p>General verifier could not be changed once set up with <code>Some(VerifierValue)</code>,
+unless the Vault is wiped and reset.</p>
+<p>At the moment there is no mechanism allowing users to set up the verifiers
+except by loading and accepting the updates signed by these verifiers.</p>
+<p>In some cases network verifiers and general verifier could be changed
+by accepting updating payloads:</p>
+<ul>
+<li>
+<p><code>ValidCurrentVerifier::General</code> with general verifier <code>None</code> could be
+upgraded to <code>ValidCurrentVerifier::General</code> with general verifier
+<code>(Some(VerifierValue))</code>. Happens when Vault with no value set up for
+the general verifier receives and accepts a verified update with any
+network specs or types.</p>
+</li>
+<li>
+<p>Network <code>ValidCurrentVerifier::Custom(Some(VerifierValue))</code> could be
+upgraded to <code>ValidCurrentVerifier::General</code> with general verifier set to
+<code>(Some(VerifierValue))</code>.
+Happens when Vault receives and accepts network specs update verified
+by general verifier for this network. Note: metadata update with
+verifier upgrade would be rejected.</p>
+</li>
+<li>
+<p>Network <code>ValidCurrentVerifier::Custom(None)</code> could be upgraded to
+<code>ValidCurrentVerifier::General</code> with general verifier set to
+<code>(Some(VerifierValue))</code>.
+Happens when Vault receives and accepts network specs update verified
+by general verifier for this network. Note: metadata update with
+verifier upgrade would be rejected.</p>
+</li>
+</ul>
+<p>If <a href="enum.CurrentVerifier.html" title="enum definitions::network_specs::CurrentVerifier"><code>CurrentVerifier</code></a> upgrade occurs, all pre-upgrade network information
+is wiped (Vault warns about that).</p>
+<p>If general verifier upgrade occurs, all pre-upgrade information verified
+by the general verifier is wiped (Vault warns about that).</p>
+<h4 id="deleting-network-specs"><a class="doc-anchor" href="#deleting-network-specs">§</a>Deleting network specs</h4>
+<p>User can remove any network from Vault. “Remove network” means removing:</p>
+<ul>
+<li>all network specs associated with network genesis hash,</li>
+<li>all metadata associated with network specs name,</li>
+<li>all addresses within this network with any encryption,</li>
+<li>(possibly) modifying <a href="enum.CurrentVerifier.html" title="enum definitions::network_specs::CurrentVerifier"><code>CurrentVerifier</code></a>.</li>
+</ul>
+<p>If the network was verified by <code>CurrentVerifier::Valid</code> with value
+<code>ValidCurrentVerifier::General</code>, verifier information in <a href="enum.CurrentVerifier.html" title="enum definitions::network_specs::CurrentVerifier"><code>CurrentVerifier</code></a>
+will not change. Restoring the network will require updates signed by the
+same general verifier as before.</p>
+<p>If the network was verified by <code>CurrentVerifier::Valid</code> with value
+<code>ValidCurrentVerifier::Custom</code> and the custom <a href="struct.Verifier.html" title="struct definitions::network_specs::Verifier"><code>Verifier</code></a> was <code>None</code>, no
+changes will happen, network verifier will stay
+<code>CurrentVerifier::Valid(ValidCurrentVerifier::Custom(None))</code>. Otherwise,
+the network verifier will be changed to <code>CurrentVerifier::Dead</code>, and it
+would be impossible to use the network again unless the Vault is wiped.
+This is a part of security policy.</p>
+<h2 id="network-specs-in-cold-database"><a class="doc-anchor" href="#network-specs-in-cold-database">§</a>Network specs in cold database</h2>
+<p><a href="struct.OrderedNetworkSpecs.html" title="struct definitions::network_specs::OrderedNetworkSpecs"><code>OrderedNetworkSpecs</code></a> are stored in <code>SPECSTREE</code> tree of the cold database,
+with <a href="../keyring/struct.NetworkSpecsKey.html" title="struct definitions::keyring::NetworkSpecsKey"><code>NetworkSpecsKey</code></a> in key form as a key and SCALE-encoded <a href="struct.OrderedNetworkSpecs.html" title="struct definitions::network_specs::OrderedNetworkSpecs"><code>OrderedNetworkSpecs</code></a>
+as a value.</p>
+<p><a href="struct.OrderedNetworkSpecs.html" title="struct definitions::network_specs::OrderedNetworkSpecs"><code>OrderedNetworkSpecs</code></a> include both the <code>encryption</code> (<a href="../crypto/enum.Encryption.html" title="enum definitions::crypto::Encryption"><code>Encryption</code></a>) and network
+genesis hash (<code>[u8; 32]</code>), that are used for <a href="../keyring/struct.NetworkSpecsKey.html" title="struct definitions::keyring::NetworkSpecsKey"><code>NetworkSpecsKey</code></a> generation.<br />
+<a href="struct.OrderedNetworkSpecs.html" title="struct definitions::network_specs::OrderedNetworkSpecs"><code>OrderedNetworkSpecs</code></a> retrieved for given <a href="../keyring/struct.NetworkSpecsKey.html" title="struct definitions::keyring::NetworkSpecsKey"><code>NetworkSpecsKey</code></a> always get checked
+for consistency.</p>
+<p>If the network supports more than one encryption algorithm, each encryption
+corresponds to different <a href="../keyring/struct.NetworkSpecsKey.html" title="struct definitions::keyring::NetworkSpecsKey"><code>NetworkSpecsKey</code></a>, and any or all of them could be
+coexisting in Vault simultaneously.</p>
+<p><a href="struct.OrderedNetworkSpecs.html" title="struct definitions::network_specs::OrderedNetworkSpecs"><code>OrderedNetworkSpecs</code></a> are generally expected to remain unchanged over time.</p>
+<h3 id="adding-new-network-specs"><a class="doc-anchor" href="#adding-new-network-specs">§</a>Adding new network specs</h3>
+<p>New networks could be added to Vault through scanning <code>add_specs</code> QR code
+for the network.</p>
+<h3 id="updating-network-specs-replacing-old-ones-with-new-ones-without-deleting"><a class="doc-anchor" href="#updating-network-specs-replacing-old-ones-with-new-ones-without-deleting">§</a>Updating network specs (replacing old ones with new ones without deleting</h3>
+<p>old ones)</p>
+<p>Vault will not allow to update network specs if critical parameters
+have changed.<br />
+These critical parameters are:</p>
+<ul>
+<li><code>base58prefix</code>, network-associated base58 prefix</li>
+<li><code>decimals</code></li>
+<li><code>name</code>, network name, as it appears in the network metadata</li>
+<li><code>unit</code></li>
+</ul>
+<p>However, if non-critical parameters have changes, Vault will permit the
+network specs updating.<br />
+These non-critical parameters are:</p>
+<ul>
+<li><code>color</code></li>
+<li><code>logo</code>, network-associated logo picture</li>
+<li><code>path_id</code>, default address derivation path for the network</li>
+<li><code>secondary_color</code></li>
+<li><code>title</code>, network title, as it is displayed in Vault</li>
+</ul>
+<p>Some quickly updating experimental networks are changing the genesis hash
+often. Network genesis hash participates in <a href="../keyring/struct.NetworkSpecsKey.html" title="struct definitions::keyring::NetworkSpecsKey"><code>NetworkSpecsKey</code></a>
+generation. This way, if the genesis hash got updated, the network would
+appear “unknown” to Vault, and to use it, network specs with new genesis hash
+would have to be added. Adding network specs with new genesis hash does not
+require deleting network specs with old genesis hash.</p>
+<h3 id="deleting-network-specs-1"><a class="doc-anchor" href="#deleting-network-specs-1">§</a>Deleting network specs</h3>
+<p>Any network could be removed, however sometimes there are associated changes
+in corresponding verifier. See above.</p>
+<h3 id="balance-representation-decimals-and-units"><a class="doc-anchor" href="#balance-representation-decimals-and-units">§</a>Balance representation: decimals and units</h3>
+<p>To represent the balance-related values properly, each network has associated
+decimals and units. The balance-related values in, for example, transactions
+are integer numbers, and are formatted properly only during the transactions
+decoding. For this <code>decimals</code> and <code>unit</code> values from <a href="struct.OrderedNetworkSpecs.html" title="struct definitions::network_specs::OrderedNetworkSpecs"><code>OrderedNetworkSpecs</code></a> are used.
+<code>decimals</code> indicate the order of magnitude, by which the token <code>unit</code>
+exceeds the integer representing unit (see examples below).
+Both <code>decimals</code> and <code>unit</code> values could be queried through RPC calls for each
+Vault-compatible network.
+Sometimes the networks have several available decimals and units, or none at all.<br />
+This cases should be dealt with on case-by-case basis.</p>
+<h3 id="examples-balance-representation"><a class="doc-anchor" href="#examples-balance-representation">§</a>Examples: balance representation</h3>
+<p>Balance (<code>u64</code>) from transaction is decoded as <code>1</code>.
+Network <code>decimals</code> value is <code>12</code>, network <code>unit</code> is <code>WND</code>.
+The balance should be therefore represented as <code>1 pWND</code>.</p>
+<p>Balance (<code>u64</code>) from transaction is decoded as <code>10000000</code>.
+Network <code>decimals</code> value is <code>12</code>, network <code>unit</code> is <code>WND</code>.
+The balance should be therefore represented as <code>10 uWND</code>.</p>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.NetworkProperties.html" title="struct definitions::network_specs::NetworkProperties">Network<wbr>Properties</a></dt><dd>Network properties that must be fetched with RPC call for properties
+in each compatible network</dd><dt><a class="struct" href="struct.NetworkSpecs.html" title="struct definitions::network_specs::NetworkSpecs">Network<wbr>Specs</a></dt><dd>Network parameters stored SCALE-encoded in the <strong>hot</strong> database
+<code>SPECSTREEPREP</code> tree under <a href="../keyring/struct.NetworkSpecsKey.html" title="struct definitions::keyring::NetworkSpecsKey"><code>NetworkSpecsKey</code></a> and sent as QR code
+in <code>add_specs</code> messages</dd><dt><a class="struct" href="struct.OrderedNetworkSpecs.html" title="struct definitions::network_specs::OrderedNetworkSpecs">Ordered<wbr>Network<wbr>Specs</a></dt><dd>Network parameters stored SCALE-encoded in the <strong>cold</strong> database
+<code>SPECSTREE</code> tree under <a href="../keyring/struct.NetworkSpecsKey.html" title="struct definitions::keyring::NetworkSpecsKey"><code>NetworkSpecsKey</code></a></dd><dt><a class="struct" href="struct.ShortSpecs.html" title="struct definitions::network_specs::ShortSpecs">Short<wbr>Specs</a></dt><dd>Network parameters needed to decode and display transaction</dd><dt><a class="struct" href="struct.Verifier.html" title="struct definitions::network_specs::Verifier">Verifier</a></dt><dd>Verifier information</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.CurrentVerifier.html" title="enum definitions::network_specs::CurrentVerifier">Current<wbr>Verifier</a></dt><dd>Current network verifier</dd><dt><a class="enum" href="enum.ValidCurrentVerifier.html" title="enum definitions::network_specs::ValidCurrentVerifier">Valid<wbr>Current<wbr>Verifier</a></dt><dd>Possible variants of valid current network verifier</dd><dt><a class="enum" href="enum.VerifierValue.html" title="enum definitions::network_specs::VerifierValue">Verifier<wbr>Value</a></dt><dd>Information on known and existing verifier</dd></dl></section></div></main></body></html>

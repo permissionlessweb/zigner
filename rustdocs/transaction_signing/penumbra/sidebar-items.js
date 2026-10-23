@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["PENUMBRA_BIP44_PATH","PENUMBRA_COIN_TYPE","QR_TYPE_FVK_EXPORT"],"fn":["derive_spend_auth_key","sign_spend","sign_transaction","verify_effect_hash"],"mod":["personalization"],"struct":["EffectHash","FullViewingKey","FvkExportData","NullifierKey","PenumbraAuthorizationData","SpendKeyBytes","WalletId"]};

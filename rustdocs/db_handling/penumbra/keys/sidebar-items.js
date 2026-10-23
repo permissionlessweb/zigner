@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["derive_spend_key_bytes"],"struct":["Address","AddressIndex","ClueKey","DiversifierKey","FullViewingKey","IncomingViewingKey","NullifierKey","OutgoingViewingKey","SpendKeyBytes"]};

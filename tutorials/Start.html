@@ -1,0 +1,335 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Getting Started - Polkadot-Vault</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+        <!-- MathJax -->
+        <script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    </head>
+    <body class="sidebar-visible no-js">
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('light')
+            html.classList.add(theme);
+            var body = document.querySelector('body');
+            body.classList.remove('no-js')
+            body.classList.add('js');
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var body = document.querySelector('body');
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            body.classList.remove('sidebar-visible');
+            body.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded "><a href="../index.html"><strong aria-hidden="true">1.</strong> About Zigner</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../about/FAQ.html"><strong aria-hidden="true">1.1.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="../about/Security-And-Privacy.html"><strong aria-hidden="true">1.2.</strong> Security and Privacy</a></li><li class="chapter-item expanded "><a href="../tutorials/Hierarchical-Deterministic-Key-Derivation.html"><strong aria-hidden="true">1.3.</strong> Hierarchical Deterministic Key Derivation</a></li><li class="chapter-item expanded "><a href="../about/Changelog.html"><strong aria-hidden="true">1.4.</strong> Changelog</a></li></ol></li><li class="chapter-item expanded "><a href="../tutorials/SUMMARY.html"><strong aria-hidden="true">2.</strong> User Guides</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../tutorials/Start.html" class="active"><strong aria-hidden="true">2.1.</strong> Getting Started</a></li><li class="chapter-item expanded "><a href="../tutorials/Sync-Verified-Notes.html"><strong aria-hidden="true">2.2.</strong> Sync Verified Notes</a></li></ol></li><li class="chapter-item expanded "><div><strong aria-hidden="true">3.</strong> Development</div></li><li><ol class="section"><li class="chapter-item expanded "><a href="../development/Build.html"><strong aria-hidden="true">3.1.</strong> Build</a></li><li class="chapter-item expanded "><a href="../development/Vault-Structure.html"><strong aria-hidden="true">3.2.</strong> Vault Structure</a></li><li class="chapter-item expanded "><a href="../development/Troubleshooting.html"><strong aria-hidden="true">3.3.</strong> Troubleshooting</a></li><li class="chapter-item expanded "><a href="../development/Rustdocs.html"><strong aria-hidden="true">3.4.</strong> Rust Docs</a></li><li class="chapter-item expanded "><a href="../development/UOS.html"><strong aria-hidden="true">3.5.</strong> Universal Offline Signature</a></li><li class="chapter-item expanded "><a href="../development/Ecosystem.html"><strong aria-hidden="true">3.6.</strong> Ecosystem</a></li></ol></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Polkadot-Vault</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="getting-started"><a class="header" href="#getting-started">Getting started</a></h1>
+<p>This walks through setting up Zigner for <strong>Zcash</strong> as the primary use case.
+The same device handles Penumbra and Substrate too.</p>
+<h2 id="1-set-up-the-device"><a class="header" href="#1-set-up-the-device">1. Set up the device</a></h2>
+<p>Start from a phone you don't use for anything else. The strongest
+configuration is a Pixel 8 or later running GrapheneOS — see
+<a href="../about/Security-And-Privacy.html">Security and Privacy</a> for why.</p>
+<ol>
+<li>Factory reset the phone.</li>
+<li>Install your OS (GrapheneOS recommended). Verify boot chain.</li>
+<li>Set a strong device passcode. Don't rely on biometrics alone — they
+can be compelled.</li>
+<li>Install Zigner from the <a href="https://github.com/rotkonetworks/zigner/releases">GitHub release</a>.
+Verify both the SHA256 checksum and the ssh signature on <code>SHA256SUMS</code>.</li>
+<li>Enable airplane mode. Disable WiFi, Bluetooth, NFC, and cellular.
+Physically removing wireless hardware is better if your device allows
+it. <strong>The user is responsible for the air gap</strong> — Zigner's connectivity
+detection is informational, not a guarantee.</li>
+</ol>
+<p>Do all of this <em>before</em> launching the Zigner app for the first time.</p>
+<h2 id="2-create-or-recover-a-seed"><a class="header" href="#2-create-or-recover-a-seed">2. Create or recover a seed</a></h2>
+<p>On first launch, Zigner walks through accepting terms, then prompts to
+create a key set.</p>
+<ul>
+<li><strong>New user</strong>: let Zigner generate a fresh BIP-39 seed phrase using the
+built-in randomness. Back it up on paper. Store the paper somewhere
+physically secure. Anyone with this phrase has full control of every
+account derived from it. If you lose the phrase, the keys are gone.</li>
+<li><strong>Recovering</strong>: switch to recovery mode and enter your existing seed
+phrase. <strong>Do not type a custom seed phrase unless it was generated
+with proper randomness</strong> — security depends entirely on this.</li>
+</ul>
+<p>When you tap <em>Create</em>, the device's secure element prompts you to
+authenticate. From this point on, every operation that touches a private
+key requires authentication.</p>
+<h2 id="3-pair-with-zafu-zcash-hot-wallet"><a class="header" href="#3-pair-with-zafu-zcash-hot-wallet">3. Pair with Zafu (Zcash hot wallet)</a></h2>
+<p>Zigner holds the spending key. Zafu holds only the viewing key and
+constructs transactions.</p>
+<ol>
+<li>In Zigner, open the key set and tap <em>Export</em> on the Zcash account.
+You'll see a UFVK QR code (ZIP-316 format, encoded as UR).</li>
+<li>In Zafu, choose <em>Import watch-only</em> and scan the QR.</li>
+<li>Zafu syncs notes against the chain via your indexer (zidecar in the
+Rotko stack).</li>
+<li>Zafu exports your verified notes to Zigner as an animated QR
+(<code>zt:zcash-notes</code>). Zigner verifies each note's merkle path and stores
+the notes so it can recognise your spends later. Re-sync after you
+receive or send — see <a href="./Sync-Verified-Notes.html">Sync Verified Notes</a>.</li>
+</ol>
+<p>Once paired, your day-to-day flow for sending ZEC is:</p>
+<ol>
+<li>In Zafu, build the transaction. Zafu shows a PCZT as animated QR.</li>
+<li>In Zigner, scan the QR. The review screen shows recipient, amount,
+fee, and per-spend verified / dummy / unknown labels.</li>
+<li><strong>Tap the recipient address to reveal the full string</strong>. Read it
+character by character against what you intended.</li>
+<li>Approve. Zigner signs and shows a signature QR.</li>
+<li>Zafu scans the signature QR and broadcasts.</li>
+</ol>
+<p>If the transaction spends value Zigner hasn't verified, it shows a soft
+warning you must acknowledge before signing — common right after a send,
+since your change isn't synced yet. Re-sync to clear it. See
+<a href="./Sync-Verified-Notes.html">Sync Verified Notes</a>.</p>
+<h2 id="4-optional-frost-multisig"><a class="header" href="#4-optional-frost-multisig">4. Optional: FROST multisig</a></h2>
+<p>To run Orchard spends as a <em>t-of-n</em> threshold multisig, see the
+<a href="../about/FAQ.html#frost-multisig">FROST FAQ section</a>. DKG and signing
+both happen between Zigner and Zafu over animated QR codes — no relay
+server needed.</p>
+<p>Once any device has participated in a FROST group, a sticky flag is
+set: the device permanently requires anchor attestation on every note
+import, defending against a compromised hot wallet on a future
+single-signer setup.</p>
+<h2 id="5-optional-hot-wallet-for-daily-spending"><a class="header" href="#5-optional-hot-wallet-for-daily-spending">5. Optional: Hot wallet for daily spending</a></h2>
+<p>Zigner can derive a 12-word BIP-39 hot wallet mnemonic from the master
+seed and export it as <code>ur:zafu-hot-wallet</code> for use in Zafu pro. Useful
+for small daily transactions where you don't want to keep pulling out
+the cold device. The hot wallet is <em>not</em> an isolated security boundary
+— if the hot device is compromised, rotate.</p>
+<h2 id="6-optional-zid-auth"><a class="header" href="#6-optional-zid-auth">6. Optional: ZID auth</a></h2>
+<p>For OAuth-less login on services that support the ZID challenge
+protocol (Zafu pro and others), Zigner signs site-scoped ed25519
+challenges. Each origin gets a different public key — there's no
+cross-site correlation by default.</p>
+<h2 id="7-backup"><a class="header" href="#7-backup">7. Backup</a></h2>
+<p>Once you have key sets, FROST groups, and contacts you care about,
+export an encrypted backup:</p>
+<ol>
+<li><em>Settings → Backup → Export</em>.</li>
+<li>Zigner displays the backup as <code>ur:zigner-backup</code> animated QR.</li>
+<li>Save those frames somewhere you can read them back later (paper QR
+booklet, second cold device, or print and store with the seed
+phrase paper).</li>
+</ol>
+<p>The backup is encrypted with a key derived from your seed phrase. To
+restore, you need both the seed phrase and the backup QR. The seed
+phrase alone restores only the bare key sets.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../tutorials/SUMMARY.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../tutorials/Sync-Verified-Notes.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../tutorials/SUMMARY.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../tutorials/Sync-Verified-Notes.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+        <script>
+            window.playground_line_numbers = true;
+        </script>
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+        <script src="../ace.js"></script>
+        <script src="../editor.js"></script>
+        <script src="../mode-rust.js"></script>
+        <script src="../theme-dawn.js"></script>
+        <script src="../theme-tomorrow_night.js"></script>
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="../mermaid.min.js"></script>
+        <script src="../mermaid-init.js"></script>
+
+
+    </div>
+    </body>
+</html>

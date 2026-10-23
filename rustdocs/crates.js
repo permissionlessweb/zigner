@@ -1,0 +1,2 @@
+window.ALL_CRATES = ["constants","db_handling","defaults","definitions","generate_message","modpack","module_host","navigator","parser","printing_balance","qr_reader_pc","qr_reader_phone","qrcode_rtx","qrcode_static","signer","transaction_parsing","transaction_signing","zcash_wasm"];
+//{"start":21,"fragment_lengths":[11,14,11,14,19,10,14,12,9,19,15,18,13,16,9,22,22,13]}

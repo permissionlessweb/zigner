@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["build_auth_challenge","derive_domain_identity","derive_hot_wallet_mnemonic","derive_hot_wallet_mnemonic_for_identity","derive_hot_wallet_mnemonic_with_rotation","derive_identity","derive_zid_pubkey","derive_zid_pubkey_for_identity","sign_challenge","sign_domain_challenge","sign_zid_challenge","validate_challenge_freshness","verify_signature"]};

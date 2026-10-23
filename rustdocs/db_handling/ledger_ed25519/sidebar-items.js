@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["SLIP0044_KUSAMA","SLIP0044_POLKADOT"],"fn":["derive_kusama_ledger_key","derive_ledger_key","derive_polkadot_ledger_key"],"struct":["LedgerKeyPair"]};

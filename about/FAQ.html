@@ -1,0 +1,474 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>FAQ - Polkadot-Vault</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+        <!-- MathJax -->
+        <script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    </head>
+    <body class="sidebar-visible no-js">
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('light')
+            html.classList.add(theme);
+            var body = document.querySelector('body');
+            body.classList.remove('no-js')
+            body.classList.add('js');
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var body = document.querySelector('body');
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            body.classList.remove('sidebar-visible');
+            body.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded "><a href="../index.html"><strong aria-hidden="true">1.</strong> About Zigner</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../about/FAQ.html" class="active"><strong aria-hidden="true">1.1.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="../about/Security-And-Privacy.html"><strong aria-hidden="true">1.2.</strong> Security and Privacy</a></li><li class="chapter-item expanded "><a href="../tutorials/Hierarchical-Deterministic-Key-Derivation.html"><strong aria-hidden="true">1.3.</strong> Hierarchical Deterministic Key Derivation</a></li><li class="chapter-item expanded "><a href="../about/Changelog.html"><strong aria-hidden="true">1.4.</strong> Changelog</a></li></ol></li><li class="chapter-item expanded "><a href="../tutorials/SUMMARY.html"><strong aria-hidden="true">2.</strong> User Guides</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../tutorials/Start.html"><strong aria-hidden="true">2.1.</strong> Getting Started</a></li><li class="chapter-item expanded "><a href="../tutorials/Sync-Verified-Notes.html"><strong aria-hidden="true">2.2.</strong> Sync Verified Notes</a></li></ol></li><li class="chapter-item expanded "><div><strong aria-hidden="true">3.</strong> Development</div></li><li><ol class="section"><li class="chapter-item expanded "><a href="../development/Build.html"><strong aria-hidden="true">3.1.</strong> Build</a></li><li class="chapter-item expanded "><a href="../development/Vault-Structure.html"><strong aria-hidden="true">3.2.</strong> Vault Structure</a></li><li class="chapter-item expanded "><a href="../development/Troubleshooting.html"><strong aria-hidden="true">3.3.</strong> Troubleshooting</a></li><li class="chapter-item expanded "><a href="../development/Rustdocs.html"><strong aria-hidden="true">3.4.</strong> Rust Docs</a></li><li class="chapter-item expanded "><a href="../development/UOS.html"><strong aria-hidden="true">3.5.</strong> Universal Offline Signature</a></li><li class="chapter-item expanded "><a href="../development/Ecosystem.html"><strong aria-hidden="true">3.6.</strong> Ecosystem</a></li></ol></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Polkadot-Vault</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="faq"><a class="header" href="#faq">FAQ</a></h1>
+<ul>
+<li><a href="#general">General</a></li>
+<li><a href="#zcash">Zcash</a></li>
+<li><a href="#frost-multisig">FROST multisig</a></li>
+<li><a href="#anchor-attestation">Anchor attestation</a></li>
+<li><a href="#zid-auth">ZID auth</a></li>
+<li><a href="#hot-wallet-zafu-pro">Hot wallet (Zafu pro)</a></li>
+<li><a href="#encrypted-backup">Encrypted backup</a></li>
+<li><a href="#penumbra">Penumbra</a></li>
+<li><a href="#substrate">Substrate</a></li>
+<li><a href="#seeds-and-keys">Seeds and keys</a></li>
+</ul>
+<h2 id="general"><a class="header" href="#general">General</a></h2>
+<h3 id="what-is-zigner"><a class="header" href="#what-is-zigner">What is Zigner?</a></h3>
+<p>An air-gapped cold signer focused on Zcash, with Penumbra and Substrate
+also supported. It holds private keys on an offline phone and signs
+transactions presented as QR codes. It never touches a network.</p>
+<h3 id="what-does-it-protect-against"><a class="header" href="#what-does-it-protect-against">What does it protect against?</a></h3>
+<p>A compromised hot wallet. Even if Zafu, Zashi, Prax, or Polkadot.js is
+backdoored, the attacker cannot extract your spending key — it never
+leaves the signing device. They can present a malicious transaction,
+but Zigner displays the decoded contents and enforces several
+cryptographic invariants before signing.</p>
+<h3 id="what-does-it-not-protect-against"><a class="header" href="#what-does-it-not-protect-against">What does it NOT protect against?</a></h3>
+<ul>
+<li>You approving a transaction you didn't read</li>
+<li>Physical access to the unlocked device</li>
+<li>A supply chain attack on Zigner itself (verify reproducible builds and
+the released <code>SHA256SUMS</code> ssh signature)</li>
+<li>Side channels on the phone hardware (EM, power analysis)</li>
+</ul>
+<h3 id="how-does-the-device-communicate"><a class="header" href="#how-does-the-device-communicate">How does the device communicate?</a></h3>
+<p>QR codes only. The hot wallet encodes an unsigned transaction as a QR
+code (animated UR if multipart). Zigner scans it, displays the parsed
+contents, signs if approved, and shows a signature QR code. The hot
+wallet scans that and broadcasts. No bytes traverse any network
+interface on the signing device.</p>
+<h3 id="what-if-i-accidentally-enable-wifi"><a class="header" href="#what-if-i-accidentally-enable-wifi">What if I accidentally enable WiFi?</a></h3>
+<p>Zigner detects connectivity changes and warns you. But the fundamental
+guarantee is gone: any malware on the device could have exfiltrated keys
+during the window the radio was active. Treat it as a compromise.</p>
+<h2 id="zcash"><a class="header" href="#zcash">Zcash</a></h2>
+<h3 id="what-can-i-sign"><a class="header" href="#what-can-i-sign">What can I sign?</a></h3>
+<ul>
+<li>Orchard shielded actions (RedPallas on Pallas)</li>
+<li>Transparent inputs (secp256k1 ECDSA, P2PKH)</li>
+<li>PCZT (Partially Created Zcash Transactions) for multi-party flows</li>
+<li>FROST-coordinated threshold spends (see <a href="#frost-multisig">FROST multisig</a>)</li>
+</ul>
+<h3 id="how-does-zafuzashi-pairing-work"><a class="header" href="#how-does-zafuzashi-pairing-work">How does Zafu/Zashi pairing work?</a></h3>
+<ol>
+<li>Export your Unified Full Viewing Key (UFVK) from Zigner as a QR code
+(ZIP-316).</li>
+<li>Import into your hot wallet (Zafu, Zashi) as a watch-only account.</li>
+<li>The hot wallet syncs notes against the chain and exports them to
+Zigner as a <code>ur:zcash-notes</code> bundle (see <a href="#anchor-attestation">anchor attestation</a>).</li>
+<li>The hot wallet constructs a PCZT for any spend and shows it as
+animated QR codes.</li>
+<li>Zigner inspects the PCZT (anchor match, known spends, value
+consistency), shows recipient + amount + fee, and signs on approval.</li>
+<li>Zigner returns the signed PCZT as QR; the hot wallet broadcasts.</li>
+</ol>
+<h3 id="what-does-zigner-check-before-signing-a-pczt"><a class="header" href="#what-does-zigner-check-before-signing-a-pczt">What does Zigner check before signing a PCZT?</a></h3>
+<ul>
+<li>The PCZT's anchor matches the verified anchor stored on the device.</li>
+<li>Every spend nullifier matches a verified note (no unknown spends).</li>
+<li>Implied spend value is consistent with the verified balance.</li>
+<li>If the device has held FROST keys at any point, the note bundle must
+carry a valid attestation signature.</li>
+</ul>
+<p>If any check fails, signing is refused with a specific error. There is
+no override — these invariants block every Zcash signing path.</p>
+<h3 id="what-key-derivation-is-used"><a class="header" href="#what-key-derivation-is-used">What key derivation is used?</a></h3>
+<ul>
+<li>Orchard: ZIP-32 at <code>m/32'/133'/account'</code></li>
+<li>Transparent: BIP-44 at <code>m/44'/133'/account'/change/index</code></li>
+<li>Unified addresses and UFVKs per ZIP-316</li>
+</ul>
+<h3 id="mainnet-and-testnet"><a class="header" href="#mainnet-and-testnet">Mainnet and testnet?</a></h3>
+<p>Both supported. Network detection is built into the signing flow.</p>
+<h3 id="why-does-the-recipient-address-have-a-tap-to-reveal-hint"><a class="header" href="#why-does-the-recipient-address-have-a-tap-to-reveal-hint">Why does the recipient address have a "tap to reveal" hint?</a></h3>
+<p>The PCZT review screen shows recipients in middle-truncated form
+(<code>u1abc…wxyz</code>) for layout, but tapping reveals the full address in
+4-char-chunked monospace. <strong>Tap and read it before approving</strong> — the
+truncation hides exactly the bytes a malicious host would substitute.</p>
+<h2 id="frost-multisig"><a class="header" href="#frost-multisig">FROST multisig</a></h2>
+<h3 id="what-is-frost"><a class="header" href="#what-is-frost">What is FROST?</a></h3>
+<p>A threshold signature scheme: a group of <em>n</em> participants collectively
+hold a single Orchard spending key, and any <em>t</em> of them can produce a
+valid signature without ever reconstructing the key. Zigner uses
+<a href="https://github.com/rotkonetworks/zcli/tree/master/crates/frost-spend"><code>frost-spend</code></a>,
+a RedPallas FROST implementation built on the audited ZF FROST crates.</p>
+<h3 id="how-is-the-multisig-set-up"><a class="header" href="#how-is-the-multisig-set-up">How is the multisig set up?</a></h3>
+<p>Distributed Key Generation (DKG) runs in three rounds, all over animated
+QR codes:</p>
+<ol>
+<li>Each participant generates an ephemeral commitment, broadcasts it.</li>
+<li>Each participant verifies all peer broadcasts, generates per-peer
+shares, broadcasts them.</li>
+<li>Each participant aggregates the shares into a final key package.</li>
+</ol>
+<p>No single participant ever sees the group spending key. Zigner stores
+its key package and a per-device ephemeral seed in encrypted sled
+storage. The ephemeral seed is the source of randomness for future
+signing nonces — it is retained for the lifetime of the FROST wallet
+and zeroed only when the wallet is deleted.</p>
+<h3 id="how-is-signing-coordinated"><a class="header" href="#how-is-signing-coordinated">How is signing coordinated?</a></h3>
+<p>Round 1 produces a nonce + signing commitment per signer. Once <em>t</em>
+commitments are exchanged, each signer produces a share in round 2.
+The coordinator aggregates the shares into a final RedPallas signature.</p>
+<p>Each per-action randomizer α is bound to the sighash; nonce reuse is
+hard-rejected by a SHA-256 fingerprint tracker — reusing a FROST nonce
+with different messages would leak the spending key.</p>
+<h3 id="is-there-a-relay-server"><a class="header" href="#is-there-a-relay-server">Is there a relay server?</a></h3>
+<p>Not in the cryptographic path. DKG and signing protocols never trust
+a server — every message is verified directly by the participants
+against the group's public commitments. A coordinator may <em>deliver</em>
+QR payloads (passing them between participants), but no part of the
+protocol's security depends on that delivery being trusted. Zafu
+acts purely as a delivery channel; even if it were fully compromised,
+it could only cause a denial of service, not produce forged
+signatures or extract shares.</p>
+<h3 id="can-frost-shares-be-backed-up"><a class="header" href="#can-frost-shares-be-backed-up">Can FROST shares be backed up?</a></h3>
+<p>Yes — see <a href="#encrypted-backup">Encrypted backup</a>.</p>
+<h2 id="anchor-attestation"><a class="header" href="#anchor-attestation">Anchor attestation</a></h2>
+<h3 id="what-is-it"><a class="header" href="#what-is-it">What is it?</a></h3>
+<p>A signature over the Zcash anchor (Orchard root) plus block height and
+network flag, produced by a pinned ed25519 verifier (in production, a
+key controlled by Rotko Networks). The signer trusts this attestation
+to assert that the anchor it's about to sign against actually exists
+on the chain.</p>
+<p>The attestation digest is domain-separated:</p>
+<pre><code>SHA-256(
+    "zcash-anchor-v1"   (15 bytes ASCII, no separator)
+ || verifier_pubkey     (32 bytes, ed25519 public key)
+ || anchor              (32 bytes, Orchard root)
+ || height_le           (4 bytes, block height, little-endian)
+ || mainnet             (1 byte: 0x01 = mainnet, 0x00 = testnet)
+)
+</code></pre>
+<h3 id="why"><a class="header" href="#why">Why?</a></h3>
+<p>Without it, a compromised hot wallet on a fresh single-signer device
+could fabricate an arbitrary note tree and persuade the signer to
+authorize spends against fake notes. Once a device has participated
+in any FROST DKG, a sticky flag is set in the database and
+attestation becomes mandatory permanently — even if all FROST wallets
+are later deleted.</p>
+<h3 id="what-if-attestation-fails"><a class="header" href="#what-if-attestation-fails">What if attestation fails?</a></h3>
+<p>Signing is refused. The error states clearly that the bundle has no
+valid attestation; the user must fetch a properly attested anchor from
+their indexer (zidecar in the Rotko stack).</p>
+<h2 id="zid-auth"><a class="header" href="#zid-auth">ZID auth</a></h2>
+<h3 id="what-is-it-1"><a class="header" href="#what-is-it-1">What is it?</a></h3>
+<p>A site-scoped ed25519 identity, derived per-origin from the master seed.
+Used for OAuth-less authentication on web wallets, Zafu pro, and any
+service that supports the ZID challenge protocol.</p>
+<h3 id="how-does-cross-site-correlation-get-prevented"><a class="header" href="#how-does-cross-site-correlation-get-prevented">How does cross-site correlation get prevented?</a></h3>
+<p>Each origin gets a domain-separated key:
+<code>HMAC-SHA512(zid_root, "site:{origin}")</code>. Two sites never see the same
+public key for the same user.</p>
+<h3 id="can-i-sign-a-stale-challenge"><a class="header" href="#can-i-sign-a-stale-challenge">Can I sign a stale challenge?</a></h3>
+<p>No. The Rust layer rejects challenges older than 5 minutes or more than
+60 seconds in the future, regardless of what the UI shows. Replay
+defense is enforced at the signing path, not just the screen.</p>
+<h2 id="hot-wallet-zafu-pro"><a class="header" href="#hot-wallet-zafu-pro">Hot wallet (Zafu pro)</a></h2>
+<h3 id="what-is-it-2"><a class="header" href="#what-is-it-2">What is it?</a></h3>
+<p>A 12-word BIP39 mnemonic deterministically derived from the master
+seed, exported as <code>ur:zafu-hot-wallet</code> QR for use in Zafu pro. Same
+flow as a regular hot wallet pairing but with a separate spending
+seed for daily-use convenience.</p>
+<h3 id="is-it-isolated-from-the-master-seed"><a class="header" href="#is-it-isolated-from-the-master-seed">Is it isolated from the master seed?</a></h3>
+<p>It shares the seed family. The derivation is one-way (HMAC-SHA512), so
+compromising the hot wallet does not let an attacker reverse the master.
+But the hot wallet is <strong>not</strong> a security boundary — it's a usability
+shortcut. If the hot wallet device is compromised, treat both wallets
+as compromised and rotate.</p>
+<h3 id="can-i-rotate-the-hot-wallet"><a class="header" href="#can-i-rotate-the-hot-wallet">Can I rotate the hot wallet?</a></h3>
+<p>Not yet — see <a href="https://github.com/rotkonetworks/zigner/issues">issue #11</a>
+for the rotation-counter proposal.</p>
+<h2 id="encrypted-backup"><a class="header" href="#encrypted-backup">Encrypted backup</a></h2>
+<h3 id="whats-in-a-backup"><a class="header" href="#whats-in-a-backup">What's in a backup?</a></h3>
+<ul>
+<li>All saved key sets (encrypted seeds + metadata)</li>
+<li>FROST key packages and group metadata (per multisig name)</li>
+<li>Contacts (address book)</li>
+<li>Wallet labels and rename history</li>
+<li>The sticky attestation-required flag</li>
+</ul>
+<p>The seed phrase itself is <strong>not</strong> in the backup — the seed phrase is
+the decryption key. You need both for full restore.</p>
+<h3 id="whats-the-encryption"><a class="header" href="#whats-the-encryption">What's the encryption?</a></h3>
+<p>XChaCha20-Poly1305. The 32-byte key is <code>HMAC-SHA512("zigner-backup", seed_phrase)[:32]</code>. The format version (currently v2) is bound into
+the AEAD's associated data, so a v2 ciphertext cannot be presented
+as a forged v1 (or future v3) by stripping the version byte.</p>
+<h3 id="can-i-restore-on-a-different-device"><a class="header" href="#can-i-restore-on-a-different-device">Can I restore on a different device?</a></h3>
+<p>Yes. Install Zigner, enter the seed phrase, and scan the backup QR.
+All saved metadata (FROST shares, contacts, labels) restores in one
+operation. The attestation-required flag also restores so the device
+preserves its security posture.</p>
+<h2 id="penumbra"><a class="header" href="#penumbra">Penumbra</a></h2>
+<h3 id="what-can-i-sign-1"><a class="header" href="#what-can-i-sign-1">What can I sign?</a></h3>
+<p>All transaction actions: spends, outputs, swaps, liquidity positions,
+delegate/undelegate/claim, delegator votes, Dutch auctions, ICS20
+withdrawals.</p>
+<h3 id="how-does-prax-pairing-work"><a class="header" href="#how-does-prax-pairing-work">How does Prax pairing work?</a></h3>
+<ol>
+<li>Export your Full Viewing Key (FVK) from Zigner as a QR code (UR).</li>
+<li>Import into Prax as watch-only.</li>
+<li>Prax constructs transactions and shows QR codes.</li>
+<li>Scan with Zigner, review, approve.</li>
+<li>Scan the signature QR back into Prax to broadcast.</li>
+</ol>
+<h3 id="is-the-chain-id-validated"><a class="header" href="#is-the-chain-id-validated">Is the chain ID validated?</a></h3>
+<p>Yes. Every signing request includes a chain ID. Zigner rejects requests
+where the chain ID doesn't match what the transaction plan specifies.
+Prevents cross-chain replay and mainnet/testnet confusion.</p>
+<h2 id="substrate"><a class="header" href="#substrate">Substrate</a></h2>
+<p>Polkadot, Kusama, and Westend ship built-in. Sr25519 and Ed25519
+signing. Substrate is a secondary use case for Zigner; if you need
+chain-agility tooling, use a dedicated Polkadot signer.</p>
+<h2 id="seeds-and-keys"><a class="header" href="#seeds-and-keys">Seeds and keys</a></h2>
+<h3 id="can-i-use-one-seed-for-zcash-penumbra-and-substrate"><a class="header" href="#can-i-use-one-seed-for-zcash-penumbra-and-substrate">Can I use one seed for Zcash, Penumbra, and Substrate?</a></h3>
+<p>Yes. Each chain derives keys from the same BIP-39 seed using distinct
+derivation paths (different BIP-44 coin types), so keys are
+cryptographically isolated per chain.</p>
+<h3 id="what-is-a-derived-key"><a class="header" href="#what-is-a-derived-key">What is a derived key?</a></h3>
+<p>A key produced by applying a derivation path to a seed. Recovery
+requires only the seed phrase and the path, not the derived key
+itself.</p>
+<h3 id="can-i-rename-a-seed"><a class="header" href="#can-i-rename-a-seed">Can I rename a seed?</a></h3>
+<p>No. Seed names are bound at creation time as a security invariant. To
+change a name: back up the seed phrase, remove the key set, re-add it
+with the new name. (FROST multisig wallets <em>can</em> be renamed — that's
+a different code path.)</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../about/Security-And-Privacy.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../about/Security-And-Privacy.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+        <script>
+            window.playground_line_numbers = true;
+        </script>
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+        <script src="../ace.js"></script>
+        <script src="../editor.js"></script>
+        <script src="../mode-rust.js"></script>
+        <script src="../theme-dawn.js"></script>
+        <script src="../theme-tomorrow_night.js"></script>
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="../mermaid.min.js"></script>
+        <script src="../mermaid-init.js"></script>
+
+
+    </div>
+    </body>
+</html>
