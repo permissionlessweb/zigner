@@ -384,8 +384,8 @@ struct Recovered {
     total_change: u64,
 }
 
-/// OVK-decrypt one bundle's outputs: external OVK = a payment, internal OVK =
-/// change back to the group.
+/// Decrypt one bundle's outputs with the outgoing viewing keys: the external
+/// key opens a payment, the internal key opens change back to the group.
 fn recover_outputs<V, A>(
     bundle: &orchard::Bundle<A, zcash_protocol::value::ZatBalance>,
     ovks: &[orchard::keys::OutgoingViewingKey; 2],
