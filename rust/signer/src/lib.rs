@@ -2732,7 +2732,11 @@ fn sign_orchard_shaped_bundle(
         // unless it matches the PCZT's `rk`. That check — not the fvk — is
         // what binds the signature to a note this seed controls.
         if action
-            .sign(shielded_sighash, ask, rand::rngs::OsRng)
+            .sign(
+                shielded_sighash,
+                ask,
+                rand010::rand_core::UnwrapErr(rand010::rngs::SysRng),
+            )
             .is_ok()
         {
             *signed += 1;
@@ -5264,7 +5268,7 @@ mod tests {
     use super::*;
 
     /// Byte layout pinned so zafu's `unwrapSignerEnvelope` test vectors stay
-    /// valid: {1: bytes, 2: {1: baked, 2: active, 3: abi}}.
+    /// valid: `{1: bytes, 2: {1: baked, 2: active, 3: abi}}`.
     #[test]
     fn module_response_cbor_carries_kernel_info() {
         let out = encode_module_response_cbor(&[9, 9], 256);
@@ -5350,6 +5354,15 @@ mod zcash_pczt_tests {
             nu6_1: h(1),
             nu6_2: h(1),
             nu6_3: if nu6_3 { h(1) } else { None },
+            nu7: None,
+        }
+    }
+
+    /// As `params(true)` with NU7 live too: the builder targets branch NU7.
+    fn params_nu7() -> LocalNetwork {
+        LocalNetwork {
+            nu7: Some(BlockHeight::from_u32(1)),
+            ..params(true)
         }
     }
 
@@ -5458,7 +5471,10 @@ mod zcash_pczt_tests {
         );
         let sent = NOTE_VALUE - fee;
         let parts = make(sent)
-            .build_for_pczt(rand::rngs::OsRng, &zip317::FeeRule::standard())
+            .build_for_pczt(
+                rand010::rand_core::UnwrapErr(rand010::rngs::SysRng),
+                &zip317::FeeRule::standard(),
+            )
             .expect("build_for_pczt")
             .pczt_parts;
         assert_eq!(parts.version, TxVersion::V5);
@@ -5556,7 +5572,10 @@ mod zcash_pczt_tests {
     }
 
     fn build_v6_migration_inner(redact: bool) -> (Vec<u8>, u64, u64, [u8; 43]) {
-        let net = params(true);
+        build_v6_migration_on(params(true), redact)
+    }
+
+    fn build_v6_migration_on(net: LocalNetwork, redact: bool) -> (Vec<u8>, u64, u64, [u8; 43]) {
         let (_sk, fvk) = wallet_keys();
         let (note, witness, anchor) = wallet_note(&fvk);
 
@@ -5596,7 +5615,10 @@ mod zcash_pczt_tests {
         );
         let migrated = NOTE_VALUE - fee;
         let parts = make(migrated)
-            .build_for_pczt(rand::rngs::OsRng, &zip317::FeeRule::standard())
+            .build_for_pczt(
+                rand010::rand_core::UnwrapErr(rand010::rngs::SysRng),
+                &zip317::FeeRule::standard(),
+            )
             .expect("build_for_pczt")
             .pczt_parts;
         assert_eq!(parts.version, TxVersion::V6);
@@ -6247,16 +6269,95 @@ mod zcash_pczt_tests {
     }
 
     #[test]
-    fn nu7_is_refused_while_the_build_cannot_verify_it() {
-        use super::zcash_consensus_gate::{BRANCH_NU6_3, BRANCH_NU7};
-        use std::convert::TryFrom;
-        if zcash_protocol::consensus::BranchId::try_from(BRANCH_NU7).is_ok() {
-            eprintln!("SKIP: this build verifies NU7");
-            return;
+    fn nu7_migration_is_visible_and_signed() {
+        use super::zcash_consensus_gate::BRANCH_NU7;
+        let (bytes, fee, migrated, _) = build_v6_migration_on(params_nu7(), false);
+        assert_eq!(
+            *Pczt::parse(&bytes).unwrap().global().consensus_branch_id(),
+            BRANCH_NU7,
+            "builder targeted NU7"
+        );
+
+        let i = inspect_zcash_pczt(bytes.clone()).expect("inspect NU7");
+        assert_eq!(i.fee_zat, fee as i64, "review shows the real network fee");
+        let shown: u64 = i.outputs.iter().map(|o| o.value).sum();
+        assert_eq!(shown, migrated, "migrated value visible for review");
+
+        let signed = Pczt::parse(&sign_zcash_pczt(MNEMONIC, 0, bytes).expect("sign NU7"))
+            .expect("signed NU7 PCZT parses");
+        for (n, a) in signed.orchard().actions().iter().enumerate() {
+            assert!(
+                a.spend().spend_auth_sig().is_some(),
+                "NU7 orchard action {} left unsigned",
+                n
+            );
         }
-        let (pczt, _, _, _) = build_v6_migration();
-        let nu7 = with_branch(&pczt, BRANCH_NU6_3, BRANCH_NU7);
-        let e = format!("{:?}", inspect_zcash_pczt(nu7).expect_err("refused"));
-        assert!(e.contains("cannot verify NU7"), "{}", e);
+    }
+
+    // ── FROST payout verify (frost_multisig::frost_verify_pczt) ────────────
+
+    /// The wallet key as the UFVK string zigner stores for a FROST group.
+    fn wallet_uview() -> String {
+        use zcash_address::unified::{Encoding, Fvk, Ufvk};
+        let (_, fvk) = wallet_keys();
+        Ufvk::try_from_items(vec![Fvk::Orchard(fvk.to_bytes())])
+            .expect("ufvk")
+            .encode(&zcash_protocol::consensus::NetworkType::Regtest)
+    }
+
+    /// V6 shielded sighash straight from `v6_signature_hash` over the PCZT's
+    /// effects. The verifier's `Signer` picks the digest by tx version; this
+    /// pins it to V6, so a match shows the verifier chose the V6 digest (the
+    /// old one took V5). Same crate on both sides - not a cross-version check.
+    fn v6_sighash(pczt: &[u8]) -> String {
+        use zcash_primitives::transaction::sighash::SignableInput;
+        use zcash_primitives::transaction::sighash_v6::v6_signature_hash;
+        use zcash_primitives::transaction::txid::TxIdDigester;
+        let tx = Pczt::parse(pczt).unwrap().into_effects().expect("effects");
+        let parts = tx.digest(TxIdDigester);
+        hex::encode(v6_signature_hash(&tx, &SignableInput::Shielded, &parts).as_bytes())
+    }
+
+    fn assert_frost_verifies(net: LocalNetwork, what: &str) {
+        let (bytes, _, migrated, _) = build_v6_migration_on(net, true);
+        let pczt_hex = hex::encode(&bytes);
+        let sighash = v6_sighash(&bytes);
+
+        let v: serde_json::Value = serde_json::from_str(
+            &crate::frost_multisig::frost_verify_pczt(&pczt_hex, &sighash, &wallet_uview())
+                .unwrap_or_else(|e| panic!("{}: verify failed: {}", what, e)),
+        )
+        .unwrap();
+        assert_eq!(v["sighash_match"], true, "{what}: {v}");
+        assert_eq!(
+            v["total_change_zat"], migrated,
+            "{what}: the ironwood output is decrypted and shown: {v}"
+        );
+
+        let mut wrong = sighash.into_bytes();
+        wrong[0] = if wrong[0] == b'0' { b'1' } else { b'0' };
+        let v: serde_json::Value = serde_json::from_str(
+            &crate::frost_multisig::frost_verify_pczt(
+                &pczt_hex,
+                std::str::from_utf8(&wrong).unwrap(),
+                &wallet_uview(),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            v["sighash_match"], false,
+            "{what}: other sighash must not match"
+        );
+    }
+
+    #[test]
+    fn frost_verify_binds_a_v6_ironwood_spend() {
+        assert_frost_verifies(params(true), "NU6.3");
+    }
+
+    #[test]
+    fn frost_verify_binds_an_nu7_spend() {
+        assert_frost_verifies(params_nu7(), "NU7");
     }
 }

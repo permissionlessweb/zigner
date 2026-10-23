@@ -8,6 +8,14 @@ Minor. NU7-ready signing on the zakura stack, a reproducible protocol
 module, and device-security screens that only state what they measured.
 `BAKED_MODULE_VERSION` 2 → 3.
 
+### Penumbra
+
+- **Penumbra signing works again.** The camera gate added in 0.11.3 left
+  Penumbra off with no switch to turn it on, so every Penumbra request was
+  refused with "enable it in settings" - a setting that did not exist.
+  Penumbra is now on by default; Substrate and Cosmos stay off, and their
+  refusal no longer points at a missing setting.
+
 ### Zcash
 
 - **NU7 (ZIP 259, branch `0x77190ad9`)** on the protocol-module path
@@ -25,7 +33,15 @@ module, and device-security screens that only state what they measured.
   checked.
 - The native `ur:zcash-pczt` path now refuses **transparent outputs**: its
   review screen cannot show them, so a payment to a t-address was hidden
-  behind a "change + fee" display. It also refuses NU7 ("update Zigner").
+  behind a "change + fee" display.
+- **NU7 on the native path and for FROST.** The native `ur:zcash-pczt`
+  signer and the FROST payout verifier moved to the same zakura 2.2.0 stack
+  as the module, so both sign and verify NU7 PCZTs too.
+- **FROST verify works for Ironwood spends.** The verifier took a V5 sighash
+  and read only the Orchard pool, so every V6 (NU6.3) team-wallet spend
+  failed the sighash check and was blocked. It now takes the sighash from
+  the PCZT signer, which picks V5 or V6 by the transaction, and shows
+  outputs from both pools - the same route zcli's builder and joiner use.
 - **THORChain deposits on the module path.** A transparent output's
   OP_RETURN is shown as its memo, and a THORChain swap, add or withdraw is
   spelled out in words beside the raw memo. Change back to the sending

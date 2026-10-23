@@ -321,26 +321,20 @@ pub fn frost_verify_pczt(
     orchard_fvk_uview: &str,
 ) -> Result<String, String> {
     use orchard::keys::Scope;
-    use orchard::note_encryption::OrchardDomain;
-    use zcash_address::unified::{
-        Address as UnifiedAddress, Container, Encoding, Fvk, Receiver, Ufvk,
-    };
-    use zcash_note_encryption::try_output_recovery_with_ovk;
-    use zcash_primitives::transaction::sighash::SignableInput;
-    use zcash_primitives::transaction::sighash_v5::v5_signature_hash;
-    use zcash_primitives::transaction::txid::TxIdDigester;
+    use orchard::note_encryption::{IronwoodVersion, OrchardVersion};
+    use zcash_address::unified::{Container, Encoding, Fvk, Ufvk};
 
     let bytes = hex::decode(pczt_hex.trim()).map_err(|e| format!("bad pczt hex: {e}"))?;
     let pczt = pczt::Pczt::parse(&bytes).map_err(|e| format!("pczt parse: {e:?}"))?;
 
-    // Canonical effects → both the sighash and the orchard bundle come from the
-    // same byte stream the FROST share will commit to.
-    let tx_data = pczt
-        .into_effects()
-        .map_err(|e| format!("pczt into_effects: {e:?}"))?;
-    let txid_parts = tx_data.digest(TxIdDigester);
-    let shielded_sighash = v5_signature_hash(&tx_data, &SignableInput::Shielded, &txid_parts);
-    let recomputed = hex::encode(shielded_sighash.as_ref());
+    // The sighash the FROST share will commit to, from pczt's own Signer: it
+    // dispatches on the transaction version (V5, or V6 for an ironwood spend)
+    // and the PCZT's branch id (NU6.3 or NU7). zcli's builder and joiner take
+    // it from the same place, so all three agree by construction.
+    let shielded_sighash = pczt::roles::signer::Signer::new(pczt.clone())
+        .map_err(|e| format!("pczt signer init: {e:?}"))?
+        .shielded_sighash();
+    let recomputed = hex::encode(shielded_sighash);
     let sighash_match = recomputed.eq_ignore_ascii_case(claimed_sighash_hex.trim());
 
     // group orchard FVK from the stored UFVK string (uview1…)
@@ -356,55 +350,81 @@ pub fn frost_verify_pczt(
         .ok_or_else(|| "UFVK has no orchard component".to_string())?;
     let fvk = orchard::keys::FullViewingKey::from_bytes(&fvk_bytes)
         .ok_or_else(|| "invalid orchard FVK in UFVK".to_string())?;
-    let ovk_external = fvk.to_ovk(Scope::External);
-    let ovk_internal = fvk.to_ovk(Scope::Internal);
+    let ovks = [fvk.to_ovk(Scope::External), fvk.to_ovk(Scope::Internal)];
 
-    let mut outputs = Vec::new();
-    let mut total_send: u64 = 0;
-    let mut total_change: u64 = 0;
-    if let Some(bundle) = tx_data.orchard_bundle() {
-        let actions: Vec<_> = bundle.actions().iter().collect();
-        for action in actions.iter() {
-            let domain = OrchardDomain::for_action(*action);
-            let cv = action.cv_net();
-            let out_ct = action.encrypted_note().out_ciphertext;
+    // Same byte stream the sighash above was derived from.
+    let tx_data = pczt
+        .into_effects()
+        .map_err(|e| format!("pczt into_effects: {e:?}"))?;
 
-            let recovered =
-                try_output_recovery_with_ovk(&domain, &ovk_external, *action, cv, &out_ct)
-                    .map(|r| (r, false))
-                    .or_else(|| {
-                        try_output_recovery_with_ovk(&domain, &ovk_internal, *action, cv, &out_ct)
-                            .map(|r| (r, true))
-                    });
-            if let Some(((note, addr, _memo), is_change)) = recovered {
-                let amount = note.value().inner();
-                if is_change {
-                    total_change = total_change.saturating_add(amount);
-                } else {
-                    total_send = total_send.saturating_add(amount);
-                }
-                let ua = UnifiedAddress::try_from_items(vec![Receiver::Orchard(
-                    addr.to_raw_address_bytes(),
-                )])
-                .map(|a| a.encode(&network))
-                .unwrap_or_default();
-                outputs.push(serde_json::json!({
-                    "recipient": ua,
-                    "amount_zat": amount,
-                    "is_change": is_change,
-                }));
-            }
-        }
+    let mut out = Recovered::default();
+    // Both pools: since NU6.3 a spend's outputs land in the ironwood bundle,
+    // whose note plaintexts the orchard domain refuses by design.
+    if let Some(b) = tx_data.orchard_bundle() {
+        recover_outputs::<OrchardVersion, _>(b, &ovks, network, &mut out);
+    }
+    if let Some(b) = tx_data.ironwood_bundle() {
+        recover_outputs::<IronwoodVersion, _>(b, &ovks, network, &mut out);
     }
 
     serde_json::to_string(&serde_json::json!({
         "recomputed_sighash": recomputed,
         "sighash_match": sighash_match,
-        "outputs": outputs,
-        "total_send_zat": total_send,
-        "total_change_zat": total_change,
+        "outputs": out.outputs,
+        "total_send_zat": out.total_send,
+        "total_change_zat": out.total_change,
     }))
     .map_err(|e| e.to_string())
+}
+
+#[derive(Default)]
+struct Recovered {
+    outputs: Vec<serde_json::Value>,
+    total_send: u64,
+    total_change: u64,
+}
+
+/// Decrypt one bundle's outputs with the outgoing viewing keys: the external
+/// key opens a payment, the internal key opens change back to the group.
+fn recover_outputs<V, A>(
+    bundle: &orchard::Bundle<A, zcash_protocol::value::ZatBalance>,
+    ovks: &[orchard::keys::OutgoingViewingKey; 2],
+    network: zcash_protocol::consensus::NetworkType,
+    out: &mut Recovered,
+) where
+    V: orchard::note_encryption::DomainVersion,
+    A: orchard::bundle::Authorization,
+{
+    use orchard::note_encryption::NoteEncryptionDomain;
+    use zcash_address::unified::{Address as UnifiedAddress, Encoding, Receiver};
+    use zcash_note_encryption::try_output_recovery_with_ovk;
+
+    for action in bundle.actions().iter() {
+        let domain = NoteEncryptionDomain::<V>::for_action(action);
+        let cv = action.cv_net();
+        let out_ct = action.encrypted_note().out_ciphertext;
+        let recovered = ovks.iter().enumerate().find_map(|(i, ovk)| {
+            try_output_recovery_with_ovk(&domain, ovk, action, cv, &out_ct).map(|r| (r, i == 1))
+        });
+        if let Some(((note, addr, _memo), is_change)) = recovered {
+            let amount = note.value().inner();
+            if is_change {
+                out.total_change = out.total_change.saturating_add(amount);
+            } else {
+                out.total_send = out.total_send.saturating_add(amount);
+            }
+            let ua = UnifiedAddress::try_from_items(vec![Receiver::Orchard(
+                addr.to_raw_address_bytes(),
+            )])
+            .map(|a| a.encode(&network))
+            .unwrap_or_default();
+            out.outputs.push(serde_json::json!({
+                "recipient": ua,
+                "amount_zat": amount,
+                "is_change": is_change,
+            }));
+        }
+    }
 }
 
 // ── helpers ──

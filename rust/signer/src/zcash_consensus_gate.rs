@@ -1,6 +1,6 @@
 //! Native-path twin of `pczt_signing::consensus_gate` (the module path).
 //!
-//! The two PCZT signers link different `pczt` releases from different
+//! Both PCZT signers link the same zakura `pczt` release, but from different
 //! workspaces, so the rules are restated here rather than shared - keep them
 //! in step. See that module for the reasoning; in short: refuse, before any
 //! summary reaches the screen, every PCZT this build cannot verify and fully
@@ -14,7 +14,6 @@
 
 use crate::ErrorDisplayed;
 use pczt::Pczt;
-use std::convert::TryFrom;
 
 pub const BRANCH_NU5: u32 = 0xc2d6_d0b4;
 pub const BRANCH_NU6: u32 = 0xc8e7_1055;
@@ -30,10 +29,6 @@ const V6_VERSION_GROUP_ID: u32 = zcash_protocol::constants::V6_VERSION_GROUP_ID;
 
 fn refuse(s: impl Into<String>) -> ErrorDisplayed {
     ErrorDisplayed::Str { s: s.into() }
-}
-
-fn nu7_supported_by_build() -> bool {
-    zcash_protocol::consensus::BranchId::try_from(BRANCH_NU7).is_ok()
 }
 
 pub fn check_supported(pczt: &Pczt) -> Result<(), ErrorDisplayed> {
@@ -57,14 +52,7 @@ pub fn check_supported(pczt: &Pczt) -> Result<(), ErrorDisplayed> {
                 "V6 transaction on pre-NU6.3 branch {branch:#010x} - refusing to display or sign it"
             )))
         }
-        BRANCH_NU6_3 => {}
-        BRANCH_NU7 if nu7_supported_by_build() => {}
-        BRANCH_NU7 => {
-            return Err(refuse(
-                "This is an NU7 transaction and this Zigner build cannot verify NU7 yet \
-                 - update Zigner before signing it",
-            ))
-        }
+        BRANCH_NU6_3 | BRANCH_NU7 => {}
         other => {
             return Err(refuse(format!(
                 "Unsupported consensus branch {other:#010x} - refusing to display or sign it"

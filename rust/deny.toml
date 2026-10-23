@@ -53,6 +53,14 @@ ignore = [
     "RUSTSEC-2026-0258",
     "RUSTSEC-2026-0346",
     "RUSTSEC-2026-0349",
+    # webpki-roots / rustls-webpki 0.101 distrusted-intermediate advisories -
+    # same host-side path as above (jsonrpsee 0.16 via generate_message and the
+    # subxt dev-dependency); never in the APK.
+    "RUSTSEC-2026-0381",
+    "RUSTSEC-2026-0382",
+    # basic-toml unmaintained (no vulnerability) - read at compile time by the
+    # i18n-embed-fl proc macro behind age; nothing on the device parses TOML.
+    "RUSTSEC-2026-0374",
 ]
 
 [licenses]

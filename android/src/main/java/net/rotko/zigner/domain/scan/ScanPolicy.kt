@@ -62,12 +62,13 @@ object ScanPolicy {
 	/**
 	 * On by default: the flows this device is for.
 	 *
-	 * Substrate and Penumbra stay one toggle away. Cosmos is on so a Terp key
-	 * can scan an amino sign request. An attacker still cannot reach a parser
-	 * the user has switched off.
+	 * Penumbra is on because this device signs Penumbra. Cosmos is on so a
+	 * Terp key can scan an amino sign request. Substrate stays off until a
+	 * flow sends it. An attacker cannot reach a parser that is off.
 	 */
 	val DEFAULT_ON = setOf(
 		ScanCapability.ZCASH,
+		ScanCapability.PENUMBRA,
 		ScanCapability.MODULE,
 		ScanCapability.BACKUP,
 		ScanCapability.AUTH,
