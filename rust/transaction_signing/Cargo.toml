@@ -40,21 +40,23 @@ penumbra-proto = { git = "https://github.com/penumbra-zone/penumbra.git", tag = 
 serde_json = { version = "1", optional = true }
 
 # zcash crypto dependencies
-orchard = { version = "0.15", optional = true }
+orchard = { package = "zakura-orchard", version = "=2.2.0", default-features = false, optional = true }
 secp256k1 = { version = "0.29", optional = true }
 ripemd = { version = "0.1", optional = true }
 bs58 = { version = "0.5", features = ["check"], optional = true }
-pasta_curves = { version = "0.5", optional = true }
-rand_core = { version = "0.6", optional = true }
+pasta_curves = { package = "zakura-pasta-curves", version = "=2.2.0", optional = true }
+# OS entropy for RedPallas signing, typed in the rand_core 0.10 the zakura
+# orchard signing API takes
+rand = { version = "0.10", default-features = false, features = ["sys_rng"], optional = true }
 zip32 = { version = "0.2", optional = true }
-zcash_address = { version = "0.13", optional = true }
-zcash_protocol = { version = "0.10", optional = true }
+zcash_address = { package = "zakura-address", version = "=2.2.0", default-features = false, optional = true }
+zcash_protocol = { package = "zakura-protocol", version = "=2.2.0", default-features = false, optional = true }
 frost-spend = { workspace = true, optional = true }
 
 [features]
 default = []
 penumbra = ["decaf377", "decaf377-rdsa", "blake2b_simd", "rand_chacha", "bip32", "hmac", "sha2", "pbkdf2", "poseidon377", "bech32", "subtle", "penumbra-transaction", "penumbra-keys", "penumbra-proto"]
-zcash = ["orchard", "secp256k1", "ripemd", "bs58", "pasta_curves", "rand_core", "bip32", "bech32", "sha2", "zip32", "zcash_address", "zcash_protocol", "frost-spend"]
+zcash = ["orchard", "secp256k1", "ripemd", "bs58", "pasta_curves", "rand", "bip32", "bech32", "sha2", "zip32", "zcash_address", "zcash_protocol", "frost-spend"]
 cosmos = ["secp256k1", "sha2", "serde_json"]
 
 
