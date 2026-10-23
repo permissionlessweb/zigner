@@ -1,6 +1,5 @@
 package net.rotko.zigner.screens.keysetdetails
 
-import timber.log.Timber
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import net.rotko.zigner.dependencygraph.ServiceLocator
@@ -87,44 +86,42 @@ class KeySetDetailsViewModel : ViewModel() {
 			initialValue = fullScreenState.value,
 		)
 
-	private suspend fun getKeySetDetails(requestedSeedName: String?): OperationResult<KeySetDetailsScreenState, ErrorDisplayed> {
-		if (requestedSeedName != null) {
-			preferencesRepository.setLastSelectedSeed(requestedSeedName)
-		}
-
-		_shownSeedName.value =
-			requestedSeedName ?: preferencesRepository.getLastSelectedSeed()
-
-		val result = shownSeedName.value?.let { seedName ->
-			uniffiInteractor.keySetBySeedName(seedName)
-				.mapInner {
-					KeySetDetailsScreenState.Data(
-						filteredModel = it,
-						wasEmptyKeyset = it.keysAndNetwork.isEmpty()
-					)
-				}
-		}
-
-		return when (result) {
-			null, is OperationResult.Err -> {
-				Timber.d(
-					"Keyset",
-					"wrong seed name requested or wrong last known seed getting another one"
+	private suspend fun openKeySet(seedName: String): OperationResult<KeySetDetailsScreenState, ErrorDisplayed> {
+		preferencesRepository.setLastSelectedSeed(seedName)
+		_shownSeedName.value = seedName
+		return uniffiInteractor.keySetBySeedName(seedName)
+			.mapInner {
+				KeySetDetailsScreenState.Data(
+					filteredModel = it,
+					wasEmptyKeyset = it.keysAndNetwork.isEmpty()
 				)
-				val seedNameNew = seedRepository.getLastKnownSeedNames().firstOrNull()
-					?: return OperationResult.Ok(KeySetDetailsScreenState.NoKeySets)
-
-				uniffiInteractor.keySetBySeedName(seedNameNew)
-					.mapInner {
-						KeySetDetailsScreenState.Data(
-							filteredModel = it,
-							wasEmptyKeyset = it.keysAndNetwork.isEmpty()
-						)
-					}
 			}
+	}
 
-			is OperationResult.Ok -> result
+	private suspend fun getKeySetDetails(requestedSeedName: String?): OperationResult<KeySetDetailsScreenState, ErrorDisplayed> {
+		val names = seedRepository.getLastKnownSeedNames()
+		if (names.isEmpty() && requestedSeedName == null) {
+			return OperationResult.Ok(KeySetDetailsScreenState.NoKeySets)
 		}
+
+		// A named selection stays on that key set. Falling through to the
+		// first name made the second Terp key set look like it could not be opened.
+		val target = requestedSeedName
+			?: preferencesRepository.getLastSelectedSeed()?.takeIf { names.contains(it) }
+			?: names.firstOrNull()
+			?: return OperationResult.Ok(KeySetDetailsScreenState.NoKeySets)
+
+		val opened = openKeySet(target)
+		if (opened is OperationResult.Ok || requestedSeedName != null) {
+			return opened
+		}
+
+		for (name in names) {
+			if (name == target) continue
+			val other = openKeySet(name)
+			if (other is OperationResult.Ok) return other
+		}
+		return opened
 	}
 
 	suspend fun validateDbSchemaCorrect(): UniffiResult<Unit> {

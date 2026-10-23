@@ -124,8 +124,11 @@ class SeedRepository(
 		seedPhrase: String,
 		networksKeys: List<String>
 	): AuthOperationResult {
-		if (isSeedPhraseCollision(seedPhrase)) {
-			return AuthOperationResult.Error(Exception("Seed Phrase Collision - can't proceed"))
+		val existingName = seedNameHoldingPhrase(seedPhrase)
+		if (existingName != null) {
+			return AuthOperationResult.Error(
+				Exception("Seed phrase collision - already saved as $existingName")
+			)
 		}
 
 		try {
@@ -162,8 +165,14 @@ class SeedRepository(
 		seedStorage.addSeed(seedName, seedPhrase)
 		try {
 			createKeySet(seedName, seedPhrase, networks)
-		} catch (e: ErrorDisplayed) {
-			submitErrorState("error in add seed $e")
+		} catch (e: Exception) {
+			// Key creation did not finish. Drop the phrase so the next import
+			// is not reported as a collision.
+			try {
+				seedStorage.removeSeed(seedName)
+			} catch (_: Exception) {
+			}
+			throw e
 		}
 		System.gc()
 	}
@@ -182,7 +191,17 @@ class SeedRepository(
 					seedStorage.removeSeed(seedName)
 					clearCryptedStorage.removeQrCode(seedName)
 					when (val remove = uniffiInteractor.removeKeySet(seedName)) {
-						is UniffiResult.Error -> OperationResult.Err(remove.error)
+						is UniffiResult.Error -> {
+							val missingInDb = remove.error is ErrorDisplayed.Str &&
+								remove.error.s.contains("There are no seeds")
+							if (missingInDb) {
+								// Phrase is already gone. A key set with no addresses
+								// is removed; that is not a failure.
+								OperationResult.Ok(Unit)
+							} else {
+								OperationResult.Err(remove.error)
+							}
+						}
 						is UniffiResult.Success -> OperationResult.Ok(Unit)
 					}
 				} catch (e: java.lang.Exception) {
@@ -216,26 +235,28 @@ class SeedRepository(
 		}
 	}
 
-	suspend fun isSeedPhraseCollision(seedPhrase: String): Boolean {
+	suspend fun seedNameHoldingPhrase(seedPhrase: String): String? {
 		return try {
-			val result = seedStorage.checkIfSeedNameAlreadyExists(seedPhrase)
-			result
+			seedStorage.seedNameHoldingPhrase(seedPhrase)
 		} catch (e: UserNotAuthenticatedException) {
 			when (val authResult =
 				authentication.authenticate(activity)) {
 				AuthResult.AuthSuccess -> {
-					val result = seedStorage.checkIfSeedNameAlreadyExists(seedPhrase)
-					result
+					seedStorage.seedNameHoldingPhrase(seedPhrase)
 				}
 
 				AuthResult.AuthError,
 				AuthResult.AuthFailed,
 				AuthResult.AuthUnavailable -> {
 					Timber.e(TAG, "auth error - $authResult")
-					false
+					null
 				}
 			}
 		}
+	}
+
+	suspend fun isSeedPhraseCollision(seedPhrase: String): Boolean {
+		return seedNameHoldingPhrase(seedPhrase) != null
 	}
 }
 

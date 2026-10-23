@@ -21,6 +21,9 @@ class MainActivity : AppCompatActivity() {
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
 		ServiceLocator.initActivityDependencies(this)
+		if (net.rotko.zigner.screens.settings.bluetooth.SignerRuntime.isArmed(this)) {
+			net.rotko.zigner.screens.settings.bluetooth.RemoteSignerService.start(this)
+		}
 
 		//remove automatic insets so bottom sheet can dimm status bar, other views will add their paddings if needed.
 		WindowCompat.setDecorFitsSystemWindows(window, false)

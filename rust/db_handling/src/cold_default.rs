@@ -110,6 +110,31 @@ fn default_cold_metadata(purpose: Purpose) -> Result<Batch> {
     Ok(batch)
 }
 
+/// Insert any default network that this database does not already have.
+///
+/// A signer installed before Terp shipped keeps its keys. Opening it adds the
+/// missing spec and verifier and leaves every existing row alone.
+#[cfg(feature = "active")]
+pub fn ensure_missing_default_networks(database: &sled::Db) -> Result<()> {
+    use constants::{SPECSTREE, VERIFIERS};
+
+    let specs = crate::helpers::open_tree(database, SPECSTREE)?;
+    for network in default_chainspecs() {
+        let key =
+            NetworkSpecsKey::from_parts(&network.specs.genesis_hash, &network.specs.encryption);
+        if specs.get(key.key())?.is_none() {
+            specs.insert(key.key(), network.encode())?;
+        }
+    }
+    let verifiers = crate::helpers::open_tree(database, VERIFIERS)?;
+    for (verifier_key, current_verifier) in default_verifiers() {
+        if verifiers.get(verifier_key.key())?.is_none() {
+            verifiers.insert(verifier_key.key(), current_verifier.encode())?;
+        }
+    }
+    Ok(())
+}
+
 /// Make [`Batch`] with default networks
 /// [`OrderedNetworkSpecs`](definitions::network_specs::OrderedNetworkSpecs), for
 /// [`SPECSTREE`] tree, in purged database.

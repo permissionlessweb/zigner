@@ -62,10 +62,9 @@ object ScanPolicy {
 	/**
 	 * On by default: the flows this device is for.
 	 *
-	 * Substrate, Penumbra and Cosmos are deliberately NOT here. They stay
-	 * compiled in and one toggle away, but they are not reachable from the
-	 * camera until someone asks for them. That is the whole point - an
-	 * attacker cannot reach a parser the user never enabled.
+	 * Substrate and Penumbra stay one toggle away. Cosmos is on so a Terp key
+	 * can scan an amino sign request. An attacker still cannot reach a parser
+	 * the user has switched off.
 	 */
 	val DEFAULT_ON = setOf(
 		ScanCapability.ZCASH,
@@ -73,6 +72,7 @@ object ScanPolicy {
 		ScanCapability.BACKUP,
 		ScanCapability.AUTH,
 		ScanCapability.FROST,
+		ScanCapability.COSMOS,
 	)
 
 	private fun prefs(context: Context) =

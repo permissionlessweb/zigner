@@ -73,6 +73,7 @@ import net.rotko.zigner.domain.KeySetDetailsModel
 import net.rotko.zigner.domain.NetworkState
 import net.rotko.zigner.domain.abbreviateString
 import net.rotko.zigner.domain.conditional
+import net.rotko.zigner.screens.settings.bluetooth.RemoteSignerHomeTab
 import net.rotko.zigner.screens.keysetdetails.items.HotWalletQrSection
 import net.rotko.zigner.screens.keysetdetails.items.KeySetBottomBar
 import net.rotko.zigner.screens.keysetdetails.items.NetworkKeysSection
@@ -112,12 +113,27 @@ fun KeySetDetailsScreenView(
 	onOpenKey: (keyAddr: String, keySpecs: String) -> Unit,
 	getSeedPhrase: suspend (String) -> String? = { null },
 ) {
+	var homeTab by remember { mutableStateOf("keys") }
 	Column(modifier = Modifier.fillMaxHeight()) {
 		KeySetDetailsHeader(
 			onSettings = { navController.navigate(CoreUnlockedNavSubgraph.settings) },
 			onMenu = onMenu,
 		)
+		Row(
+			modifier = Modifier
+				.fillMaxWidth()
+				.padding(horizontal = 16.dp, vertical = 4.dp),
+			horizontalArrangement = Arrangement.spacedBy(16.dp),
+		) {
+			HomeTabLabel("Keys", homeTab == "keys") { homeTab = "keys" }
+			HomeTabLabel("Signer", homeTab == "signer") { homeTab = "signer" }
+		}
 
+		if (homeTab == "signer") {
+			Box(modifier = Modifier.weight(1f)) {
+				RemoteSignerHomeTab()
+			}
+		} else {
 		Box(modifier = Modifier.weight(1f)) {
 			Column(
 				modifier = Modifier
@@ -180,6 +196,7 @@ fun KeySetDetailsScreenView(
 				Spacer(modifier = Modifier.padding(bottom = 8.dp))
 			}
 		}
+		}
 
 		KeySetBottomBar(
 			onScan = {
@@ -187,6 +204,18 @@ fun KeySetDetailsScreenView(
 			},
 		)
 	}
+}
+
+@Composable
+private fun HomeTabLabel(label: String, selected: Boolean, onClick: Callback) {
+	Text(
+		text = label,
+		style = if (selected) SignerTypeface.LabelL else SignerTypeface.BodyL,
+		color = if (selected) MaterialTheme.colors.primary else MaterialTheme.colors.textSecondary,
+		modifier = Modifier
+			.clickable(onClick = onClick)
+			.padding(vertical = 8.dp),
+	)
 }
 
 @Composable

@@ -63,11 +63,13 @@ sealed class SignatureResult {
 	data class HexQr(
 		val hexString: String,
 		override val networkName: String,
+		val publicKeyHex: String? = null,
 	) : SignatureResult()
 
 	/** UR-encoded parts displayed as animated QR codes */
 	data class UrParts(
 		val parts: List<String>,
 		override val networkName: String,
+		val publicKeyHex: String? = null,
 	) : SignatureResult()
 }

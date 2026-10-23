@@ -41,17 +41,29 @@ data class KeySetDetailsModel(
 }
 
 
-fun MKeysNew.toKeySetDetailsModel(): OperationResult<KeySetDetailsModel, ErrorDisplayed> {
-	return if (root == null) {
-		OperationResult.Err(ErrorDisplayed.Str("Key Set is missing in DB or storage inconsistent"))
-	} else {
-		OperationResult.Ok(
-			KeySetDetailsModel(
-				keysAndNetwork = set.map { it.toKeyAndNetworkModel() },
-				root = root!!.toKeysModel(),
-			)
+fun MKeysNew.toKeySetDetailsModel(seedName: String): OperationResult<KeySetDetailsModel, ErrorDisplayed> {
+	val keysAndNetwork = set.map { it.toKeyAndNetworkModel() }
+	// A Cosmos-only key set, or a phrase saved without a substrate root,
+	// has no root row. The name still identifies the key set, so the screen
+	// can open and the set can be deleted.
+	val rootModel = root?.toKeysModel() ?: run {
+		val derived = keysAndNetwork.firstOrNull()?.key
+		KeyModel(
+			identicon = derived?.identicon ?: Identicon.Dots(emptyList()),
+			addressKey = "",
+			seedName = seedName,
+			base58 = derived?.base58 ?: "",
+			hasPwd = false,
+			path = "",
+			secretExposed = derived?.secretExposed ?: false,
 		)
 	}
+	return OperationResult.Ok(
+		KeySetDetailsModel(
+			keysAndNetwork = keysAndNetwork,
+			root = rootModel,
+		)
+	)
 }
 
 

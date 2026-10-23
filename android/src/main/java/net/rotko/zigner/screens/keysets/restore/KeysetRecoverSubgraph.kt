@@ -12,11 +12,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
 import net.rotko.zigner.domain.backend.AuthOperationResult
 import net.rotko.zigner.domain.popUpToTop
 import net.rotko.zigner.domain.submitErrorState
@@ -37,6 +35,9 @@ fun KeysetRecoverSubgraph(
 	var keysetName by rememberSaveable() {
 		mutableStateOf("")
 	}
+	// The phrase stays on the view model. A navigation path splits on the
+	// spaces between words, so the keystore was saving only the first word
+	// and the next phrase that started with that word was a collision.
 
 	val localNavController = rememberNavController()
 	NavHost(
@@ -70,11 +71,7 @@ fun KeysetRecoverSubgraph(
 				},
 				onDone = {
 					if (model.value.validSeed) {
-						localNavController.navigate(
-							KeysetRecoverSubgraph.NetworksSelection.destination(
-								model.value.enteredWords.joinToString(separator = " ")
-							)
-						)
+						localNavController.navigate(KeysetRecoverSubgraph.NetworksSelection.route)
 					} else {
 						submitErrorState("navigation to finish called, but seed is not valid")
 					}
@@ -85,21 +82,12 @@ fun KeysetRecoverSubgraph(
 					.imePadding(),
 			)
 		}
-		composable(
-			route = KeysetRecoverSubgraph.NetworksSelection.route,
-			arguments = listOf(
-				navArgument(KeysetRecoverSubgraph.NetworksSelection.seedPhrase) {
-					type = NavType.StringType
-				}
-			)
-		) {
-			val seedPhrase =
-				it.arguments?.getString(KeysetRecoverSubgraph.NetworksSelection.seedPhrase)!!
+		composable(route = KeysetRecoverSubgraph.NetworksSelection.route) {
 			val context = LocalContext.current
 
 			RecoverKeysetSelectNetworkRestoreFlowFullScreen(
 				seedName = keysetName,
-				seedPhrase = seedPhrase,
+				seedPhrase = model.value.enteredWords.joinToString(separator = " "),
 				onBack = localNavController::popBackStack,
 				showError = { error: AuthOperationResult ->
 					error.handleErrorAppState(coreNavController, context)
@@ -123,9 +111,6 @@ private object KeysetRecoverSubgraph {
 	const val seedPhrase = "recover_keyset_phrase"
 
 	object NetworksSelection {
-		internal const val seedPhrase = "seed_name_arg"
-		private const val baseRoute = "recover_keyset_networks_confirmation"
-		const val route = "$baseRoute/{$seedPhrase}"
-		fun destination(seedName: String) = "$baseRoute/${seedName}"
+		const val route = "recover_keyset_networks_confirmation"
 	}
 }

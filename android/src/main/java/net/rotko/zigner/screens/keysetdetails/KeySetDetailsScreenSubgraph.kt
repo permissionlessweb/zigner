@@ -12,6 +12,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -46,6 +47,7 @@ fun KeySetDetailsScreenSubgraph(
 	coreNavController: NavController,
 ) {
 	val menuNavController = rememberNavController()
+	val context = LocalContext.current
 	val coroutineScope = rememberCoroutineScope()
 
 	val keySetViewModel: KeySetDetailsViewModel = viewModel()
@@ -90,6 +92,14 @@ fun KeySetDetailsScreenSubgraph(
 
 		KeySetDetailsScreenState.LoadingState, null -> WaitingScreen()
 		is KeySetDetailsScreenState.Data -> {
+			val terpGranter = state.filteredModel.keysAndNetwork
+				.firstOrNull { it.key.base58.startsWith("terp1") && it.network.networkTitle.contains("terp", ignoreCase = true) }
+				?.key?.base58
+			LaunchedEffect(state.filteredModel.root.seedName, terpGranter) {
+				if (!terpGranter.isNullOrBlank()) {
+					net.rotko.zigner.screens.settings.bluetooth.SignerRuntime.setGranter(context, terpGranter)
+				}
+			}
 
 			Box(Modifier.statusBarsPadding()) {
 				KeySetDetailsScreenView(
@@ -122,6 +132,9 @@ fun KeySetDetailsScreenSubgraph(
 						menuNavController.navigate(KeySetDetailsMenuSubgraph.show_root)
 					},
 					onOpenKey = { keyAddr: String, keySpecs: String ->
+						if (keyAddr.startsWith("terp1")) {
+							net.rotko.zigner.screens.settings.bluetooth.SignerRuntime.setGranter(context, keyAddr)
+						}
 						coreNavController.navigate(
 							CoreUnlockedNavSubgraph.KeyDetails.destination(
 								keyAddr = keyAddr,

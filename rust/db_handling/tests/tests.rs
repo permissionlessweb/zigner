@@ -263,6 +263,14 @@ fn print_show_all_networks_flag_westend() {
                 selected: false,
                 title: "Terra".to_string(),
             },
+            Network {
+                key: "070000000000000000000000000000000000000000000000746572702d31000001"
+                    .to_string(),
+                logo: "terp".to_string(),
+                order: 10,
+                selected: false,
+                title: "Terp".to_string(),
+            },
         ],
     };
     assert_eq!(menu, expected_menu);
@@ -345,6 +353,13 @@ fn show_all_networks_no_flag() {
             logo: "terra".to_string(),
             order: 9,
             path_id: "m/44'/330'/0'/0/0".to_string(),
+        },
+        MMNetwork {
+            key: "070000000000000000000000000000000000000000000000746572702d31000001".to_string(),
+            title: "terp".to_string(),
+            logo: "terp".to_string(),
+            order: 10,
+            path_id: "m/44'/118'/0'/0/0".to_string(),
         },
     ];
     assert_eq!(networks, expected_networks);

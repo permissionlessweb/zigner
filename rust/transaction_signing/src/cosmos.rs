@@ -176,6 +176,13 @@ fn format_coin(c: &serde_json::Value) -> String {
     format!("{a} {d}")
 }
 
+fn allowance_spend(v: &serde_json::Value) -> String {
+    match v["allowance"]["value"]["spend_limit"].as_array() {
+        Some(coins) if !coins.is_empty() => coins.iter().map(format_coin).collect::<Vec<_>>().join(", "),
+        _ => "unlimited".to_string(),
+    }
+}
+
 /// format the first coin from an array of coins
 fn format_first_coin(arr: &serde_json::Value) -> String {
     arr.as_array()
@@ -451,6 +458,60 @@ impl CosmosMsg {
                 }
             }
 
+            // cw-orch/Approval is expanded in `cosmos_msgs_from_amino` so each
+            // action is its own card. This arm is unreachable for that type.
+
+            // cw-orch session setup. One card per grant or revoke so the cold
+            // key sees the grantee, the type URL, the expiration, and the
+            // spend limit before it signs.
+            "cosmos-sdk/MsgGrant" => CosmosMsg {
+                msg_type: "Grant".to_string(),
+                recipient: v["grantee"].as_str().unwrap_or("").to_string(),
+                amount: v["grant"]["authorization"]["value"]["msg"]
+                    .as_str()
+                    .unwrap_or("")
+                    .to_string(),
+                detail: format!(
+                    "granter {}\nexpires {}",
+                    v["granter"].as_str().unwrap_or(""),
+                    v["grant"]["expiration"].as_str().unwrap_or("no expiration")
+                ),
+                blind: false,
+            },
+            "cosmos-sdk/MsgRevoke" => CosmosMsg {
+                msg_type: "Revoke".to_string(),
+                recipient: v["grantee"].as_str().unwrap_or("").to_string(),
+                amount: v["msg_type_url"].as_str().unwrap_or("").to_string(),
+                detail: format!(
+                    "granter {}\nremoves this authorization",
+                    v["granter"].as_str().unwrap_or("")
+                ),
+                blind: false,
+            },
+            "cosmos-sdk/MsgGrantAllowance" => CosmosMsg {
+                msg_type: "Fee grant".to_string(),
+                recipient: v["grantee"].as_str().unwrap_or("").to_string(),
+                amount: allowance_spend(v),
+                detail: format!(
+                    "granter {}\nexpires {}",
+                    v["granter"].as_str().unwrap_or(""),
+                    v["allowance"]["value"]["expiration"]
+                        .as_str()
+                        .unwrap_or("no expiration")
+                ),
+                blind: false,
+            },
+            "cosmos-sdk/MsgRevokeAllowance" => CosmosMsg {
+                msg_type: "Revoke fee grant".to_string(),
+                recipient: v["grantee"].as_str().unwrap_or("").to_string(),
+                amount: "fee allowance".to_string(),
+                detail: format!(
+                    "granter {}\nremoves the fee allowance",
+                    v["granter"].as_str().unwrap_or("")
+                ),
+                blind: false,
+            },
+
             // ================================================================
             // unknown msg type — BLIND SIGNING REQUIRED
             //
@@ -472,7 +533,416 @@ impl CosmosMsg {
     }
 }
 
+fn cosmos_msgs_from_amino(message: &serde_json::Value) -> Vec<CosmosMsg> {
+    match message["type"].as_str() {
+        Some("cw-orch/Approval") => approval_cards(&message["value"]),
+        // One amino MsgGrant can authorize several wasm actions. Each action
+        // is its own card. GenericAuthorization still reads value.msg.
+        Some("cosmos-sdk/MsgGrant") => grant_cards(&message["value"]),
+        _ => vec![CosmosMsg::from_json(message)],
+    }
+}
+
+/// Cards for one `MsgGrant`. Store-code and contract-execution grants do not
+/// put the authorized action in `authorization.value.msg`, so reading only
+/// that string hides the code hashes and the contract calls.
+fn grant_cards(value: &serde_json::Value) -> Vec<CosmosMsg> {
+    let grantee = value["grantee"].as_str().unwrap_or("").to_string();
+    let granter = value["granter"].as_str().unwrap_or("");
+    let expiration = value["grant"]["expiration"]
+        .as_str()
+        .unwrap_or("no expiration");
+    let auth = &value["grant"]["authorization"];
+    let auth_type = auth["type"].as_str().unwrap_or("");
+    let heading = format!("granter {granter}\ngrantee {grantee}\nexpires {expiration}");
+    match auth_type {
+        "wasm/StoreCodeAuthorization" => {
+            let hashes: Vec<&str> = auth["value"]["grants"]
+                .as_array()
+                .map(|grants| {
+                    grants
+                        .iter()
+                        .filter_map(|grant| grant["code_hash"].as_str())
+                        .filter(|hash| !hash.is_empty())
+                        .collect()
+                })
+                .unwrap_or_default();
+            if hashes.is_empty() {
+                return vec![grant_fallback(&grantee, auth_type, &heading, auth)];
+            }
+            hashes
+                .into_iter()
+                .map(|hash| CosmosMsg {
+                    msg_type: "Store code".to_string(),
+                    recipient: grantee.clone(),
+                    amount: hash.to_string(),
+                    detail: heading.clone(),
+                    blind: false,
+                })
+                .collect()
+        }
+        "wasm/ContractExecutionAuthorization" => {
+            let grants = auth["value"]["grants"].as_array().cloned().unwrap_or_default();
+            if grants.is_empty() {
+                return vec![grant_fallback(&grantee, auth_type, &heading, auth)];
+            }
+            grants
+                .iter()
+                .map(|grant| {
+                    let contract = grant["contract"].as_str().unwrap_or("").to_string();
+                    let keys = grant["filter"]["value"]["keys"]
+                        .as_array()
+                        .map(|keys| {
+                            keys.iter()
+                                .filter_map(|key| key.as_str())
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        })
+                        .unwrap_or_default();
+                    let calls = grant["limit"]["value"]["remaining"]
+                        .as_str()
+                        .unwrap_or("");
+                    CosmosMsg {
+                        msg_type: "Execute".to_string(),
+                        recipient: contract,
+                        amount: keys,
+                        detail: format!("{heading}\ncalls {calls}"),
+                        blind: false,
+                    }
+                })
+                .collect()
+        }
+        _ => {
+            let msg = auth["value"]["msg"].as_str().unwrap_or("");
+            vec![CosmosMsg {
+                msg_type: "Grant".to_string(),
+                recipient: grantee,
+                amount: if msg.is_empty() {
+                    auth_type.to_string()
+                } else {
+                    msg.to_string()
+                },
+                detail: heading,
+                blind: msg.is_empty() && auth_type.is_empty(),
+            }]
+        }
+    }
+}
+
+fn grant_fallback(
+    grantee: &str,
+    auth_type: &str,
+    heading: &str,
+    auth: &serde_json::Value,
+) -> CosmosMsg {
+    CosmosMsg {
+        msg_type: "Grant".to_string(),
+        recipient: grantee.to_string(),
+        amount: auth_type.to_string(),
+        detail: format!(
+            "{heading}\n{}",
+            serde_json::to_string(&auth["value"]).unwrap_or_default()
+        ),
+        blind: true,
+    }
+}
+
+/// One card per cw-orch action. The body is shown in full, except a CosmWasm
+/// binary, which is replaced by its length. Base64 and hex that decode to
+/// text stay readable, with the original form after `@@encoded`.
+fn approval_cards(value: &serde_json::Value) -> Vec<CosmosMsg> {
+    let principal = value["principal"].as_str().unwrap_or("");
+    let Some(list) = value["actions"].as_array().filter(|list| !list.is_empty()) else {
+        return vec![CosmosMsg {
+            msg_type: "cw-orch approval".to_string(),
+            recipient: principal.to_string(),
+            amount: "0 actions".to_string(),
+            detail: String::new(),
+            blind: false,
+        }];
+    };
+    list.iter()
+        .map(|action| {
+            let code = json_num_or_str(&action["code_id"]);
+            let body = action["body"].as_str().unwrap_or("");
+            let mut detail = String::new();
+            if !principal.is_empty() {
+                detail.push_str("principal ");
+                detail.push_str(principal);
+            }
+            if !body.is_empty() {
+                if !detail.is_empty() {
+                    detail.push('\n');
+                }
+                detail.push_str(&present_body(body));
+            }
+            CosmosMsg {
+                msg_type: action["type"].as_str().unwrap_or("(no type)").to_string(),
+                recipient: action["contract"].as_str().unwrap_or("").to_string(),
+                amount: if code.is_empty() || code == "?" {
+                    String::new()
+                } else {
+                    format!("code {code}")
+                },
+                detail,
+                blind: false,
+            }
+        })
+        .collect()
+}
+
+fn present_body(raw: &str) -> String {
+    if let Some(json) = json_text(raw) {
+        let mut encoded = String::new();
+        let walked = walk_value(&json, "$", &mut encoded);
+        let shown = serde_json::to_string_pretty(&walked).unwrap_or_else(|_| raw.to_string());
+        return join_encoded(shown, &encoded);
+    }
+    match classify(raw) {
+        Shown::Keep => raw.to_string(),
+        Shown::Wasm(n) => format!("wasm bytecode, {n} bytes"),
+        Shown::Decoded(value, original) => {
+            let shown = shown_value(&value);
+            join_encoded(shown, &format!("$\n{original}\n"))
+        }
+        Shown::Binary { n, preview, original } => {
+            join_encoded(format!("binary, {n} bytes, {preview}"), &format!("$\n{original}\n"))
+        }
+    }
+}
+
+fn shown_value(value: &serde_json::Value) -> String {
+    match value {
+        serde_json::Value::String(text) => text.clone(),
+        other => serde_json::to_string_pretty(other).unwrap_or_default(),
+    }
+}
+
+fn join_encoded(shown: String, encoded: &str) -> String {
+    if encoded.is_empty() {
+        shown
+    } else {
+        format!("{shown}\n@@encoded\n{encoded}")
+    }
+}
+
+fn walk_value(value: &serde_json::Value, path: &str, encoded: &mut String) -> serde_json::Value {
+    match value {
+        serde_json::Value::String(text) => {
+            if let Some(inner) = json_text(text) {
+                return walk_value(&inner, path, encoded);
+            }
+            match classify(text) {
+                Shown::Keep => serde_json::Value::String(text.clone()),
+                Shown::Wasm(n) => serde_json::Value::String(format!("wasm bytecode, {n} bytes")),
+                Shown::Decoded(inner, original) => {
+                    encoded.push_str(path);
+                    encoded.push('\n');
+                    encoded.push_str(&original);
+                    encoded.push('\n');
+                    walk_value(&inner, path, encoded)
+                }
+                Shown::Binary { n, preview, original } => {
+                    encoded.push_str(path);
+                    encoded.push('\n');
+                    encoded.push_str(&original);
+                    encoded.push('\n');
+                    serde_json::Value::String(format!("binary, {n} bytes, {preview}"))
+                }
+            }
+        }
+        serde_json::Value::Array(items) => serde_json::Value::Array(
+            items
+                .iter()
+                .enumerate()
+                .map(|(index, item)| walk_value(item, &format!("{path}[{index}]"), encoded))
+                .collect(),
+        ),
+        serde_json::Value::Object(map) => {
+            let mut out = serde_json::Map::new();
+            for (key, item) in map {
+                out.insert(key.clone(), walk_value(item, &format!("{path}.{key}"), encoded));
+            }
+            serde_json::Value::Object(out)
+        }
+        other => other.clone(),
+    }
+}
+
+enum Shown {
+    Keep,
+    Wasm(usize),
+    Decoded(serde_json::Value, String),
+    Binary { n: usize, preview: String, original: String },
+}
+
+fn classify(value: &str) -> Shown {
+    let compact: String = value.chars().filter(|c| !c.is_whitespace()).collect();
+    if compact.len() < 16 {
+        return Shown::Keep;
+    }
+    let hex_body = compact.strip_prefix("0x").unwrap_or(&compact);
+    if hex_body.len() >= 16 && hex_body.len() % 2 == 0 && hex_body.chars().all(|c| c.is_ascii_hexdigit()) {
+        if let Ok(bytes) = hex::decode(hex_body) {
+            return interpret(&bytes, false, value);
+        }
+    }
+    if let Some(bytes) = decode_b64(&compact) {
+        return interpret(&bytes, true, value);
+    }
+    Shown::Keep
+}
+
+fn interpret(bytes: &[u8], summarize_binary: bool, original: &str) -> Shown {
+    if is_wasm(bytes) {
+        return Shown::Wasm(bytes.len());
+    }
+    if let Some(text) = printable_text(bytes) {
+        let trimmed = text.trim();
+        if trimmed.starts_with('{') || trimmed.starts_with('[') {
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(trimmed) {
+                return Shown::Decoded(json, original.to_string());
+            }
+        }
+        return Shown::Decoded(serde_json::Value::String(text), original.to_string());
+    }
+    if summarize_binary || original.len() > 128 {
+        let count = bytes.len().min(8);
+        let preview = hex::encode(&bytes[..count]);
+        return Shown::Binary {
+            n: bytes.len(),
+            preview,
+            original: original.to_string(),
+        };
+    }
+    Shown::Keep
+}
+
+fn is_wasm(bytes: &[u8]) -> bool {
+    bytes.starts_with(&[0x00, 0x61, 0x73, 0x6d])
+        || (bytes.len() >= 32 && bytes.starts_with(&[0x1f, 0x8b]))
+}
+
+fn printable_text(bytes: &[u8]) -> Option<String> {
+    let text = std::str::from_utf8(bytes).ok()?;
+    if text.is_empty() {
+        return None;
+    }
+    let printable = text.chars().filter(|c| {
+        matches!(c, '\t' | '\n' | '\r') || ('\u{20}'..='\u{7e}').contains(c)
+    }).count();
+    if printable * 10 >= text.chars().count() * 9 {
+        Some(text.to_string())
+    } else {
+        None
+    }
+}
+
+fn json_text(value: &str) -> Option<serde_json::Value> {
+    let trimmed = value.trim();
+    if trimmed.len() < 2 || !(trimmed.starts_with('{') || trimmed.starts_with('[')) {
+        return None;
+    }
+    serde_json::from_str(trimmed).ok()
+}
+
+fn decode_b64(compact: &str) -> Option<Vec<u8>> {
+    if compact.len() < 16 || compact.len() % 4 != 0 {
+        return None;
+    }
+    let bytes = compact.as_bytes();
+    let mut out = Vec::with_capacity(compact.len() / 4 * 3);
+    for chunk in bytes.chunks(4) {
+        if chunk.iter().filter(|&&c| c == b'=').count() > 2 {
+            return None;
+        }
+        if chunk[2] == b'=' && chunk[3] != b'=' {
+            return None;
+        }
+        let a = b64_val(chunk[0])?;
+        let b = b64_val(chunk[1])?;
+        let c = if chunk[2] == b'=' { 0 } else { b64_val(chunk[2])? };
+        let d = if chunk[3] == b'=' { 0 } else { b64_val(chunk[3])? };
+        out.push((a << 2) | (b >> 4));
+        if chunk[2] != b'=' {
+            out.push((b << 4) | (c >> 2));
+        }
+        if chunk[3] != b'=' {
+            out.push((c << 6) | d);
+        }
+    }
+    Some(out)
+}
+
+fn b64_val(c: u8) -> Option<u8> {
+    match c {
+        b'A'..=b'Z' => Some(c - b'A'),
+        b'a'..=b'z' => Some(c - b'a' + 26),
+        b'0'..=b'9' => Some(c - b'0' + 52),
+        b'+' => Some(62),
+        b'/' => Some(63),
+        b'=' => Some(0),
+        _ => None,
+    }
+}
+
+const GRANTER_CHALLENGE: &[u8] = b"cw-orch-granter:v1\n";
+
+/// Binding of a granter challenge, or `None` when these bytes are not that challenge.
+///
+/// The signed payload is exactly `cw-orch-granter:v1`, one newline, and one binding
+/// line. No NULs and no second line. The signature covers these raw bytes.
+pub fn granter_binding(bytes: &[u8]) -> Result<Option<&str>> {
+    if !bytes.starts_with(GRANTER_CHALLENGE) {
+        return Ok(None);
+    }
+    let rest = &bytes[GRANTER_CHALLENGE.len()..];
+    if rest.is_empty() || rest.contains(&0) || rest.contains(&b'\n') {
+        return Err(Error::Other(anyhow::anyhow!(
+            "granter challenge must be one binding line"
+        )));
+    }
+    let binding = std::str::from_utf8(rest)
+        .map_err(|e| Error::Other(anyhow::anyhow!("granter challenge is not UTF-8: {e}")))?;
+    if binding.chars().any(|c| c.is_control()) {
+        return Err(Error::Other(anyhow::anyhow!(
+            "granter challenge must be one binding line"
+        )));
+    }
+    Ok(Some(binding))
+}
+
 impl CosmosSignDocDisplay {
+    /// One card. The key that signs the raw challenge becomes the granter for `binding`.
+    pub fn granter(binding: &str) -> Self {
+        Self {
+            chain_id: String::new(),
+            fee: "none".to_string(),
+            memo: String::new(),
+            msgs: vec![CosmosMsg {
+                msg_type: "Granter".to_string(),
+                recipient: binding.to_string(),
+                amount: String::new(),
+                detail: format!("This key becomes the granter for {binding}."),
+                blind: false,
+            }],
+        }
+    }
+
+    /// Amino JSON stays on [`Self::from_json`]. A granter challenge is one card.
+    /// Any other payload is an error and is not signed.
+    pub fn from_sign_bytes(bytes: &[u8]) -> Result<Self> {
+        if bytes.first() == Some(&b'{') {
+            return Self::from_json(bytes);
+        }
+        match granter_binding(bytes)? {
+            Some(binding) => Ok(Self::granter(binding)),
+            None => Err(Error::Other(anyhow::anyhow!(
+                "not a transaction and not a granter challenge"
+            ))),
+        }
+    }
+
     /// parse display info from amino JSON sign doc bytes.
     /// parses ALL messages — a cold wallet must never silently hide messages
     /// from the user, as that enables multi-message blind signing attacks.
@@ -496,9 +966,9 @@ impl CosmosSignDocDisplay {
             })
             .unwrap_or_else(|| "unknown".to_string());
 
-        // parse ALL messages
+        // parse ALL messages. One cw-orch approval becomes one card per action.
         let msgs = match json["msgs"].as_array() {
-            Some(arr) => arr.iter().map(CosmosMsg::from_json).collect(),
+            Some(arr) => arr.iter().flat_map(cosmos_msgs_from_amino).collect(),
             None => vec![],
         };
 
@@ -644,6 +1114,43 @@ mod tests {
         assert!(CosmosSignRequest::from_qr_hex(&build(&[1, 2, 3])).is_err());
     }
 
+    fn frame(sign_doc: &[u8]) -> String {
+        let mut payload = Vec::new();
+        payload.extend_from_slice(&COSMOS_PRELUDE);
+        payload.extend_from_slice(&0u32.to_le_bytes());
+        payload.push(b"terp".len() as u8);
+        payload.extend_from_slice(b"terp");
+        payload.extend_from_slice(&(sign_doc.len() as u32).to_le_bytes());
+        payload.extend_from_slice(sign_doc);
+        hex::encode(payload)
+    }
+
+    #[test]
+    fn granter_challenge_is_one_card_and_signs_the_raw_bytes() {
+        let doc = b"cw-orch-granter:v1\napp-setup";
+        let req = CosmosSignRequest::from_qr_hex(&frame(doc)).unwrap();
+        assert_eq!(req.sign_doc_bytes, doc);
+        let display = CosmosSignDocDisplay::from_sign_bytes(&req.sign_doc_bytes).unwrap();
+        assert_eq!(display.msgs.len(), 1);
+        assert_eq!(display.msgs[0].msg_type, "Granter");
+        assert_eq!(display.msgs[0].recipient, "app-setup");
+        assert_eq!(
+            display.msgs[0].detail,
+            "This key becomes the granter for app-setup."
+        );
+        assert_eq!(display.chain_id, "");
+        assert_eq!(display.fee, "none");
+        assert_eq!(display.memo, "");
+        assert!(granter_binding(b"cw-orch-granter:v1\napp-setup\nextra").is_err());
+        assert!(granter_binding(b"cw-orch-granter:v1\napp\0setup").is_err());
+        assert!(CosmosSignDocDisplay::from_sign_bytes(b"not-json").is_err());
+        let amino = br#"{"chain_id":"morocco-1","memo":"cw-orch-session:v1","msgs":[{"type":"cosmos-sdk/MsgGrant","value":{"granter":"terp1g","grantee":"terp1e"}}],"fee":{"amount":[{"denom":"uthiol","amount":"40000"}],"gas":"800000"}}"#;
+        let session = CosmosSignDocDisplay::from_sign_bytes(amino).unwrap();
+        assert_eq!(session.chain_id, "morocco-1");
+        assert_eq!(session.memo, "cw-orch-session:v1");
+        assert_ne!(session.msgs.first().map(|m| m.msg_type.as_str()), Some("Granter"));
+    }
+
     #[test]
     fn test_extract_signers() {
         // MsgSend -> from_address; MsgTransfer -> sender; both collected in order
@@ -763,5 +1270,197 @@ mod tests {
             display.msgs[0].detail.contains("bar"),
             "should show raw value JSON"
         );
+    }
+
+    #[test]
+    fn test_cw_orch_approval_lists_each_action() {
+        let wasm = "AGFzbQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+        let encoded = "eyJvayI6dHJ1ZX0=";
+        let sign_doc = serde_json::json!({
+            "chain_id": "terp-1",
+            "memo": "cw-orch-approval:v1",
+            "msgs": [{
+                "type": "cw-orch/Approval",
+                "value": {
+                    "actions": [
+                        {
+                            "type": "/cosmwasm.wasm.v1.MsgStoreCode",
+                            "code_id": 7,
+                            "body": serde_json::json!({"wasm_byte_code": wasm}).to_string()
+                        },
+                        {
+                            "type": "/cosmwasm.wasm.v1.MsgExecuteContract",
+                            "contract": "terp1c",
+                            "body": serde_json::json!({
+                                "swap": {"denom": "uterp"},
+                                "payload": encoded,
+                                "note": "68656c6c6f20776f726c642121"
+                            }).to_string()
+                        }
+                    ],
+                    "principal": "treasury"
+                }
+            }]
+        });
+        let sign_doc = serde_json::to_vec(&sign_doc).unwrap();
+        let display = CosmosSignDocDisplay::from_json(&sign_doc).unwrap();
+        assert_eq!(display.msgs.len(), 2);
+        assert_eq!(display.msgs[0].msg_type, "/cosmwasm.wasm.v1.MsgStoreCode");
+        assert_eq!(display.msgs[0].amount, "code 7");
+        assert!(display.msgs[0].detail.contains("principal treasury"));
+        assert!(display.msgs[0].detail.contains("wasm bytecode, 32 bytes"));
+        assert!(
+            !display.msgs[0].detail.contains(wasm),
+            "the contract binary stays off the card"
+        );
+        assert!(!display.msgs[0].blind);
+        assert_eq!(display.msgs[1].msg_type, "/cosmwasm.wasm.v1.MsgExecuteContract");
+        assert_eq!(display.msgs[1].recipient, "terp1c");
+        assert!(display.msgs[1].detail.contains("uterp"));
+        assert!(display.msgs[1].detail.contains("\"ok\": true") || display.msgs[1].detail.contains("\"ok\":true"));
+        assert!(display.msgs[1].detail.contains("hello world!!"));
+        assert!(display.msgs[1].detail.contains(encoded));
+        assert!(display.msgs[1].detail.contains("68656c6c6f20776f726c642121"));
+        assert!(!display.msgs[1].blind);
+        assert!(extract_signers(&sign_doc).unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_session_grant_msgs_are_not_blind() {
+        let sign_doc = serde_json::json!({
+            "chain_id": "120u-1",
+            "memo": "cw-orch-session:v1",
+            "msgs": [
+                {
+                    "type": "cosmos-sdk/MsgRevoke",
+                    "value": {
+                        "granter": "terp1cold",
+                        "grantee": "terp1eph",
+                        "msg_type_url": "/cosmwasm.wasm.v1.MsgStoreCode"
+                    }
+                },
+                {
+                    "type": "cosmos-sdk/MsgRevokeAllowance",
+                    "value": { "granter": "terp1cold", "grantee": "terp1eph" }
+                },
+                {
+                    "type": "cosmos-sdk/MsgGrant",
+                    "value": {
+                        "granter": "terp1cold",
+                        "grantee": "terp1eph",
+                        "grant": {
+                            "authorization": {
+                                "type": "cosmos-sdk/GenericAuthorization",
+                                "value": { "msg": "/cosmwasm.wasm.v1.MsgExecuteContract" }
+                            },
+                            "expiration": "1970-01-01T01:24:50Z"
+                        }
+                    }
+                },
+                {
+                    "type": "cosmos-sdk/MsgGrantAllowance",
+                    "value": {
+                        "granter": "terp1cold",
+                        "grantee": "terp1eph",
+                        "allowance": {
+                            "type": "cosmos-sdk/BasicAllowance",
+                            "value": {
+                                "spend_limit": [{ "amount": "25", "denom": "uterp" }],
+                                "expiration": "1970-01-01T01:24:50Z"
+                            }
+                        }
+                    }
+                }
+            ]
+        });
+        let sign_doc = serde_json::to_vec(&sign_doc).unwrap();
+        let display = CosmosSignDocDisplay::from_json(&sign_doc).unwrap();
+        assert_eq!(display.msgs.len(), 4);
+        assert_eq!(display.msgs[0].msg_type, "Revoke");
+        assert_eq!(display.msgs[0].recipient, "terp1eph");
+        assert_eq!(display.msgs[0].amount, "/cosmwasm.wasm.v1.MsgStoreCode");
+        assert!(display.msgs[0].detail.contains("terp1cold"));
+        assert!(!display.msgs[0].blind);
+        assert_eq!(display.msgs[1].msg_type, "Revoke fee grant");
+        assert!(display.msgs[1].detail.contains("removes the fee allowance"));
+        assert!(!display.msgs[1].blind);
+        assert_eq!(display.msgs[2].msg_type, "Grant");
+        assert_eq!(display.msgs[2].amount, "/cosmwasm.wasm.v1.MsgExecuteContract");
+        assert!(display.msgs[2].detail.contains("1970-01-01T01:24:50Z"));
+        assert!(!display.msgs[2].blind);
+        assert_eq!(display.msgs[3].msg_type, "Fee grant");
+        assert_eq!(display.msgs[3].amount, "25 uterp");
+        assert!(display.msgs[3].detail.contains("expires 1970-01-01T01:24:50Z"));
+        assert!(!display.msgs[3].blind);
+        let signers = extract_signers(&sign_doc).unwrap();
+        assert_eq!(signers.len(), 4);
+        assert!(signers.iter().all(|signer| signer == "terp1cold"));
+    }
+
+    #[test]
+    fn wasm_grant_lists_each_store_hash_and_each_contract_call() {
+        let sign_doc = serde_json::json!({
+            "chain_id": "240u-1",
+            "memo": "cw-orch-session:v1",
+            "msgs": [
+                {
+                    "type": "cosmos-sdk/MsgGrant",
+                    "value": {
+                        "granter": "terp1cold",
+                        "grantee": "terp1eph",
+                        "grant": {
+                            "authorization": {
+                                "type": "wasm/StoreCodeAuthorization",
+                                "value": {
+                                    "grants": [
+                                        {"code_hash": "ju9Ahn12PPAIbfyQyvU47jXIxbMy4wHFw1YPuCogG6c="},
+                                        {"code_hash": "0XnivwkuatCU0nH+fdxE9kddC5mmQqG7I3xy31ovHfo="}
+                                    ]
+                                }
+                            },
+                            "expiration": "2026-10-23T18:49:55Z"
+                        }
+                    }
+                },
+                {
+                    "type": "cosmos-sdk/MsgGrant",
+                    "value": {
+                        "granter": "terp1cold",
+                        "grantee": "terp1eph",
+                        "grant": {
+                            "authorization": {
+                                "type": "wasm/ContractExecutionAuthorization",
+                                "value": {
+                                    "grants": [{
+                                        "contract": "terp1bounty",
+                                        "filter": {
+                                            "type": "wasm/AcceptedMessageKeysFilter",
+                                            "value": {"keys": ["update_config"]}
+                                        },
+                                        "limit": {
+                                            "type": "wasm/MaxCallsLimit",
+                                            "value": {"remaining": "1"}
+                                        }
+                                    }]
+                                }
+                            },
+                            "expiration": "2026-10-23T18:49:55Z"
+                        }
+                    }
+                }
+            ]
+        });
+        let bytes = serde_json::to_vec(&sign_doc).unwrap();
+        let display = CosmosSignDocDisplay::from_json(&bytes).unwrap();
+        assert_eq!(display.msgs.len(), 3);
+        assert_eq!(display.msgs[0].msg_type, "Store code");
+        assert_eq!(display.msgs[0].amount, "ju9Ahn12PPAIbfyQyvU47jXIxbMy4wHFw1YPuCogG6c=");
+        assert!(!display.msgs[0].blind);
+        assert_eq!(display.msgs[1].msg_type, "Store code");
+        assert_eq!(display.msgs[2].msg_type, "Execute");
+        assert_eq!(display.msgs[2].recipient, "terp1bounty");
+        assert_eq!(display.msgs[2].amount, "update_config");
+        assert!(display.msgs[2].detail.contains("calls 1"));
+        assert!(!display.msgs[2].blind);
     }
 }

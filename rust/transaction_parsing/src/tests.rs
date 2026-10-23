@@ -253,7 +253,7 @@ fn load_types_known_alice_signed() {
 
     populate_cold_no_metadata(&db, Verifier { v: None }).unwrap();
     let line = fs::read_to_string("for_tests/types_info_Alice.txt").unwrap();
-    let expected_warning_1 =  "Received message is verified by a new general verifier. Currently no general verifier is set, and proceeding will update the general verifier to the received value. All previously acquired information associated with general verifier will be purged. Affected network specs entries: Celestia, Cosmos Hub, Kusama, Noble, Osmosis, Penumbra, Polkadot, Terra, Westend, Zcash; affected metadata entries: none. Types information is purged.".to_string();
+    let expected_warning_1 =  "Received message is verified by a new general verifier. Currently no general verifier is set, and proceeding will update the general verifier to the received value. All previously acquired information associated with general verifier will be purged. Affected network specs entries: Celestia, Cosmos Hub, Kusama, Noble, Osmosis, Penumbra, Polkadot, Terp, Terra, Westend, Zcash; affected metadata entries: none. Types information is purged.".to_string();
 
     let warning = Some(vec![
         TransactionCard {
@@ -389,7 +389,7 @@ fn load_types_known_alice_signed_metadata_hold() {
         warning: Some(vec![TransactionCard {
             index: 1,
             indent: 0,
-            card: Card::WarningCard { f: "Received message is verified by a new general verifier. Currently no general verifier is set, and proceeding will update the general verifier to the received value. All previously acquired information associated with general verifier will be purged. Affected network specs entries: Celestia, Cosmos Hub, Kusama, Noble, Osmosis, Penumbra, Polkadot, Terra, Westend, Zcash; affected metadata entries: kusama2030, polkadot30, westend9000, westend9010. Types information is purged.".to_string() },
+            card: Card::WarningCard { f: "Received message is verified by a new general verifier. Currently no general verifier is set, and proceeding will update the general verifier to the received value. All previously acquired information associated with general verifier will be purged. Affected network specs entries: Celestia, Cosmos Hub, Kusama, Noble, Osmosis, Penumbra, Polkadot, Terp, Terra, Westend, Zcash; affected metadata entries: kusama2030, polkadot30, westend9000, westend9010. Types information is purged.".to_string() },
         },
         TransactionCard {
             index: 2,
@@ -494,7 +494,7 @@ fn load_types_unknown_alice_signed() {
         warning: Some(vec![TransactionCard {
             index: 1,
             indent: 0,
-            card: Card::WarningCard { f: "Received message is verified by a new general verifier. Currently no general verifier is set, and proceeding will update the general verifier to the received value. All previously acquired information associated with general verifier will be purged. Affected network specs entries: Celestia, Cosmos Hub, Kusama, Noble, Osmosis, Penumbra, Polkadot, Terra, Westend, Zcash; affected metadata entries: none. Types information is purged.".to_string() },
+            card: Card::WarningCard { f: "Received message is verified by a new general verifier. Currently no general verifier is set, and proceeding will update the general verifier to the received value. All previously acquired information associated with general verifier will be purged. Affected network specs entries: Celestia, Cosmos Hub, Kusama, Noble, Osmosis, Penumbra, Polkadot, Terp, Terra, Westend, Zcash; affected metadata entries: none. Types information is purged.".to_string() },
         }, TransactionCard {
             index: 2,
             indent: 0,
@@ -1499,7 +1499,7 @@ fn add_specs_dock_alice_verified_db_not_verified() {
         warning: Some(vec![TransactionCard {
             index: 1,
             indent: 0,
-            card: Card::WarningCard { f: "Received message is verified by a new general verifier. Currently no general verifier is set, and proceeding will update the general verifier to the received value. All previously acquired information associated with general verifier will be purged. Affected network specs entries: Celestia, Cosmos Hub, Kusama, Noble, Osmosis, Penumbra, Polkadot, Terra, Westend, Zcash; affected metadata entries: kusama2030, polkadot30, westend9000, westend9010. Types information is purged.".to_string() },
+            card: Card::WarningCard { f: "Received message is verified by a new general verifier. Currently no general verifier is set, and proceeding will update the general verifier to the received value. All previously acquired information associated with general verifier will be purged. Affected network specs entries: Celestia, Cosmos Hub, Kusama, Noble, Osmosis, Penumbra, Polkadot, Terp, Terra, Westend, Zcash; affected metadata entries: kusama2030, polkadot30, westend9000, westend9010. Types information is purged.".to_string() },
         }]),
         new_specs: Some(vec![TransactionCard {
             index: 2,
@@ -1814,7 +1814,7 @@ fn add_specs_westend_ed25519_alice_signed_db_not_verified() {
     let db = sled::open(dbname).unwrap();
     populate_cold(&db, Verifier { v: None }).unwrap();
     let line = fs::read_to_string("for_tests/add_specs_westend-ed25519_Alice-sr25519.txt").unwrap();
-    let warning_str = "Received message is verified by a new general verifier. Currently no general verifier is set, and proceeding will update the general verifier to the received value. All previously acquired information associated with general verifier will be purged. Affected network specs entries: Celestia, Cosmos Hub, Kusama, Noble, Osmosis, Penumbra, Polkadot, Terra, Westend, Zcash; affected metadata entries: kusama2030, polkadot30, westend9000, westend9010. Types information is purged.".to_string();
+    let warning_str = "Received message is verified by a new general verifier. Currently no general verifier is set, and proceeding will update the general verifier to the received value. All previously acquired information associated with general verifier will be purged. Affected network specs entries: Celestia, Cosmos Hub, Kusama, Noble, Osmosis, Penumbra, Polkadot, Terp, Terra, Westend, Zcash; affected metadata entries: kusama2030, polkadot30, westend9000, westend9010. Types information is purged.".to_string();
 
     let set_expected = TransactionCardSet {
         verifier: Some(vec![TransactionCard {

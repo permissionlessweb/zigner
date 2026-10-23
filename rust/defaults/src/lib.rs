@@ -133,7 +133,7 @@ struct DefaultNetworkInfo {
 /// Populate `DefaultNetworkInfo` for default networks
 /// Zigner focuses on Penumbra and Zcash - Substrate networks kept for compatibility
 #[cfg(feature = "active")]
-fn default_network_info() -> [DefaultNetworkInfo; 10] {
+fn default_network_info() -> [DefaultNetworkInfo; 11] {
     [
         // Substrate networks first (tests index into this array)
         DefaultNetworkInfo {
@@ -320,6 +320,27 @@ fn default_network_info() -> [DefaultNetworkInfo; 10] {
             secondary_color: String::from("#3B6FC5"),
             title: String::from("Terra"),
             unit: String::from("LUNA"),
+        },
+        // Terp uses the Cosmos coin type. The bech32 prefix is `terp`.
+        // The node field is the public testnet endpoint recorded in cw-orch;
+        // the air-gapped signer does not dial it.
+        DefaultNetworkInfo {
+            address: String::from("https://testnet-grpc.terp.network"),
+            base58prefix: 0,
+            color: String::from("#1B8A5A"),
+            decimals: 6,
+            encryption: Encryption::Cosmos,
+            genesis_hash: H256::from_str(
+                "0000000000000000000000000000000000000000000000746572702d31000001",
+            )
+            .expect("known value"),
+            logo: String::from("terp"),
+            name: String::from("terp"),
+            order: 10,
+            path_id: String::from("m/44'/118'/0'/0/0"),
+            secondary_color: String::from("#146B46"),
+            title: String::from("Terp"),
+            unit: String::from("TERP"),
         },
     ]
 }

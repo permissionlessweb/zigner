@@ -353,7 +353,15 @@ class CameraViewModel() : ViewModel() {
 							.joinToString("")
 							.takeIf { hex -> hex.length >= 6 && hex.startsWith("53") }
 					}
-					val payloadString = fromRawBytes ?: fromRawValue
+					// A framed cosmos QR starts with 530510. ML Kit sometimes
+					// returns only the amino JSON, which starts with '{', and
+					// that used to fall through without opening the signer.
+					val binary = fromRawBytes ?: fromRawValue
+					val payloadString = if (binary != null && binary.startsWith("530510")) {
+						binary
+					} else {
+						aminoAsCosmosHex(textValue) ?: binary
+					}
 
 					if (!currentMultiQrTransaction.contains(payloadString) && !payloadString.isNullOrEmpty()) {
 						val knownTotal = total.value
@@ -479,6 +487,40 @@ class CameraViewModel() : ViewModel() {
 	/**
 	 * Check if hex payload is a Penumbra transaction (prefix 530310)
 	 */
+	/**
+	 * Amino JSON that arrived without the 530510 frame. The signed bytes are
+	 * the JSON itself. The frame only tells the parser the chain prefix.
+	 */
+	private fun aminoAsCosmosHex(text: String?): String? {
+		val trimmed = text?.trim() ?: return null
+		if (!trimmed.startsWith("{")) return null
+		val json = try {
+			JSONObject(trimmed)
+		} catch (_: Exception) {
+			return null
+		}
+		if (!json.has("msgs") || !json.has("chain_id")) return null
+		val doc = trimmed.toByteArray(Charsets.UTF_8)
+		if (doc.isEmpty() || doc.size > 65536) return null
+		val out = java.io.ByteArrayOutputStream(16 + doc.size)
+		out.write(byteArrayOf(0x53, 0x05, 0x10))
+		out.write(byteArrayOf(0, 0, 0, 0))
+		val name = "terp".toByteArray(Charsets.US_ASCII)
+		out.write(name.size)
+		out.write(name)
+		val size = doc.size
+		out.write(
+			byteArrayOf(
+				(size and 0xff).toByte(),
+				((size shr 8) and 0xff).toByte(),
+				((size shr 16) and 0xff).toByte(),
+				((size shr 24) and 0xff).toByte(),
+			)
+		)
+		out.write(doc)
+		return out.toByteArray().encodeHex()
+	}
+
 	private fun isPenumbraTransaction(hexPayload: String): Boolean {
 		return hexPayload.length >= 6 && hexPayload.substring(0, 6).equals("530310", ignoreCase = true)
 	}

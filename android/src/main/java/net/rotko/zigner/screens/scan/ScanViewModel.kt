@@ -42,6 +42,8 @@ import io.parity.signer.uniffi.PenumbraSignRequest
 import io.parity.signer.uniffi.parsePenumbraSignRequest
 import io.parity.signer.uniffi.signPenumbraTransaction as uniffiSignPenumbraTransaction
 import io.parity.signer.uniffi.CosmosSignRequest
+import io.parity.signer.uniffi.cosmosPublicKeyForSigners
+import io.parity.signer.uniffi.encodeCworchSignature
 import io.parity.signer.uniffi.parseCosmosSignRequest
 import io.parity.signer.uniffi.signCosmosTransaction as uniffiSignCosmosTransaction
 import io.parity.signer.uniffi.ZcashNoteSyncResult
@@ -631,16 +633,8 @@ class ScanViewModel : ViewModel() {
 						)
 					}
 					is RepoResult.Success -> {
-						val seedPhrase = seeds.result.values.firstOrNull()
-						if (seedPhrase == null) {
-							transactionError.value = LocalErrorSheetModel(
-								title = "No Seed Found",
-								subtitle = "No seed phrase available for signing"
-							)
-							return@launch
-						}
-
-						val signatureBytes = uniffiSignCosmosTransaction(seedPhrase, request)
+						val signatureBytes = signCosmosMatchingKeySet(seeds.result, request)
+							?: return@launch
 						cosmosSignatureQr.value = signatureBytes.map { it.toByte() }.toByteArray()
 					}
 				}
@@ -732,24 +726,48 @@ class ScanViewModel : ViewModel() {
 
 		viewModelScope.launch {
 			try {
-				val seedPhrase = getSeedPhrase() ?: return@launch
-
 				when (req) {
 					is SignRequest.Penumbra -> {
+						val seedPhrase = getSeedPhrase() ?: return@launch
 						val sigBytes = uniffiSignPenumbraTransaction(seedPhrase, req.request)
 						val hex = sigBytes.joinToString("") { "%02x".format(it.toByte()) }
 						signatureResult.value = SignatureResult.HexQr(hex, req.networkName)
 					}
 					is SignRequest.Cosmos -> {
+						val seeds = when (val loaded = seedRepository.getAllSeeds()) {
+							is RepoResult.Failure -> {
+								transactionError.value = LocalErrorSheetModel(
+									title = "Signing Error",
+									subtitle = "Could not access seed phrases"
+								)
+								return@launch
+							}
+							is RepoResult.Success -> loaded.result
+						}
+						val seedPhrase = cosmosPhraseForRequest(seeds, req.request)
+							?: return@launch
 						val sigBytes = uniffiSignCosmosTransaction(seedPhrase, req.request)
 						val hex = sigBytes.joinToString("") { "%02x".format(it.toByte()) }
-						signatureResult.value = SignatureResult.HexQr(hex, req.networkName)
+						val publicKey = cosmosPublicKeyForSigners(seedPhrase, req.request)
+						// The page camera accepts ur:cworch-sig (33-byte pubkey || 64-byte
+						// signature). A granter challenge has an empty memo, and a hex-only
+						// signature is rejected as incomplete.
+						val granterCard = req.request.msgs.size == 1 &&
+							req.request.msgs[0].msgType == "Granter"
+						signatureResult.value = if (req.request.memo.startsWith("cw-orch-") || granterCard) {
+							val frames = encodeCworchSignature(publicKey, sigBytes, 0u)
+							SignatureResult.UrParts(frames, req.networkName, publicKey)
+						} else {
+							SignatureResult.HexQr(hex, req.networkName, publicKey)
+						}
 					}
 					is SignRequest.ZcashSimple -> {
+						val seedPhrase = getSeedPhrase() ?: return@launch
 						val hex = signZcashSimple(seedPhrase, req.request)
 						signatureResult.value = SignatureResult.HexQr(hex, req.networkName)
 					}
 					is SignRequest.ZcashPczt -> {
+						val seedPhrase = getSeedPhrase() ?: return@launch
 						val signedUrParts = withContext(Dispatchers.Default) {
 							signZcashPcztUr(seedPhrase, 0u, req.urParts, 200u)
 						}
@@ -772,6 +790,65 @@ class ScanViewModel : ViewModel() {
 	fun clearSignState() {
 		signRequest.value = null
 		signatureResult.value = null
+	}
+
+	/**
+	 * Seed whose derived Terp address is the transaction signer.
+	 *
+	 * The open key set is tried first. Signing used to take the first imported
+	 * phrase, so a later key set such as terp1fx was previewed and then refused
+	 * as a different address.
+	 */
+	private suspend fun cosmosPhraseForRequest(
+		seeds: Map<String, String>,
+		request: CosmosSignRequest,
+	): String? {
+		if (seeds.isEmpty()) {
+			transactionError.value = LocalErrorSheetModel(
+				title = "No Seed Found",
+				subtitle = "No seed phrase available for signing"
+			)
+			return null
+		}
+		val preferred = ServiceLocator.preferencesRepository.getLastSelectedSeed()
+		val ordered = buildList {
+			if (preferred != null && seeds.containsKey(preferred)) add(preferred)
+			for (name in seedRepository.getLastKnownSeedNames()) {
+				if (name != preferred && seeds.containsKey(name)) add(name)
+			}
+			for (name in seeds.keys) {
+				if (!contains(name)) add(name)
+			}
+		}
+		var mismatch: Exception? = null
+		for (name in ordered) {
+			val phrase = seeds[name] ?: continue
+			try {
+				uniffiSignCosmosTransaction(phrase, request)
+				return phrase
+			} catch (e: Exception) {
+				val message = e.message.orEmpty()
+				if (message.contains("Source mismatch")) {
+					mismatch = e
+					continue
+				}
+				throw e
+			}
+		}
+		transactionError.value = LocalErrorSheetModel(
+			title = "Signing Failed",
+			subtitle = mismatch?.message
+				?: "No key set on this device matches the transaction signer"
+		)
+		return null
+	}
+
+	private suspend fun signCosmosMatchingKeySet(
+		seeds: Map<String, String>,
+		request: CosmosSignRequest,
+	): List<UByte>? {
+		val phrase = cosmosPhraseForRequest(seeds, request) ?: return null
+		return uniffiSignCosmosTransaction(phrase, request)
 	}
 
 	/**

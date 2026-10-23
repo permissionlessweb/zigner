@@ -236,7 +236,7 @@ class UniffiInteractor(val appContext: Context) {
 			try {
 				val transactionResult =
 					io.parity.signer.uniffi.keysBySeedName(seedName)
-						.toKeySetDetailsModel()
+						.toKeySetDetailsModel(seedName)
 				transactionResult
 			} catch (e: ErrorDisplayed) {
 				OperationResult.Err(e)

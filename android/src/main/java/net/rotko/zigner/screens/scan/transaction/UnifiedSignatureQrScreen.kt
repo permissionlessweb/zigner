@@ -2,6 +2,7 @@ package net.rotko.zigner.screens.scan.transaction
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.*
@@ -60,25 +61,65 @@ fun UnifiedSignatureQrScreen(
 					val qrData: List<List<UByte>> = listOf(
 						result.hexString.toByteArray(Charsets.US_ASCII).map { it.toUByte() }
 					)
-					AnimatedQrKeysInfo<List<List<UByte>>>(
-						input = qrData,
-						provider = EmptyQrCodeProvider(),
-						modifier = Modifier
-							.fillMaxWidth()
-							.padding(horizontal = 24.dp),
-					)
+					Column(horizontalAlignment = Alignment.CenterHorizontally) {
+						AnimatedQrKeysInfo<List<List<UByte>>>(
+							input = qrData,
+							provider = EmptyQrCodeProvider(),
+							modifier = Modifier
+								.fillMaxWidth()
+								.padding(horizontal = 24.dp),
+						)
+						SelectionContainer {
+							Text(
+								text = result.hexString,
+								style = SignerTypeface.BodyM,
+								color = MaterialTheme.colors.textSecondary,
+								modifier = Modifier.padding(top = 12.dp),
+							)
+						}
+						if (result.publicKeyHex != null) {
+							SelectionContainer {
+								Text(
+									text = "public key ${result.publicKeyHex}",
+									style = SignerTypeface.BodyM,
+									color = MaterialTheme.colors.textSecondary,
+									modifier = Modifier.padding(top = 8.dp),
+								)
+							}
+						}
+					}
 				}
 				is SignatureResult.UrParts -> {
 					val qrData: List<List<UByte>> = result.parts.map { part ->
 						part.toByteArray(Charsets.US_ASCII).map { it.toUByte() }
 					}
-					AnimatedQrKeysInfo<List<List<UByte>>>(
-						input = qrData,
-						provider = EmptyQrCodeProvider(),
-						modifier = Modifier
-							.fillMaxWidth()
-							.padding(horizontal = 24.dp),
-					)
+					Column(horizontalAlignment = Alignment.CenterHorizontally) {
+						AnimatedQrKeysInfo<List<List<UByte>>>(
+							input = qrData,
+							provider = EmptyQrCodeProvider(),
+							modifier = Modifier
+								.fillMaxWidth()
+								.padding(horizontal = 24.dp),
+						)
+						if (result.parts.size > 1) {
+							Text(
+								text = "${result.parts.size} codes. Keep the camera on them until the page fills in.",
+								style = SignerTypeface.BodyM,
+								color = MaterialTheme.colors.textSecondary,
+								modifier = Modifier.padding(top = 12.dp),
+							)
+						}
+						if (result.publicKeyHex != null) {
+							SelectionContainer {
+								Text(
+									text = "public key ${result.publicKeyHex}",
+									style = SignerTypeface.BodyM,
+									color = MaterialTheme.colors.textSecondary,
+									modifier = Modifier.padding(top = 8.dp),
+								)
+							}
+						}
+					}
 				}
 			}
 		}

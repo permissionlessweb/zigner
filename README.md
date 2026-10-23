@@ -37,6 +37,22 @@ level in Settings.
 Recommended: Pixel 8+ running GrapheneOS. See
 [Security and Privacy](docs/src/about/Security-And-Privacy.md) for details.
 
+## Bluetooth consensus signer
+
+zcinti is the optional mode where this phone holds an Ed25519 consensus key and signs blocks for a laptop KMS. It is not the QR air-gap path above. The user starts it from the Signer tab. Stop keeps the phone off the radio until Start is pressed again.
+
+The flows are in [docs/bluetooth-remote-signer.md](docs/bluetooth-remote-signer.md).
+
+![Four parts and one signature](docs/figures/fig1-four-parts-signature-path.svg)
+
+![Phone session](docs/figures/fig2-phone-session-life.svg)
+
+![One block](docs/figures/fig3-one-block-signing.svg)
+
+![Signer tab](docs/figures/fig4-signer-tab.svg)
+
+Open work is in [docs/TODO.md](docs/TODO.md).
+
 What Zigner does NOT protect against:
 
 - A compromised build toolchain (use reproducible builds and verify checksums)

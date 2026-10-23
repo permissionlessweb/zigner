@@ -144,6 +144,7 @@ class SeedStorage {
 	 *
 	 * @throws UserNotAuthenticatedException
 	 */
+	@SuppressLint("ApplySharedPref")
 	@Throws(UserNotAuthenticatedException::class)
 	fun addSeed(
 		seedName: String,
@@ -155,10 +156,11 @@ class SeedStorage {
 			error("This seed phrase already exists")
 		}
 
-		// Encrypt and save seed
+		// Encrypt and save seed. commit() so a later collision check sees this
+		// phrase, and a failed key-set creation can remove it before return.
 		with(seedSharedPreferences.edit()) {
 			putString(seedName, seedPhrase)
-			apply()
+			commit()
 		}
 
 		_lastKnownSeedNames.update { lastState ->
@@ -170,10 +172,43 @@ class SeedStorage {
 	 * @throws UserNotAuthenticatedException
 	 */
 	@Throws(UserNotAuthenticatedException::class)
-	fun checkIfSeedNameAlreadyExists(seedPhrase: String): Boolean {
-		val result = seedSharedPreferences.all.values.contains(seedPhrase)
+	/**
+	 * Name of the key set that already stores this phrase, if any.
+	 *
+	 * `SharedPreferences.all` decrypts every value into one map.
+	 * EncryptedSharedPreferences has returned values that do not match
+	 * `getString` for the same name, which made a new phrase look like a
+	 * duplicate. Read each known name on its own instead.
+	 */
+	fun seedNameHoldingPhrase(seedPhrase: String): String? {
+		val wanted = normalizeSeedPhrase(seedPhrase)
+		if (wanted.isEmpty()) {
+			return null
+		}
+		val names = LinkedHashSet<String>()
+		names.addAll(lastKnownSeedNames.value)
+		try {
+			names.addAll(seedSharedPreferences.all.keys)
+		} catch (_: RuntimeException) {
+			// A broken entry must not make every new phrase look stored.
+		}
+		for (name in names) {
+			val stored = try {
+				seedSharedPreferences.getString(name, null)
+			} catch (_: RuntimeException) {
+				null
+			} ?: continue
+			if (normalizeSeedPhrase(stored) == wanted) {
+				Runtime.getRuntime().gc()
+				return name
+			}
+		}
 		Runtime.getRuntime().gc()
-		return result
+		return null
+	}
+
+	fun checkIfSeedNameAlreadyExists(seedPhrase: String): Boolean {
+		return seedNameHoldingPhrase(seedPhrase) != null
 	}
 
 	/**
@@ -238,11 +273,12 @@ class SeedStorage {
 	 *
 	 * @throws [UserNotAuthenticatedException]
 	 */
+	@SuppressLint("ApplySharedPref")
 	@Throws(UserNotAuthenticatedException::class)
 	fun removeSeed(seedName: String) {
 		seedSharedPreferences.edit()
 			.remove(seedName)
-			.apply()
+			.commit()
 
 		associatedValuesSharedPreferences.edit()
 			.apply {

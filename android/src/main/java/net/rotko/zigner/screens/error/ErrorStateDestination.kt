@@ -2,17 +2,20 @@ package net.rotko.zigner.screens.error
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import net.rotko.zigner.dependencygraph.ServiceLocator
 import net.rotko.zigner.domain.backend.UniffiResult
 import net.rotko.zigner.domain.backend.toOperationResult
 import net.rotko.zigner.screens.error.wrongversion.errorWrongVersionSubgraph
 import net.rotko.zigner.screens.initial.eachstartchecks.airgap.AirgapScreen
 import net.rotko.zigner.ui.mainnavigation.CoreUnlockedNavSubgraph
+import kotlinx.coroutines.launch
 
 
 fun NavGraphBuilder.errorStateDestination(
@@ -52,10 +55,17 @@ fun NavGraphBuilder.errorStateDestination(
 		BackHandler {
 			//disable back navigation on this screen
 		}
+		val scope = rememberCoroutineScope()
 		AirgapScreen(
 			isInitialOnboarding = false,
 			onProceed = {
 				navController.popBackStack()
+			},
+			onEnableOnlineMode = {
+				ServiceLocator.networkExposedStateKeeper.acceptThresholdSigning()
+				scope.launch {
+					navController.popBackStack()
+				}
 			}
 		)
 	}

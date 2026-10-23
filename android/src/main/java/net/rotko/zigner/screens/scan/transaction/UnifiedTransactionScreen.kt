@@ -1,6 +1,7 @@
 package net.rotko.zigner.screens.scan.transaction
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.parity.signer.uniffi.CosmosMsgDisplay
 import net.rotko.zigner.components.security.TapjackGuard
 import net.rotko.zigner.components.base.PrimaryButtonWide
 import net.rotko.zigner.components.base.ScreenHeader
@@ -259,58 +261,7 @@ private fun CosmosSimpleContent(req: SignRequest.Cosmos) {
 	// Each message as a highlight card
 	r.msgs.forEachIndexed { i, msg ->
 		val prefix = if (r.msgs.size > 1) "${i + 1}/${r.msgs.size} " else ""
-
-		Column(
-			modifier = Modifier
-				.fillMaxWidth()
-				.clip(RoundedCornerShape(12.dp))
-				.background(MaterialTheme.colors.fill6)
-				.padding(16.dp),
-			verticalArrangement = Arrangement.spacedBy(8.dp),
-		) {
-			// Message type
-			Text(
-				text = "$prefix${msg.msgType}",
-				style = SignerTypeface.LabelM.copy(fontWeight = FontWeight.Bold),
-				color = MaterialTheme.colors.primary,
-			)
-
-			// Amount (highlighted)
-			if (msg.amount.isNotEmpty()) {
-				Text(
-					text = msg.amount,
-					style = SignerTypeface.TitleS,
-					color = MaterialTheme.colors.primary,
-				)
-			}
-
-			// Recipient (highlighted)
-			if (msg.recipient.isNotEmpty()) {
-				Text(text = "To", style = SignerTypeface.CaptionM, color = MaterialTheme.colors.textTertiary)
-				Text(
-					text = msg.recipient,
-					style = SignerTypeface.CaptionM.copy(fontFamily = FontFamily.Monospace),
-					color = MaterialTheme.colors.textSecondary,
-				)
-			}
-
-			// Extra detail
-			if (msg.detail.isNotEmpty()) {
-				Text(
-					text = msg.detail,
-					style = SignerTypeface.CaptionM,
-					color = MaterialTheme.colors.textSecondary,
-				)
-			}
-
-			if (msg.blind) {
-				Text(
-					text = "Blind signing — verify in Advanced tab",
-					style = SignerTypeface.CaptionM,
-					color = Color(0xFFE74C3C),
-				)
-			}
-		}
+		CosmosMsgCard(prefix, msg)
 	}
 
 	// Fee
@@ -321,6 +272,73 @@ private fun CosmosSimpleContent(req: SignRequest.Cosmos) {
 	// Memo
 	if (r.memo.isNotEmpty()) {
 		DetailRow(label = "Memo", value = r.memo)
+	}
+}
+
+@Composable
+private fun CosmosMsgCard(prefix: String, msg: CosmosMsgDisplay) {
+	var showEncoded by remember { mutableStateOf(false) }
+	val parts = msg.detail.split("\n@@encoded\n", limit = 2)
+	val visible = parts[0]
+	val encoded = parts.getOrNull(1)
+
+	Column(
+		modifier = Modifier
+			.fillMaxWidth()
+			.clip(RoundedCornerShape(12.dp))
+			.background(MaterialTheme.colors.fill6)
+			.padding(16.dp),
+		verticalArrangement = Arrangement.spacedBy(8.dp),
+	) {
+		Text(
+			text = "$prefix${msg.msgType}",
+			style = SignerTypeface.LabelM.copy(fontWeight = FontWeight.Bold),
+			color = MaterialTheme.colors.primary,
+		)
+		if (msg.amount.isNotEmpty()) {
+			Text(
+				text = msg.amount,
+				style = SignerTypeface.TitleS,
+				color = MaterialTheme.colors.primary,
+			)
+		}
+		if (msg.recipient.isNotEmpty()) {
+			Text(text = "To", style = SignerTypeface.CaptionM, color = MaterialTheme.colors.textTertiary)
+			Text(
+				text = msg.recipient,
+				style = SignerTypeface.CaptionM.copy(fontFamily = FontFamily.Monospace),
+				color = MaterialTheme.colors.textSecondary,
+			)
+		}
+		if (visible.isNotEmpty()) {
+			Text(
+				text = visible,
+				style = SignerTypeface.CaptionM,
+				color = MaterialTheme.colors.textSecondary,
+			)
+		}
+		if (!encoded.isNullOrEmpty()) {
+			Text(
+				text = if (showEncoded) "hide encoded" else "show encoded",
+				style = SignerTypeface.CaptionM.copy(fontWeight = FontWeight.Bold),
+				color = MaterialTheme.colors.primary,
+				modifier = Modifier.clickable { showEncoded = !showEncoded },
+			)
+			if (showEncoded) {
+				Text(
+					text = encoded,
+					style = SignerTypeface.CaptionM.copy(fontFamily = FontFamily.Monospace),
+					color = MaterialTheme.colors.textSecondary,
+				)
+			}
+		}
+		if (msg.blind) {
+			Text(
+				text = "Blind signing — verify in Advanced tab",
+				style = SignerTypeface.CaptionM,
+				color = Color(0xFFE74C3C),
+			)
+		}
 	}
 }
 

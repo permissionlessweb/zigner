@@ -9,9 +9,10 @@ import kotlinx.coroutines.runBlocking
 
 class AllNetworksUseCase(val uniffiInteractor: UniffiInteractor) {
 
-	// Networks available in the UI. To re-enable cosmos/polkadot, add them here:
-	// "Polkadot", "Kusama", "Osmosis", "Noble", "Celestia", etc.
-	private val launchedNetworks = listOf("Zcash", "Penumbra")
+	// Networks offered when a key is created. Terp is a Cosmos secp256k1 key
+	// (coin type 118, bech32 prefix terp). Other Cosmos chains stay compiled
+	// in and can be named here when they should appear on that screen.
+	private val launchedNetworks = listOf("Zcash", "Penumbra", "Terp")
 
 	fun getAllNetworks(): List<NetworkModel> = runBlocking { getNetworks() }
 		.filter { launchedNetworks.contains(it.title) }

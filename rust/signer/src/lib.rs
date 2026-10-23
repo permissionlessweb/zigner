@@ -314,6 +314,8 @@ fn init_navigation(dbname: &str, seed_names: Vec<String>) -> Result<(), ErrorDis
         };
         guard.as_ref().unwrap().clone()
     };
+    // New default networks (Terp) appear on an existing database without a wipe.
+    let _ = db_handling::cold_default::ensure_missing_default_networks(&database);
     Ok(navigator::init_navigation(database, seed_names)?)
 }
 
@@ -1275,7 +1277,7 @@ fn parse_cosmos_sign_request(qr_hex: &str) -> Result<CosmosSignRequest, ErrorDis
     })?;
 
     let display =
-        CosmosSignDocDisplay::from_json(&req.sign_doc_bytes).map_err(|e| ErrorDisplayed::Str {
+        CosmosSignDocDisplay::from_sign_bytes(&req.sign_doc_bytes).map_err(|e| ErrorDisplayed::Str {
             s: format!("Failed to parse sign doc: {e}"),
         })?;
 
@@ -1312,9 +1314,8 @@ fn sign_cosmos_transaction(
     seed_phrase: &str,
     request: CosmosSignRequest,
 ) -> Result<Vec<u8>, ErrorDisplayed> {
-    use db_handling::cosmos::{derive_cosmos_key, SLIP0044_COSMOS};
     use transaction_signing::cosmos::{
-        extract_signers, sign_cosmos_amino, CosmosSignDocDisplay,
+        extract_signers, granter_binding, sign_cosmos_amino, CosmosSignDocDisplay,
         CosmosSignRequest as InternalRequest,
     };
 
@@ -1323,6 +1324,39 @@ fn sign_cosmos_transaction(
         InternalRequest::from_qr_hex(&request.raw_qr_hex).map_err(|e| ErrorDisplayed::Str {
             s: format!("Failed to re-parse QR: {e}"),
         })?;
+
+    if let Some(binding) = granter_binding(&req.sign_doc_bytes).map_err(|e| ErrorDisplayed::Str {
+        s: format!("Failed to parse sign doc: {e}"),
+    })? {
+        let shown = request.msgs.first();
+        let card_ok = request.msgs.len() == 1
+            && request.chain_id.is_empty()
+            && request.fee == "none"
+            && request.memo.is_empty()
+            && shown.is_some_and(|msg| {
+                msg.msg_type == "Granter"
+                    && msg.recipient == binding
+                    && msg.detail == format!("This key becomes the granter for {binding}.")
+            });
+        if !card_ok {
+            return Err(ErrorDisplayed::Str {
+                s: "Granter card does not match the QR".to_string(),
+            });
+        }
+        let key = cosmos_key_for_signers(
+            seed_phrase,
+            &request.chain_name,
+            req.account_index,
+            req.address_index,
+            &[],
+        )?;
+        let signature = sign_cosmos_amino(&key.secret_key, &req.sign_doc_bytes).map_err(|e| {
+            ErrorDisplayed::Str {
+                s: format!("Signing failed: {e}"),
+            }
+        })?;
+        return Ok(signature.to_vec());
+    }
 
     // re-derive display fields from the raw QR and verify they match
     // what the user was shown. this is the cosmos equivalent of
@@ -1366,42 +1400,19 @@ fn sign_cosmos_transaction(
         });
     }
 
-    // derive the cosmos key from seed phrase. BOTH indices come from the
-    // re-parsed QR (`req`), not the caller's struct, so the signing key is bound
-    // to the exact bytes the device displayed. address_index selects a fresh,
-    // never-reused receive address; absent in old QRs it is 0.
-    let key = derive_cosmos_key(
+    // The QR account index is only a hint. A device with several Terp key
+    // sets must sign with the derivation whose address is the message
+    // signer, which is the address the preview shows.
+    let signers = extract_signers(&req.sign_doc_bytes).map_err(|e| ErrorDisplayed::Str {
+        s: format!("Failed to read message signers: {e}"),
+    })?;
+    let key = cosmos_key_for_signers(
         seed_phrase,
-        SLIP0044_COSMOS,
+        &request.chain_name,
         req.account_index,
         req.address_index,
-    )
-    .map_err(|e| ErrorDisplayed::Str {
-        s: format!("Key derivation failed: {e}"),
-    })?;
-
-    // Bind the signing key to the transaction source. Derive this device's
-    // address for the chain and require it to equal every message's signer.
-    // Without this, an app-chosen `address_index` could make the device produce
-    // a valid signature spending from a source address the user never saw.
-    // Blind messages (no recognizable signer field) are already warned in the
-    // display and the chain still rejects a signature from the wrong key.
-    let device_addr =
-        db_handling::cosmos::pubkey_to_bech32_address(&key.public_key, &request.chain_name)
-            .map_err(|e| ErrorDisplayed::Str {
-                s: format!("Address derivation failed: {e}"),
-            })?;
-    for signer in extract_signers(&req.sign_doc_bytes).map_err(|e| ErrorDisplayed::Str {
-        s: format!("Failed to read message signers: {e}"),
-    })? {
-        if signer != device_addr {
-            return Err(ErrorDisplayed::Str {
-                s: format!(
-                    "Source mismatch: this key is {device_addr}, but the transaction spends from {signer}"
-                ),
-            });
-        }
-    }
+        &signers,
+    )?;
 
     // sign with SHA256 prehash (NOT blake2b)
     let signature = sign_cosmos_amino(&key.secret_key, &req.sign_doc_bytes).map_err(|e| {
@@ -1411,6 +1422,152 @@ fn sign_cosmos_transaction(
     })?;
 
     Ok(signature.to_vec())
+}
+
+/// Derivation on `seed_phrase` whose bech32 address equals every message signer.
+///
+/// The QR indices are tried first. A key set often stores the Terp address at
+/// account 0 while the QR still says account 0 of a different set, or the
+/// address lives at another account index. The signature stays bound to the
+/// signer shown in the preview.
+fn cosmos_key_for_signers(
+    seed_phrase: &str,
+    prefix: &str,
+    hint_account: u32,
+    hint_address: u32,
+    signers: &[String],
+) -> Result<db_handling::cosmos::CosmosKeyPair, ErrorDisplayed> {
+    use db_handling::cosmos::{derive_cosmos_key, pubkey_to_bech32_address, SLIP0044_COSMOS};
+
+    let mut candidates = vec![(hint_account, hint_address)];
+    for account in 0..16 {
+        for address in 0..4 {
+            if (account, address) != (hint_account, hint_address) {
+                candidates.push((account, address));
+            }
+        }
+    }
+    let mut hinted = None;
+    for (account, address) in candidates {
+        let key = derive_cosmos_key(seed_phrase, SLIP0044_COSMOS, account, address).map_err(|e| {
+            ErrorDisplayed::Str {
+                s: format!("Key derivation failed: {e}"),
+            }
+        })?;
+        let device_addr = pubkey_to_bech32_address(&key.public_key, prefix).map_err(|e| {
+            ErrorDisplayed::Str {
+                s: format!("Address derivation failed: {e}"),
+            }
+        })?;
+        if hinted.is_none() {
+            hinted = Some(device_addr.clone());
+        }
+        if signers.is_empty() || signers.iter().all(|signer| signer == &device_addr) {
+            return Ok(key);
+        }
+    }
+    let device_addr = hinted.unwrap_or_default();
+    let signer = signers.first().map(String::as_str).unwrap_or("");
+    Err(ErrorDisplayed::Str {
+        s: format!(
+            "Source mismatch: this key is {device_addr}, but the transaction spends from {signer}"
+        ),
+    })
+}
+
+/// Compressed secp256k1 public key, 66 lowercase hex characters.
+/// Same derivation `sign_cosmos_transaction` uses for coin type 118.
+fn cosmos_public_key(
+    seed_phrase: &str,
+    account_index: u32,
+    address_index: u32,
+) -> Result<String, ErrorDisplayed> {
+    use db_handling::cosmos::{derive_cosmos_key, SLIP0044_COSMOS};
+
+    let key = derive_cosmos_key(seed_phrase, SLIP0044_COSMOS, account_index, address_index)
+        .map_err(|e| ErrorDisplayed::Str {
+            s: format!("Key derivation failed: {e}"),
+        })?;
+    Ok(hex::encode(key.public_key))
+}
+
+/// Public key of the derivation that matches this transaction's signer.
+fn cosmos_public_key_for_signers(
+    seed_phrase: &str,
+    request: CosmosSignRequest,
+) -> Result<String, ErrorDisplayed> {
+    use transaction_signing::cosmos::{
+        extract_signers, granter_binding, CosmosSignRequest as InternalRequest,
+    };
+
+    let req = InternalRequest::from_qr_hex(&request.raw_qr_hex).map_err(|e| ErrorDisplayed::Str {
+        s: format!("Failed to re-parse QR: {e}"),
+    })?;
+    let signers = if granter_binding(&req.sign_doc_bytes)
+        .map_err(|e| ErrorDisplayed::Str {
+            s: format!("Failed to parse sign doc: {e}"),
+        })?
+        .is_some()
+    {
+        Vec::new()
+    } else {
+        extract_signers(&req.sign_doc_bytes).map_err(|e| ErrorDisplayed::Str {
+            s: format!("Failed to read message signers: {e}"),
+        })?
+    };
+    let key = cosmos_key_for_signers(
+        seed_phrase,
+        &request.chain_name,
+        req.account_index,
+        req.address_index,
+        &signers,
+    )?;
+    Ok(hex::encode(key.public_key))
+}
+
+/// `ur:cworch-sig` frames carrying the 33-byte pubkey and the 64-byte signature.
+/// One frame when `max_fragment_len` is 0 and the text fits a camera. A positive
+/// length forces fountain frames of that size, which is also the fallback when
+/// one code would be too dense.
+fn encode_cworch_signature(
+    pubkey_hex: &str,
+    signature: Vec<u8>,
+    max_fragment_len: u32,
+) -> Result<Vec<String>, ErrorDisplayed> {
+    let pubkey = hex::decode(pubkey_hex.trim()).map_err(|e| ErrorDisplayed::Str {
+        s: format!("public key hex: {e}"),
+    })?;
+    if pubkey.len() != 33 || signature.len() != 64 {
+        return Err(ErrorDisplayed::Str {
+            s: format!(
+                "cw-orch signature needs 33 pubkey bytes and 64 signature bytes, got {} and {}",
+                pubkey.len(),
+                signature.len()
+            ),
+        });
+    }
+    let mut payload = Vec::with_capacity(97);
+    payload.extend_from_slice(&pubkey);
+    payload.extend_from_slice(&signature);
+    const ONE_CODE_LIMIT: usize = 1200;
+    let single = ur::ur::encode(&payload, &ur::Type::Custom("cworch-sig"));
+    if max_fragment_len == 0 && single.len() <= ONE_CODE_LIMIT {
+        return Ok(vec![single]);
+    }
+    let fragment = if max_fragment_len == 0 { 200 } else { max_fragment_len as usize };
+    let mut encoder = ur::ur::Encoder::new(&payload, fragment, "cworch-sig").map_err(|e| {
+        ErrorDisplayed::Str {
+            s: format!("Failed to create UR encoder: {e:?}"),
+        }
+    })?;
+    let total_parts = (encoder.fragment_count() * 13).div_ceil(10).max(1);
+    let mut parts = Vec::with_capacity(total_parts);
+    for _ in 0..total_parts {
+        parts.push(encoder.next_part().map_err(|e| ErrorDisplayed::Str {
+            s: format!("Failed to encode UR part: {e:?}"),
+        })?);
+    }
+    Ok(parts)
 }
 
 // ============================================================================
@@ -5116,6 +5273,24 @@ mod tests {
         expect.extend_from_slice(&[0x02, 0x19, 0x01, 0x00, 0x03]);
         cbor_uint(&mut expect, module_host::HOST_ABI_VERSION);
         assert_eq!(out, expect);
+    }
+
+    #[test]
+    fn cworch_signature_roundtrip_one_frame_and_many() {
+        let pubkey = "02".repeat(33);
+        let signature = vec![0x11u8; 64];
+        let one = encode_cworch_signature(&pubkey, signature.clone(), 0).unwrap();
+        assert_eq!(one.len(), 1);
+        assert!(one[0].to_lowercase().starts_with("ur:cworch-sig/"));
+        let back = decode_ur_payload(&one, "cworch-sig").unwrap();
+        assert_eq!(back.len(), 97);
+        assert_eq!(&back[..33], &hex::decode(&pubkey).unwrap());
+        assert_eq!(&back[33..], &signature);
+
+        let many = encode_cworch_signature(&pubkey, signature, 20).unwrap();
+        assert!(many.len() > 1, "a short fragment length has to animate");
+        let back = decode_ur_payload(&many, "cworch-sig").unwrap();
+        assert_eq!(back.len(), 97);
     }
 }
 

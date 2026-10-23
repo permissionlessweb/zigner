@@ -132,7 +132,8 @@ private fun AirgapScreen(
 			)
 			if (onEnableOnlineMode != null) {
 				SecondaryButtonWide(
-					label = "Use Online Mode Instead",
+					label = if (isInitialOnboarding) "Use Online Mode Instead"
+					else "I understand this device is not air-gapped. Continue for threshold signing.",
 					modifier = Modifier.padding(bottom = 24.dp),
 					onClicked = onEnableOnlineMode,
 				)

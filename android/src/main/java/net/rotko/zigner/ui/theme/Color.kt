@@ -160,6 +160,7 @@ fun networkAccent(networkLogo: String): Color =
 		"noble" -> NetworkAccentNoble
 		"osmosis" -> NetworkAccentOsmosis
 		"celestia" -> NetworkAccentCelestia
+		"terp" -> Color(0xFF1B8A5A)
 		"bitcoin", "btc" -> NetworkAccentBitcoin
 		"nostr" -> NetworkAccentNostr
 		"ethereum", "eth" -> NetworkAccentEthereum

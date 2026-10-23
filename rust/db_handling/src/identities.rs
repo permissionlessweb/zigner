@@ -542,6 +542,11 @@ fn cosmos_derive_multisigner_and_address(
             "osmosis" => cosmos::PREFIX_OSMOSIS,
             "noble" => cosmos::PREFIX_NOBLE,
             "celestia" => cosmos::PREFIX_CELESTIA,
+            "terra" => cosmos::PREFIX_TERRA,
+            "kava" => cosmos::PREFIX_KAVA,
+            "secret" => cosmos::PREFIX_SECRET,
+            "injective" => cosmos::PREFIX_INJECTIVE,
+            "terp" => cosmos::PREFIX_TERP,
             _ => cosmos::PREFIX_COSMOS,
         })
         .unwrap_or(cosmos::PREFIX_COSMOS);

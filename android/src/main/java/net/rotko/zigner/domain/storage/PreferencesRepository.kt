@@ -21,6 +21,7 @@ class PreferencesRepository(private val context: Context) {
 	private val lastSelectedKeySet = stringPreferencesKey("last_selected_seed_name")
 	private val onlineModeEnabledKey = booleanPreferencesKey("online_mode_enabled")
 	private val onlineModeWasEverEnabledKey = booleanPreferencesKey("online_mode_was_ever_enabled")
+	private val thresholdSigningKey = booleanPreferencesKey("threshold_signing_not_airgapped")
 	private val lightThemeEnabledKey = booleanPreferencesKey("light_theme_enabled")
 	private val developerOptionsRevealedKey = booleanPreferencesKey("developer_options_revealed")
 
@@ -64,6 +65,16 @@ class PreferencesRepository(private val context: Context) {
 	 */
 	suspend fun isOnlineModeEnabled(): Boolean {
 		return context.dataStore.data.first()[onlineModeEnabledKey] ?: false
+	}
+
+	/** User accepted that this phone is not air-gapped so it can do threshold signing. */
+	val thresholdSigningAcknowledged: Flow<Boolean> = context.dataStore.data
+		.map { preferences -> preferences[thresholdSigningKey] ?: false }
+
+	suspend fun acknowledgeThresholdSigning() {
+		context.dataStore.edit { settings ->
+			settings[thresholdSigningKey] = true
+		}
 	}
 
 	/**

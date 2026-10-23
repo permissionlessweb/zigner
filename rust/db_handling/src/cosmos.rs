@@ -73,6 +73,7 @@ pub fn pubkey_to_bech32_address(pubkey_bytes: &[u8], network_name: &str) -> Resu
         "kava" => PREFIX_KAVA,
         "secret" => PREFIX_SECRET,
         "injective" => PREFIX_INJECTIVE,
+        "terp" => PREFIX_TERP,
         _ => PREFIX_COSMOS,
     };
 
@@ -107,6 +108,8 @@ pub const PREFIX_TERRA: &str = "terra";
 pub const PREFIX_KAVA: &str = "kava";
 pub const PREFIX_SECRET: &str = "secret";
 pub const PREFIX_INJECTIVE: &str = "inj";
+pub const PREFIX_TERP: &str = "terp";
+pub const SLIP0044_TERP: u32 = 118;
 
 /// Cosmos key pair with secp256k1 keys
 #[derive(Zeroize, ZeroizeOnDrop)]
@@ -317,6 +320,13 @@ pub fn parse_cosmos_path(path: &str) -> Result<(u32, u32, u32)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn terp_address_uses_the_terp_prefix() {
+        let pubkey = [2u8; 33];
+        let address = pubkey_to_bech32_address(&pubkey, "terp").unwrap();
+        assert!(address.starts_with("terp1"), "{address}");
+    }
 
     #[test]
     fn test_cosmos_key_derivation() {

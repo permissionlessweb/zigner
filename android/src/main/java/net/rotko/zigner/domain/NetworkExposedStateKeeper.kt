@@ -17,6 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import timber.log.Timber
@@ -57,6 +58,8 @@ class NetworkExposedStateKeeper(
 		MutableStateFlow(false)
 	val onlineModeEnabled: StateFlow<Boolean> = _onlineModeEnabled
 
+	private val _thresholdSigning = MutableStateFlow(false)
+
 	/**
 	 * Returns true if device is currently in breach of airgap requirements.
 	 * When online mode is enabled, this always returns false (no breach).
@@ -64,16 +67,29 @@ class NetworkExposedStateKeeper(
 	private val isCurentlyBreached: Boolean
 		get() {
 			// If online mode is enabled, we don't consider it a breach
-			if (_onlineModeEnabled.value) return false
+			if (_onlineModeEnabled.value || _thresholdSigning.value) return false
 			return airPlaneModeEnabled.value == false || wifiDisabledState.value == false
 				|| bluetoothDisabledState.value == false || usbDisconnected.value == false
 		}
+
+	/** Skip the air-gap wall. The user has said this phone is not air-gapped. */
+	fun acceptThresholdSigning() {
+		_thresholdSigning.value = true
+		updateGeneralAirgapState()
+		scope.launch { preferencesRepository.acknowledgeThresholdSigning() }
+	}
 
 	init {
 		// Observe online mode preference changes
 		preferencesRepository.onlineModeEnabled
 			.onEach { enabled ->
 				_onlineModeEnabled.value = enabled
+				updateGeneralAirgapState()
+			}
+			.launchIn(scope)
+		preferencesRepository.thresholdSigningAcknowledged
+			.onEach { accepted ->
+				_thresholdSigning.value = accepted
 				updateGeneralAirgapState()
 			}
 			.launchIn(scope)

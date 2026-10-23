@@ -69,7 +69,7 @@ fun WalletHeaderCard(
 	onExposedClicked: Callback,
 	modifier: Modifier = Modifier,
 ) {
-	val showRootQr = hasSubstrateNetworks(model)
+	val showRootQr = model.root.addressKey.isNotEmpty() && hasSubstrateNetworks(model)
 	val distinctNetworks = remember(model.keysAndNetwork) {
 		model.keysAndNetwork
 			.map { it.network.networkLogo }
@@ -224,6 +224,9 @@ internal fun hasSubstrateNetworks(model: KeySetDetailsModel): Boolean =
 		!logo.contains("zcash") && !logo.contains("penumbra") &&
 			!logo.contains("noble") && !logo.contains("osmosis") &&
 			!logo.contains("celestia") && !logo.contains("cosmos") &&
+			!logo.contains("terp") && !logo.contains("terra") &&
+			!logo.contains("kava") && !logo.contains("secret") &&
+			!logo.contains("injective") &&
 			!logo.contains("bitcoin") && !logo.contains("nostr") &&
 			!logo.contains("atprotocol") && !logo.contains("ethereum")
 	}
