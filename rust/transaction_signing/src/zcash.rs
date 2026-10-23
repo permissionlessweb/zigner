@@ -401,7 +401,8 @@ pub fn sign_orchard_action(
 ) -> Result<[u8; 64]> {
     use orchard::keys::SpendAuthorizingKey;
     use pasta_curves::{group::ff::PrimeField, pallas};
-    use rand_core::OsRng;
+    use rand::rand_core::UnwrapErr;
+    use rand::rngs::SysRng;
 
     // get spend authorizing key from spending key
     let sk = spending_key.to_spending_key()?;
@@ -421,7 +422,7 @@ pub fn sign_orchard_action(
     let rsk = ask.randomize(&alpha_scalar);
 
     // sign the sighash
-    let sig = rsk.sign(OsRng, sighash);
+    let sig = rsk.sign(UnwrapErr(SysRng), sighash);
 
     Ok(<[u8; 64]>::from(&sig))
 }

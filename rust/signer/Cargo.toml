@@ -19,22 +19,20 @@ ur = "0.4"
 # SHA-256 for seed fingerprint
 sha2 = "0.10"
 # PCZT (Partially Created Zcash Transaction) for Zashi hardware wallet signing
-# NU6.3 / Ironwood release stack. pczt 0.9.2 is the first crates.io release
-# carrying the Ironwood (V6) pool UNGATED - no `zcash_unstable` cfg, no fork -
-# so the shipped device can sign a V6 turnstile migration.
+# NU7 (ZIP 259) stack: the zakura crate family, the same release the signing
+# module (rust/pczt_signing) and zcli/zafu use. It carries Ironwood (V6) and
+# NU7 ungated, so this path and the FROST verifier sign and verify NU7 PCZTs.
 # Note: requires transparent feature due to the signer role referencing
 # transparent types.
-pczt = { version = "0.9.2", package = "pczt", default-features = false, features = ["signer", "orchard", "transparent"] }
-zcash_transparent = { version = "0.10", package = "zcash_transparent", features = ["transparent-inputs"] }
-# Orchard crate for SpendAuthorizingKey type - use same version as pczt
-orchard = "0.15"
+pczt = { package = "zakura-pczt", version = "=0.1.0-rc4", default-features = false, features = ["signer", "orchard", "transparent"] }
+zcash_transparent = { package = "zakura-transparent", version = "=2.2.0", default-features = false, features = ["transparent-inputs"] }
+# Orchard for SpendAuthorizingKey and FROST output recovery - same as pczt
+orchard = { package = "zakura-orchard", version = "=2.2.0", default-features = false }
 # Address encoding for PCZT recipient display
-zcash_address = "0.13"
-zcash_protocol = "0.10"
-# gh #17 on-device FROST PCZT verify: recompute sighash (zcash_primitives) +
-# OVK-decode outputs (zcash_note_encryption). Both already in the build graph
-# transitively via pczt/orchard — direct deps add no new compilation.
-zcash_primitives = "0.30"
+zcash_address = { package = "zakura-address", version = "=2.2.0", default-features = false }
+zcash_protocol = { package = "zakura-protocol", version = "=2.2.0", default-features = false }
+# gh #17 on-device FROST PCZT verify: OVK-decode outputs. Already in the build
+# graph via orchard, so the direct dep adds no compilation.
 zcash_note_encryption = "0.4"
 # Auth identity derivation (HMAC-SHA512 KDF) and backup encryption
 hmac = "0.12"
@@ -52,6 +50,8 @@ age = { version = "0.11", default-features = false, features = ["ssh", "armor"] 
 ssh-key = { version = "0.6", default-features = false, features = ["ed25519", "alloc"] }
 base64 = { version = "0.22", default-features = false, features = ["std"] }
 rand = "0.8"
+# OS entropy typed in the rand_core 0.10 the zakura orchard signing API takes
+rand010 = { package = "rand", version = "0.10", default-features = false, features = ["sys_rng"] }
 serde = { version = "1.0", features = ["derive"] }
 # BIP39 mnemonic for hot wallet derivation
 bip39 = { package = "tiny-bip39", version = "1.0.0", default-features = false }
@@ -91,14 +91,16 @@ log = "0.4.21"
 # inspect/sign code over them. Dev-dependencies are not compiled for
 # `cargo build`, so none of this reaches the Android artifact.
 [dev-dependencies]
+# Builder for the test PCZTs.
+zcash_primitives = { package = "zakura-primitives", version = "=2.2.0", default-features = false, features = ["transparent-inputs"] }
 # Cross-library check: signatures this crate makes with sp_core must verify in
 # the kernel verifier, which uses dalek's strict equation.
 ed25519-dalek = "2"
-pczt = { version = "0.9.2", package = "pczt", default-features = false, features = ["signer", "orchard", "transparent", "io-finalizer", "zcp-builder", "prover", "spend-finalizer", "tx-extractor"] }
-zcash_protocol = { version = "0.10", features = ["local-consensus"] }
+pczt = { package = "zakura-pczt", version = "=0.1.0-rc4", default-features = false, features = ["signer", "orchard", "transparent", "io-finalizer", "zcp-builder", "prover", "spend-finalizer", "tx-extractor"] }
+zcash_protocol = { package = "zakura-protocol", version = "=2.2.0", default-features = false, features = ["local-consensus"] }
 # Halo2 proving/verifying keys, so the round-trip test can finalize + extract a
 # real V5 transaction from what the shipped signer produced.
-orchard = { version = "0.15", features = ["circuit"] }
+orchard = { package = "zakura-orchard", version = "=2.2.0", default-features = false, features = ["circuit", "multicore"] }
 
 
 [build-dependencies]

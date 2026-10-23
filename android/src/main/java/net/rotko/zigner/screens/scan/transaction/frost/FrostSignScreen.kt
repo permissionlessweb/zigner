@@ -200,9 +200,8 @@ fun FrostSignScreen(
 					// used to be `!hardMismatch`, which let every "could not verify"
 					// case through - no PCZT from the host, no UFVK on file, or the
 					// verifier throwing (e.g. a consensus branch the linked crates
-					// do not know, which after NU7 activation is every request until
-					// the FROST verifier is upgraded). The screen would then show
-					// only the coordinator's claim and still offer to sign.
+					// do not know). The screen would then show only the
+					// coordinator's claim and still offer to sign.
 					if (v.verified) {
 						PrimaryButtonWide(
 							label = "Approve & Sign",
