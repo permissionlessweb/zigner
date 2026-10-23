@@ -6131,9 +6131,10 @@ mod zcash_pczt_tests {
     }
 
     /// V6 shielded sighash straight from `v6_signature_hash` over the PCZT's
-    /// effects: a different route through the crate than the verifier's
-    /// `Signer`, which picks the digest by transaction version.
-    fn independent_sighash(pczt: &[u8]) -> String {
+    /// effects. The verifier's `Signer` picks the digest by tx version; this
+    /// pins it to V6, so a match shows the verifier chose the V6 digest (the
+    /// old one took V5). Same crate on both sides - not a cross-version check.
+    fn v6_sighash(pczt: &[u8]) -> String {
         use zcash_primitives::transaction::sighash::SignableInput;
         use zcash_primitives::transaction::sighash_v6::v6_signature_hash;
         use zcash_primitives::transaction::txid::TxIdDigester;
@@ -6145,7 +6146,7 @@ mod zcash_pczt_tests {
     fn assert_frost_verifies(net: LocalNetwork, what: &str) {
         let (bytes, _, migrated, _) = build_v6_migration_on(net, true);
         let pczt_hex = hex::encode(&bytes);
-        let sighash = independent_sighash(&bytes);
+        let sighash = v6_sighash(&bytes);
 
         let v: serde_json::Value = serde_json::from_str(
             &crate::frost_multisig::frost_verify_pczt(&pczt_hex, &sighash, &wallet_uview())
