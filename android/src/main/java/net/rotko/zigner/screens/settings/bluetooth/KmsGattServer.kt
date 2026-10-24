@@ -72,6 +72,9 @@ internal class KmsGattServer(
 					clients.remove(device)
 					bound.remove(id)
 					sessions.remove(id)
+					// Android stops the advertisement while a laptop is connected.
+					// Without a new one, the scanner cannot find this phone again.
+					SignerRuntime.centralLeft(app)
 				}
 				onPeers(peers.size)
 			}

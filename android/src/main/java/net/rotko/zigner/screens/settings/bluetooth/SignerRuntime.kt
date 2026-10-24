@@ -113,6 +113,16 @@ internal object SignerRuntime {
 		releaseRadio()
 	}
 
+	fun centralLeft(context: Context) {
+		if (!wantRadio) return
+		val shown = code.ifBlank {
+			context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(CODE, "").orEmpty()
+		}
+		if (shown.isEmpty()) return
+		val app = context.applicationContext
+		main.post { advertise(app, shown) }
+	}
+
 	fun releaseRadio() {
 		advertiseCallback?.let { callback -> advertiser?.stopAdvertising(callback) }
 		advertiseCallback = null
@@ -333,6 +343,7 @@ internal object SignerRuntime {
 			}
 
 			override fun onStartFailure(errorCode: Int) {
+				if (errorCode == AdvertiseCallback.ADVERTISE_FAILED_ALREADY_STARTED) return
 				status = "advertise failed ($errorCode)"
 				running = false
 			}

@@ -41,7 +41,7 @@ Recommended: Pixel 8+ running GrapheneOS. See
 
 zcinti is the optional mode where this phone holds an Ed25519 consensus key and signs blocks for a laptop KMS. It is not the QR air-gap path above. The user starts it from the Signer tab. Stop keeps the phone off the radio until Start is pressed again.
 
-The flows are in [docs/bluetooth-remote-signer.md](docs/bluetooth-remote-signer.md).
+The flows are in [docs/bluetooth-remote-signer.md](docs/bluetooth-remote-signer.md). The stack demo is `docs/stack.html` in the KMS repo.
 
 ![Four parts and one signature](docs/figures/fig1-four-parts-signature-path.svg)
 
