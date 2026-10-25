@@ -1169,6 +1169,17 @@ fn export_penumbra_fvk(
 /// Derives a secp256k1 key using BIP44 path m/44'/118'/account'/0/0
 /// and generates bech32 addresses for the specified chain (or all if network_name is empty).
 /// The QR data encodes a simple JSON payload for Zafu to import.
+/// Chains the Cosmos account export QR carries an address for (chain id, bech32 prefix).
+fn cosmos_export_chains() -> Vec<(&'static str, &'static str)> {
+    use db_handling::cosmos::{PREFIX_CELESTIA, PREFIX_NOBLE, PREFIX_OSMOSIS, PREFIX_TERP};
+    vec![
+        ("osmosis", PREFIX_OSMOSIS),
+        ("noble", PREFIX_NOBLE),
+        ("celestia", PREFIX_CELESTIA),
+        ("terp", PREFIX_TERP),
+    ]
+}
+
 fn export_cosmos_accounts(
     seed_phrase: &str,
     account_index: u32,
@@ -1176,8 +1187,7 @@ fn export_cosmos_accounts(
     network_name: &str,
 ) -> Result<CosmosAccountExport, ErrorDisplayed> {
     use db_handling::cosmos::{
-        derive_cosmos_account_xpub, derive_cosmos_key, PREFIX_CELESTIA, PREFIX_NOBLE,
-        PREFIX_OSMOSIS, SLIP0044_COSMOS,
+        derive_cosmos_account_xpub, derive_cosmos_key, SLIP0044_COSMOS,
     };
 
     let key = derive_cosmos_key(seed_phrase, SLIP0044_COSMOS, account_index, 0).map_err(|e| {
@@ -1201,11 +1211,7 @@ fn export_cosmos_accounts(
         })?;
 
     // Generate addresses for supported chains (filter by network_name if specified)
-    let all_chains: Vec<(&str, &str)> = vec![
-        ("osmosis", PREFIX_OSMOSIS),
-        ("noble", PREFIX_NOBLE),
-        ("celestia", PREFIX_CELESTIA),
-    ];
+    let all_chains: Vec<(&str, &str)> = cosmos_export_chains();
 
     let chains: Vec<(&str, &str)> = if network_name.is_empty() {
         all_chains
@@ -5265,6 +5271,15 @@ pub fn module_response_to_ur(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn cosmos_export_includes_terp() {
+        let chains = super::cosmos_export_chains();
+        assert!(chains.contains(&("terp", "terp")), "{chains:?}");
+        for c in ["osmosis", "noble", "celestia"] {
+            assert!(chains.iter().any(|(id, _)| *id == c));
+        }
+    }
+
     use super::*;
 
     /// Byte layout pinned so zafu's `unwrapSignerEnvelope` test vectors stay
