@@ -325,3 +325,47 @@ claims on the isolated node before repeating them as facts.
 | P1 | Test feegrant create/revoke on an isolated node | Before claiming takeoff works |
 | P1 | Verify release manifest and use a release build | Before sharing a build |
 | P2 | Explicit import pin check; HWM format/audit; FROST/mesh patterns | Later |
+
+## 10. Background signing (screen off, app closed)
+
+Added 2026-10-24 for review. Code: `RemoteSignerService.kt`, `SignerBoot.kt`, manifest.
+
+### What changed
+- `RemoteSignerService` (connectedDevice foreground service) now returns `START_STICKY` while armed, sets `stopWithTask=false`, and keeps signing through `onTaskRemoved`. Only Stop on the screen or in the notification ends it.
+- A partial wake lock (`zigner:signer`) is held only while the service is armed. It is released on Stop and in `onDestroy`.
+- The notification shows the slot name, the last signed height, the status, and a Stop action.
+- `SignerBootReceiver` handles `BOOT_COMPLETED` and `MY_PACKAGE_REPLACED`. It resumes only when the armed flag is set and an armed key set exists, and only if `ValidatorKeys.materialFor` opens the at-rest key at that moment. Otherwise it does nothing, and the user taps Start key.
+- The signer screen shows a one-tap "Keep signing when asleep" card. It opens `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, falls back to the settings list, and hides once the app is exempt.
+- `shouldRun()` is the pure gate: explicit Arm, or armed with keys. `ResumeTest` covers it.
+
+### Keystore while locked: no weakening
+`VaultKey` (`zigner.validator.atrest`, AES-GCM) has never set `setUserAuthenticationRequired` or `setUnlockedDeviceRequired`. App files live in credential-encrypted storage. So the key already works with the screen locked, after the first unlock since boot. This change does not alter any key parameter. Before the first unlock, CE storage is closed. The app is not direct-boot aware, so `BOOT_COMPLETED` arrives only after the first unlock. A reboot therefore needs one unlock before signing resumes. That is intended.
+
+The trade-off, stated plainly: a phone that has been unlocked once since boot can sign with its screen locked. Anyone holding the unlocked-once phone has no extra barrier at the BLE layer beyond the Noise XX session pinned to the KMS. Signing still needs that pinned KMS. Rename and votes are accepted only on a ready session.
+
+Options for the reviewer (not implemented):
+1. Require device authentication (BiometricPrompt or credential) on Start key and on boot resume. Boot resume would then post a "tap to resume" notification instead of signing automatically.
+2. Use `setUnlockedDeviceRequired(true)` only for the export and import paths, never for the signing path.
+
+### Double-sign protection
+- `HighWater.kt` is file-based and is checked before every signature, including after a sticky restart, a boot resume, or an update resume. These restarts use the same process path as a manual Start.
+- P0.3 (fail-open and durability) still applies and is not changed here. Background resume makes P0.3 more important, because restarts now happen without the user.
+- The KMS side keeps its own HWM. Two phones armed for the same key remain the operator's responsibility.
+
+### Doze and standby (expected; not instrumented yet)
+- Foreground services are exempt from app standby. A partial wake lock keeps the CPU up. BLE GATT server callbacks are delivered in Doze while an FGS is running.
+- Without the battery exemption, deep Doze can still defer network work, and OEM killers (Samsung "sleeping apps") may stop the process. `START_STICKY` then restarts it, with a gap of seconds to minutes. Exemption plus FGS is the supported posture.
+- Test plan:
+  - `adb shell dumpsys deviceidle force-idle`, then confirm the console keeps signing. Undo with `dumpsys deviceidle unforce`.
+  - `adb shell am kill` and swipe-away, then confirm the service restarts.
+  - Reboot, unlock once, then confirm signing resumes.
+
+### Remaining risk
+Samsung may still put the app in "deep sleeping apps" regardless. The user should also set Battery to "Unrestricted" in App info.
+
+### Reviewer pass (opencode, 2026-10-24) and fixes
+- P1 fixed: boot resume checked only `keys.first()`, and `materialFor` can fall back to the bootstrap key, so a deleted armed key could resume. Resume now needs every armed id to be in `ValidatorKeys.list` and to open (`resumeKeysOk`).
+- P1 fixed: `MainActivity` used ACTION_ARM (an explicit Start) on launch. It now uses the gated RESUME path.
+- P1 open: `MY_PACKAGE_REPLACED` and boot resume happen without user confirmation, and the locked-screen key has no user-auth gate. See options 1 and 2 above.
+- P1 open: if the radio fails to open, the service stays sticky and keeps the wake lock until the user stops it.
+- P1 open: HWM fail-open (P0.3) matters more now that restarts happen unattended.
