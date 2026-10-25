@@ -29,6 +29,8 @@ internal object SignerRuntime {
 	private const val PREFS = "remote_signer"
 	private const val ARMED = "armed"
 	private const val CODE = "code"
+	private const val ACTIVE = "active_key"
+	private const val ARMED_KEYS = "armed_keys"
 
 	var status by mutableStateOf("Remote signer is off.")
 	var code by mutableStateOf("")
@@ -45,7 +47,13 @@ internal object SignerRuntime {
 	var blockSeenAt by mutableStateOf(0L)
 	var keys by mutableStateOf(listOf<ValidatorKey>())
 	var selected by mutableStateOf("")
+	/** Key that signed the last request, blank when the last one was refused. */
+	var signingKey by mutableStateOf("")
 	val rows = mutableStateListOf<SignedRow>()
+	/** Wall-clock ms of the last signed row (0 = none). */
+	var lastSignedMs by mutableStateOf(0L)
+	private var historyLoaded = false
+	private var lastAdvertiseAt = 0L
 
 	private val main = Handler(Looper.getMainLooper())
 	private var gatt: KmsGattServer? = null
@@ -64,9 +72,66 @@ internal object SignerRuntime {
 		return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(ARMED, false)
 	}
 
+	/**
+	 * Keys started on this phone. Each validator key has its own Start/Stop;
+	 * the radio is on while at least one key is started. 0x12 frames sign only
+	 * for a started key. Legacy 0x10 signs with the active key (the first one
+	 * started), so starting a second key never moves the legacy signer.
+	 */
+	fun armedKeys(context: Context): Set<String> {
+		val p = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+		val set = p.getString(ARMED_KEYS, null)?.split(",")?.filter { it.isNotBlank() }?.toSet()
+		val active = p.getString(ACTIVE, "").orEmpty()
+		return armedSet(set, active, p.getBoolean(ARMED, false))
+	}
+
+	/**
+	 * The active key is the legacy 0x10 signer, so while armed it is started
+	 * for 0x12 too. Before this, ARMED_KEYS could lose it (a Start while the
+	 * radio was briefly down overwrote the set) and keyed frames for the key
+	 * the phone was visibly signing were refused "not started" (code 4).
+	 */
+	fun armedSet(stored: Set<String>?, active: String, armed: Boolean): Set<String> {
+		if (!armed) return stored ?: emptySet()
+		val base = stored ?: emptySet()
+		return if (active.isNotBlank()) base + active else base
+	}
+
+	private fun saveArmed(context: Context, set: Set<String>) {
+		context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+			.putString(ARMED_KEYS, set.joinToString(",")).apply()
+	}
+
+	fun isKeyStarted(context: Context, id: String) = running && id in armedKeys(context)
+
+	/** Stop one key. The radio stays on for the other started keys. */
+	fun stopKey(context: Context, id: String) {
+		val app = context.applicationContext
+		val left = armedKeys(app) - id
+		saveArmed(app, left)
+		if (activeKey(app) == id) {
+			app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(ACTIVE, left.firstOrNull().orEmpty()).apply()
+		}
+		if (left.isEmpty()) stop(app) else {
+			status = "Stopped ${keys.firstOrNull { it.id == id }?.name ?: id}. ${left.size} other key(s) keep signing."
+		}
+	}
+
 	fun startKey(context: Context, id: String) {
 		val app = context.applicationContext
 		selectKey(app, id)
+		// Persisted state, not the radio flag: an advertise failure clears
+		// running, and Start must not then forget the other started keys.
+		val before = if (isArmed(app)) armedKeys(app) else emptySet()
+		saveArmed(app, before + id)
+		val active = activeKey(app)
+		if (active.isBlank() || active !in before) {
+			app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(ACTIVE, id).apply()
+		}
+		if (running && before.isNotEmpty()) {
+			status = "Started ${keys.firstOrNull { it.id == id }?.name ?: id}. ${before.size + 1} keys are signing."
+			return
+		}
 		wantRadio = true
 		bump()
 		releaseRadio()
@@ -92,8 +157,8 @@ internal object SignerRuntime {
 		wantRadio = false
 		bump()
 		releaseRadio()
-		app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(ARMED, false).apply()
-		status = "Remote signer is off. Start this signer to open the radio again. The KMS pin stays."
+		app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(ARMED, false).putString(ARMED_KEYS, "").apply()
+		status = "Remote signer is off. Start a key to open the radio again. The KMS pin stays."
 		app.stopService(android.content.Intent(app, RemoteSignerService::class.java))
 	}
 
@@ -169,6 +234,7 @@ internal object SignerRuntime {
 			watchRadio(app)
 			return
 		}
+		loadHistory(app)
 		try {
 			val boot = ValidatorKeys.bootstrap(app)
 			refreshKeys(app)
@@ -181,9 +247,11 @@ internal object SignerRuntime {
 				app,
 				{ ValidatorKeys.material(app) },
 				onSigned = { row ->
+					SignHistory.append(app, row)
 					main.post {
 						rows.add(0, row)
 						while (rows.size > 100) rows.removeAt(rows.lastIndex)
+						if (row.result == "signed") lastSignedMs = row.atMs
 						onSigned?.invoke(row)
 					}
 				},
@@ -282,7 +350,21 @@ internal object SignerRuntime {
 	}
 
 	fun acceptQr(context: Context, payload: String, bindTo: String? = null): ValidatorKey {
-		val key = ValidatorKeys.acceptQr(context.applicationContext, payload, bindTo)
+		val app = context.applicationContext
+		// A second key on a chain would make legacy 0x10 routing ambiguous and
+		// stop the key that signs today. Pin that key as started first, so it
+		// keeps signing; the new key signs only through keyed 0x12 frames
+		// until the user presses Start on it.
+		val incumbent = if (bindTo == null && activeKey(app).isBlank()) {
+			val chain = runCatching { ValidatorKeys.parseChain(payload) }.getOrNull()
+			ValidatorKeys.list(app).filter { it.chainId == chain }.singleOrNull()
+		} else {
+			null
+		}
+		val key = ValidatorKeys.acceptQr(app, payload, bindTo)
+		if (incumbent != null && key.id != incumbent.id) {
+			app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(ACTIVE, incumbent.id).apply()
+		}
 		refreshKeys(context)
 		pub = key.pubHex
 		status = if (key.chainId.isBlank()) {
@@ -297,6 +379,67 @@ internal object SignerRuntime {
 		ValidatorKeys.select(context.applicationContext, id)
 		refreshKeys(context)
 		status = "Selected ${keys.firstOrNull { it.id == id }?.name ?: id}. New sessions use this key."
+	}
+
+	fun renameKey(context: Context, id: String, name: String) {
+		ValidatorKeys.rename(context.applicationContext, id, name)
+		refreshKeys(context)
+		gatt?.publishKeysChanged()
+		status = "Renamed to ${name.trim()}. The key itself did not change."
+	}
+
+	/** Stops signing first, then wipes this one key set. */
+	fun deleteKey(context: Context, id: String) {
+		val app = context.applicationContext
+		val gone = keys.firstOrNull { it.id == id }
+		// Only stop the radio when the key being deleted is the one signing.
+		// Deleting an idle key must not take other validators offline.
+		val wasSigning = id in armedKeys(app)
+		if (wasSigning) stopKey(app, id)
+		if (activeKey(app) == id) {
+			app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(ACTIVE).apply()
+		}
+		ValidatorKeys.delete(app, id)
+		refreshKeys(app)
+		val label = "${gone?.name ?: id}${gone?.chainId?.let { if (it.isBlank()) "" else " ($it)" } ?: ""}"
+		status = if (armedKeys(app).isEmpty()) "Deleted $label. Signing is off." else "Deleted $label. Other started keys keep signing."
+	}
+
+	/** Key the user explicitly started. Opening a page never changes it. */
+	fun activeKey(context: Context): String =
+		context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(ACTIVE, "").orEmpty()
+
+	fun noteSigningKey(id: String) {
+		main.post { signingKey = id }
+	}
+
+	/** Restore persisted history once per process (after a kill/restart). */
+	fun loadHistory(context: Context) {
+		if (historyLoaded) return
+		historyLoaded = true
+		val saved = SignHistory.load(context.applicationContext)
+		if (rows.isEmpty()) rows.addAll(saved)
+		saved.firstOrNull { it.result == "signed" }?.let { if (it.atMs > lastSignedMs) lastSignedMs = it.atMs }
+	}
+
+	/**
+	 * Called by the service every 10 s. Reopens a radio that died (GATT gone,
+	 * advertise failed) and re-advertises when no laptop is connected, so a
+	 * long screen-off stretch cannot leave the signer silently deaf.
+	 */
+	fun watchdog(context: Context) {
+		val app = context.applicationContext
+		if (!isArmed(app) || armedKeys(app).isEmpty()) return
+		wantRadio = true
+		if (!running || gatt == null) {
+			openRadio(app, epoch, 0)
+			return
+		}
+		val now = android.os.SystemClock.elapsedRealtime()
+		val quiet = System.currentTimeMillis() - lastSignedMs > 60_000
+		if (sessions == 0 && quiet && now - lastAdvertiseAt > 60_000 && code.isNotBlank()) {
+			advertise(app, code)
+		}
 	}
 
 	fun recordKeyCheck(row: SignedRow) {
@@ -323,6 +466,7 @@ internal object SignerRuntime {
 			return
 		}
 		advertiseCallback?.let { adv.stopAdvertising(it) }
+		lastAdvertiseAt = android.os.SystemClock.elapsedRealtime()
 		val bytes = hexToBytes(shown)
 		val settings = AdvertiseSettings.Builder()
 			.setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
@@ -339,7 +483,7 @@ internal object SignerRuntime {
 			.build()
 		val callback = object : AdvertiseCallback() {
 			override fun onStartSuccess(settingsInEffect: AdvertiseSettings?) {
-				status = "advertising $shown. The signer stays up when you leave this screen."
+				status = "advertising $shown"
 			}
 
 			override fun onStartFailure(errorCode: Int) {

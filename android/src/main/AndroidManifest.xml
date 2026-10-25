@@ -12,6 +12,9 @@
 	<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 	<uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
 	<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+	<uses-permission android:name="android.permission.WAKE_LOCK" />
+	<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+	<uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 	<uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
 
 	<!--
@@ -53,7 +56,16 @@
 		<service
 			android:name="net.rotko.zigner.screens.settings.bluetooth.RemoteSignerService"
 			android:exported="false"
-			android:foregroundServiceType="connectedDevice" />
+			android:foregroundServiceType="connectedDevice"
+			android:stopWithTask="false" />
+		<receiver
+			android:name="net.rotko.zigner.screens.settings.bluetooth.SignerBootReceiver"
+			android:exported="true">
+			<intent-filter>
+				<action android:name="android.intent.action.BOOT_COMPLETED" />
+				<action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+			</intent-filter>
+		</receiver>
 		<activity
 			android:name="net.rotko.zigner.MainActivity"
 			android:windowSoftInputMode="adjustResize"
