@@ -28,6 +28,8 @@ internal data class ValidatorKey(
 	val chainId: String,
 	val name: String,
 	val pubHex: String,
+	/** KMS slot this key serves, e.g. morocco-1_zcinti2 (kms engine label: chain id with / as _). */
+	val slot: String = "",
 )
 
 internal object ValidatorKeys {
@@ -37,7 +39,7 @@ internal object ValidatorKeys {
 		migrateLegacy(context)
 		val root = readIndex(context)
 		val keys = root.optJSONArray("keys") ?: JSONArray()
-		return (0 until keys.length()).mapNotNull { index ->
+		return assignSlots((0 until keys.length()).mapNotNull { index ->
 			val item = keys.optJSONObject(index) ?: return@mapNotNull null
 			val id = item.optString("id")
 			if (id.isBlank() || item.optString("network", CHAIN) != CHAIN) return@mapNotNull null
@@ -49,8 +51,27 @@ internal object ValidatorKeys {
 				chainId = item.optString("chain"),
 				name = item.optString("name").ifBlank { "Terp" },
 				pubHex = raw.readBytes().joinToString("") { "%02x".format(it) },
+				slot = item.optString("slot"),
 			)
+		})
+	}
+
+	private fun setField(context: Context, id: String, field: String, value: String) {
+		val root = readIndex(context)
+		val keys = root.optJSONArray("keys") ?: return
+		for (i in 0 until keys.length()) {
+			val item = keys.optJSONObject(i) ?: continue
+			if (item.optString("id") == id) item.put(field, value)
 		}
+		writeIndex(context, root)
+	}
+
+	/** Pin the derived slot so it never shifts when other keys come and go. */
+	private fun pinSlot(context: Context, id: String, wanted: String?) {
+		val others = list(context).filter { it.id != id }.map { it.slot }.toSet()
+		val slot = if (!wanted.isNullOrBlank() && wanted !in others) wanted
+			else list(context).first { it.id == id }.slot
+		setField(context, id, "slot", slot)
 	}
 
 	fun selectedId(context: Context): String? {
@@ -73,7 +94,10 @@ internal object ValidatorKeys {
 	fun add(context: Context): ValidatorKey {
 		migrateLegacy(context)
 		val have = list(context)
-		val id = "terp-${have.size + 1}"
+		val taken = listWithoutMigrate(context).toSet()
+		var n = have.size + 1
+		while ("terp-$n" in taken || dir(context, "terp-$n").exists()) n++
+		val id = "terp-$n"
 		val folder = dir(context, id)
 		folder.mkdirs()
 		val gen = KeyPairGenerator.getInstance("Ed25519")
@@ -84,11 +108,11 @@ internal object ValidatorKeys {
 		File(folder, "raw").writeBytes(raw)
 		val root = readIndex(context)
 		val keys = root.optJSONArray("keys") ?: JSONArray()
-		keys.put(JSONObject().put("id", id).put("network", CHAIN).put("chain", "").put("name", "Terp ${have.size + 1}"))
+		keys.put(JSONObject().put("id", id).put("network", CHAIN).put("chain", "").put("name", "Terp $n"))
 		root.put("keys", keys)
 		root.put("selected", id)
 		writeIndex(context, root)
-		return ValidatorKey(id, CHAIN, "", "Terp ${have.size + 1}", raw.joinToString("") { "%02x".format(it) })
+		return ValidatorKey(id, CHAIN, "", "Terp $n", raw.joinToString("") { "%02x".format(it) })
 	}
 
 	/**
@@ -96,14 +120,14 @@ internal object ValidatorKeys {
 	 * The same chain opens the set that already has it.
 	 * A new chain creates its own key, history, and control plane.
 	 * Only the Terp network is accepted.
+	 * bindTo null is "New validator": it always creates a key, even when the
+	 * chain already has one (two validators on one chain, e.g. zcinti and
+	 * zcinti2). Rescanning an open key set's own chain just opens it.
 	 */
 	fun acceptQr(context: Context, payload: String, bindTo: String? = null): ValidatorKey {
 		val chainId = parseChain(payload)
-		list(context).firstOrNull { it.chainId == chainId }?.let { existing ->
-			select(context, existing.id)
-			return existing
-		}
 		if (bindTo != null) {
+			list(context).firstOrNull { it.id == bindTo && it.chainId == chainId }?.let { return it }
 			val current = list(context).firstOrNull { it.id == bindTo }
 				?: throw IllegalArgumentException("that signer key set is gone")
 			if (current.chainId.isNotBlank() && current.chainId != chainId) {
@@ -114,13 +138,15 @@ internal object ValidatorKeys {
 			for (i in 0 until keys.length()) {
 				val item = keys.optJSONObject(i) ?: continue
 				if (item.optString("id") == bindTo) {
+					val same = list(context).count { it.chainId == chainId && it.id != bindTo }
 					item.put("chain", chainId)
-					item.put("name", chainId)
+					item.put("name", if (same == 0) chainId else "$chainId #${same + 1}")
 				}
 			}
 			root.put("keys", keys)
 			root.put("selected", bindTo)
 			writeIndex(context, root)
+			pinSlot(context, bindTo, parseSlot(payload))
 			return list(context).first { it.id == bindTo }
 		}
 		val created = add(context)
@@ -129,7 +155,7 @@ internal object ValidatorKeys {
 
 	fun parseChain(payload: String): String {
 		val parts = payload.trim().split(":")
-		if (parts.size != 4 || parts[0] != "zcinti" || parts[1] != "1") {
+		if ((parts.size != 4 && parts.size != 5) || parts[0] != "zcinti" || parts[1] != "1") {
 			throw IllegalArgumentException("scan the chain QR on the zcinti page")
 		}
 		if (parts[2] != CHAIN) {
@@ -142,11 +168,26 @@ internal object ValidatorKeys {
 		return chainId
 	}
 
-	/** Replace or create the key set for chain with a secret that arrived over Noise. */
+	/** Optional 5th QR field names the node: zcinti:1:terp:morocco-1:zcinti2 -> slot morocco-1_zcinti2. */
+	fun parseSlot(payload: String): String? {
+		val parts = payload.trim().split(":")
+		if (parts.size != 5) return null
+		val node = parts[4].trim()
+		if (node.isEmpty() || node.length > 32 || !node.all { it.isLetterOrDigit() || it == '-' || it == '_' }) return null
+		return "${parts[3].trim()}_$node"
+	}
+
+	/**
+	 * Import a secret that arrived over Noise. It ADDS a key set unless this
+	 * exact key (same public key) is already on the phone, in which case that
+	 * set is refreshed. Another validator's key on the same chain is never replaced.
+	 */
 	fun importSecret(context: Context, chainId: String, secret: ByteArray) {
 		if (secret.size != 64) throw IllegalArgumentException("consensus secret")
-		val existing = list(context).firstOrNull { it.chainId == chainId }
+		val pubHex = secret.copyOfRange(32, 64).joinToString("") { "%02x".format(it) }
+		val existing = list(context).firstOrNull { it.pubHex == pubHex }
 		val id = existing?.id ?: add(context).id
+		val same = list(context).count { it.chainId == chainId && it.id != id }
 		val seed = secret.copyOf(32)
 		val pub = secret.copyOfRange(32, 64)
 		DeviceKey.writeSeed(dir(context, id), seed, pub)
@@ -158,12 +199,13 @@ internal object ValidatorKeys {
 			if (item.optString("id") == id) {
 				item.put("network", CHAIN)
 				item.put("chain", chainId)
-				item.put("name", chainId)
+				if (existing == null) item.put("name", if (same == 0) chainId else "$chainId #${same + 1}")
 			}
 		}
 		root.put("keys", keys)
 		root.put("selected", id)
 		writeIndex(context, root)
+		if (existing == null) pinSlot(context, id, null)
 	}
 
 	fun noiseSeed(context: Context): ByteArray {
@@ -221,6 +263,55 @@ internal object ValidatorKeys {
 			file.writeBytes(ByteArray(file.length().toInt().coerceAtLeast(0)))
 			file.delete()
 		}
+	}
+
+	/** Renames the key whose keyid (sha256(pub)[:8]) is [keyIdHex]. False when no key matches. */
+	fun renameByKeyId(context: Context, keyIdHex: String, name: String): Boolean {
+		val key = list(context).firstOrNull { keyIdHex(it.pubHex) == keyIdHex } ?: return false
+		rename(context, key.id, name)
+		return true
+	}
+
+	/** Changes the display name only. Key files are not touched. */
+	fun rename(context: Context, id: String, name: String) {
+		val clean = String(utf8Cut(name.trim(), NAME_MAX), Charsets.UTF_8)
+		require(clean.isNotEmpty()) { "the name is empty" }
+		val root = readIndex(context)
+		val keys = root.optJSONArray("keys") ?: return
+		for (i in 0 until keys.length()) {
+			val item = keys.optJSONObject(i) ?: continue
+			if (item.optString("id") == id) item.put("name", clean)
+		}
+		writeIndex(context, root)
+	}
+
+	/**
+	 * Wipes one key set: its sealed pkcs8, public files and high-water mark,
+	 * then drops it from the index. The shared AndroidKeyStore wrapping key
+	 * stays, so other key sets keep working.
+	 */
+	fun delete(context: Context, id: String) {
+		require(id.isNotBlank() && !id.contains('/') && !id.contains("..")) { "bad key id" }
+		val folder = dir(context, id)
+		folder.listFiles()?.forEach { file ->
+			if (file.isFile) {
+				file.writeBytes(ByteArray(file.length().toInt().coerceAtLeast(0)))
+				file.delete()
+			}
+		}
+		folder.delete()
+		val root = readIndex(context)
+		val keys = root.optJSONArray("keys") ?: JSONArray()
+		val kept = JSONArray()
+		for (i in 0 until keys.length()) {
+			val item = keys.optJSONObject(i) ?: continue
+			if (item.optString("id") != id) kept.put(item)
+		}
+		root.put("keys", kept)
+		if (root.optString("selected") == id) {
+			root.put("selected", kept.optJSONObject(0)?.optString("id").orEmpty())
+		}
+		writeIndex(context, root)
 	}
 
 	private fun listWithoutMigrate(context: Context): List<String> {

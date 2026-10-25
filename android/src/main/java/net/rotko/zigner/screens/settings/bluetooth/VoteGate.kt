@@ -14,6 +14,7 @@ internal fun admit(sessionReady: Boolean, statusLane: Boolean, frame: ByteArray)
 		0x50.toByte() -> "hello"
 		0x52.toByte() -> "finish"
 		0x54.toByte() -> if (sessionReady) "vote" else "reject"
+		0x56.toByte() -> if (sessionReady) "rename" else "reject"
 		0x20.toByte(), 0x22.toByte(), 0x24.toByte() -> if (sessionReady) "import" else "reject"
 		0x10.toByte(), 0x30.toByte() -> "reject"
 		else -> "reject"

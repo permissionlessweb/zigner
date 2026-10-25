@@ -24,6 +24,10 @@ internal data class SignedRow(
 	val latencyMs: Long,
 	val at: String,
 	val keyId: String = "",
+	/** "signed" or "refused". */
+	val result: String = "signed",
+	/** Wall-clock ms; drives liveness. */
+	val atMs: Long = System.currentTimeMillis(),
 )
 
 /**
@@ -44,8 +48,8 @@ internal class KmsGattServer(
 	private var statusIncoming = ByteArray(0)
 	private var pendingStatus = false
 	private var sigChar: BluetoothGattCharacteristic? = null
+	private var keysChar: BluetoothGattCharacteristic? = null
 	private var granterChar: BluetoothGattCharacteristic? = null
-	private val bound = mutableMapOf<String, String>()
 	private val sessions = mutableMapOf<String, NoiseResponder>()
 	private val marks = mutableMapOf<String, HighWater>()
 	private val clients = linkedSetOf<BluetoothDevice>()
@@ -65,12 +69,10 @@ internal class KmsGattServer(
 				if (newState == BluetoothProfile.STATE_CONNECTED) {
 					peers.add(id)
 					clients.add(device)
-					bound[id] = ValidatorKeys.selectedId(app).orEmpty()
 					SignerRuntime.refreshGranter(app)
 				} else {
 					peers.remove(id)
 					clients.remove(device)
-					bound.remove(id)
 					sessions.remove(id)
 					// Android stops the advertisement while a laptop is connected.
 					// Without a new one, the scanner cannot find this phone again.
@@ -90,7 +92,10 @@ internal class KmsGattServer(
 				characteristic: BluetoothGattCharacteristic,
 			) {
 				val body = when {
-					characteristic.uuid == PUB && offset == 0 -> forDevice(device).second
+					characteristic.uuid == PUB && offset == 0 -> legacyPub()
+					characteristic.uuid == KEYS -> encodeKeyList(ValidatorKeys.list(app)).let {
+						if (offset >= it.size) ByteArray(0) else it.copyOfRange(offset, it.size)
+					}
 					characteristic.uuid == GRANTER && offset == 0 && sessionReady(device) -> granterBytes()
 					else -> ByteArray(0)
 				}
@@ -200,6 +205,21 @@ internal class KmsGattServer(
 		service.addCharacteristic(sig)
 		service.addCharacteristic(granter)
 		service.addCharacteristic(status)
+		// Notify carries only a one-byte 'N' change hint; the scanner re-reads
+		// the listing, which can be longer than one notification.
+		val keysCh = BluetoothGattCharacteristic(
+			KEYS,
+			BluetoothGattCharacteristic.PROPERTY_READ or BluetoothGattCharacteristic.PROPERTY_NOTIFY,
+			BluetoothGattCharacteristic.PERMISSION_READ,
+		)
+		keysCh.addDescriptor(
+			BluetoothGattDescriptor(
+				CCCD,
+				BluetoothGattDescriptor.PERMISSION_READ or BluetoothGattDescriptor.PERMISSION_WRITE,
+			),
+		)
+		service.addCharacteristic(keysCh)
+		keysChar = keysCh
 		sigChar = sig
 		granterChar = granter
 		if (!opened.addService(service)) {
@@ -227,6 +247,40 @@ internal class KmsGattServer(
 		for (device in clients.toList()) {
 			notifyValue(current, device, characteristic, value)
 		}
+	}
+
+	/** Tells connected scanners the key listing changed (e.g. a rename) so they re-read it. */
+	fun publishKeysChanged() {
+		val current = server ?: return
+		val characteristic = keysChar ?: return
+		for (device in clients.toList()) {
+			notifyValue(current, device, characteristic, byteArrayOf(NAME_TRAILER))
+		}
+	}
+
+	/** Sealed 0x56 rename from the pinned KMS. Replies 0x57 keyId8, or a coded refusal. */
+	private fun renameSealed(device: BluetoothDevice, id: String, frame: ByteArray) {
+		val phone = sessions[id] ?: run {
+			notify(device, refusal(REFUSE_NO_SESSION))
+			return
+		}
+		val opened = try { phone.open(frame.copyOfRange(1, frame.size)) } catch (_: Exception) {
+			notify(device, refusal(REFUSE_BAD_FRAME, "rename did not open"))
+			return
+		}
+		val r = parseRenameFrame(opened) ?: run {
+			notify(device, refusal(REFUSE_BAD_FRAME, "bad rename frame"))
+			return
+		}
+		if (!ValidatorKeys.renameByKeyId(app, r.keyIdHex, r.name)) {
+			notify(device, refusal(REFUSE_UNKNOWN_KEY, r.keyIdHex))
+			return
+		}
+		val raw = ByteArray(8) { r.keyIdHex.substring(it * 2, it * 2 + 2).toInt(16).toByte() }
+		notify(device, byteArrayOf(WIRE_RENAME_ACK) + raw)
+		main.post { SignerRuntime.refreshKeys(app) }
+		onStatus("KMS renamed a key to ${r.name}")
+		publishKeysChanged()
 	}
 
 	private fun granterBytes(): ByteArray {
@@ -327,13 +381,14 @@ internal class KmsGattServer(
 		}
 	}
 
-	private fun forDevice(device: BluetoothDevice): Pair<java.security.PrivateKey, ByteArray> {
-		val id = try {
-			bound[device.address]
-		} catch (_: SecurityException) {
-			null
-		}
-		return if (id.isNullOrBlank()) material() else ValidatorKeys.materialFor(app, id)
+	/**
+	 * Single-key mode public key: the started key, else the selected one.
+	 * No connection is bound to a key; each request names or routes its own.
+	 */
+	private fun legacyPub(): ByteArray {
+		val active = SignerRuntime.activeKey(app)
+		val key = ValidatorKeys.list(app).firstOrNull { it.id == active }
+		return if (key != null) ValidatorKeys.materialFor(app, key.id).second else material().second
 	}
 
 	private fun assemble(current: ByteArray, offset: Int, value: ByteArray): ByteArray {
@@ -375,11 +430,15 @@ internal class KmsGattServer(
 				}
 				"finish" -> finishSession(device, id, frame)
 				"vote" -> signSealed(device, id, frame)
+				"rename" -> renameSealed(device, id, frame)
 				"import" -> {
 					val packet = importFrame(frame) ?: return
 					notify(device, packet)
 				}
-				else -> onStatus("rejected an unauthenticated frame")
+				else -> {
+					if (frame[0] == 0x54.toByte() || frame[0] == 0x56.toByte()) notify(device, refusal(REFUSE_NO_SESSION))
+					onStatus("rejected an unauthenticated frame")
+				}
 			}
 		} catch (_: Exception) {
 			sessions.remove(id)
@@ -403,21 +462,47 @@ internal class KmsGattServer(
 	}
 
 	private fun signSealed(device: BluetoothDevice, id: String, frame: ByteArray) {
-		val phone = sessions[id] ?: return
+		val phone = sessions[id] ?: run {
+			notify(device, refusal(REFUSE_NO_SESSION))
+			return
+		}
 		val opened = phone.open(frame.copyOfRange(1, frame.size))
 		val started = android.os.SystemClock.elapsedRealtime()
-		val parsed = parse(opened) ?: run {
+		val parsed = parseSignFrame(opened) ?: run {
+			notify(device, refusal(REFUSE_BAD_FRAME, "not a 0x10/0x12 sign frame"))
 			onStatus("sign request was not a block frame")
 			return
 		}
-		val keyId = bound[id].orEmpty().ifBlank { "selected" }
+		val sb = parseSignBytes(parsed.msg)
+		val problem = when {
+			sb == null -> "sign bytes are not a vote, proposal or vote extension"
+			else -> signBytesProblem(sb, parsed.height, parsed.round, parsed.step)
+		}
+		if (sb == null || problem != null) {
+			notify(device, refusal(REFUSE_BAD_FRAME, problem ?: "bad sign bytes"))
+			onStatus("refused: $problem")
+			return
+		}
+		val keys = ValidatorKeys.list(app)
+		val route = parsed.keyId?.let { routeKeyed(keys, SignerRuntime.armedKeys(app), sb.chainId, it) }
+			?: routeKey(keys, SignerRuntime.activeKey(app), sb.chainId)
+		if (route is Route.Refuse) {
+			notify(device, refusal(route.code, route.why))
+			onStatus("refused ${kindName(sb.kind)} at ${sb.height}: ${route.why}")
+			SignerRuntime.noteSigningKey("")
+			return
+		}
+		val key = (route as Route.Use).key
+		val keyId = key.id
 		val mark = marks.getOrPut(keyId) {
 			HighWater.read(java.io.File(app.filesDir, "validator-keys/$keyId/hwm.txt"))
 		}
 		when (val decision = mark.decide(parsed.height, parsed.round, parsed.step, parsed.msg)) {
 			is Decision.Refuse -> {
-				notify(device, byteArrayOf(0x5f))
-				onStatus("refused a repeated or lower height")
+				notify(device, staleRefusal(mark.height, mark.round, mark.step))
+				onStatus("refused a repeated or lower height for ${key.name}")
+				onSigned(SignedRow(parsed.height, parsed.round, parsed.step, 0,
+					java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(java.util.Date()), keyId, "refused"))
 				return
 			}
 			is Decision.Replay -> {
@@ -428,7 +513,7 @@ internal class KmsGattServer(
 			Decision.Sign -> Unit
 		}
 		val signer = Signature.getInstance("Ed25519")
-		signer.initSign(forDevice(device).first)
+		signer.initSign(ValidatorKeys.materialFor(app, keyId).first)
 		signer.update(parsed.msg)
 		val sig = signer.sign()
 		if (sig.size != 64) {
@@ -443,6 +528,7 @@ internal class KmsGattServer(
 		mark.write(java.io.File(app.filesDir, "validator-keys/$keyId/hwm.txt"))
 		val box = phone.seal(byteArrayOf(0x11) + sig)
 		notify(device, byteArrayOf(0x55) + box)
+		SignerRuntime.noteSigningKey(keyId)
 		val latency = android.os.SystemClock.elapsedRealtime() - started
 		onSigned(
 			SignedRow(
@@ -456,7 +542,6 @@ internal class KmsGattServer(
 		)
 	}
 
-	private data class Parsed(val height: Long, val round: Int, val step: Int, val msg: ByteArray)
 
 	private fun noteStatus(frame: ByteArray) {
 		if (frame.size < 19) return
@@ -481,16 +566,6 @@ internal class KmsGattServer(
 		SignerRuntime.noteBlock(height, lag, validator, chain, addr)
 	}
 
-	private fun parse(frame: ByteArray): Parsed? {
-		if (frame.size < 16 || frame[0] != 0x10.toByte()) return null
-		val height = readLong(frame, 1)
-		val round = readInt(frame, 9)
-		val step = frame[13].toInt() and 0xff
-		val n = ((frame[14].toInt() and 0xff) shl 8) or (frame[15].toInt() and 0xff)
-		if (n <= 0 || 16 + n > frame.size) return null
-		return Parsed(height, round, step, frame.copyOfRange(16, 16 + n))
-	}
-
 	private fun readLong(b: ByteArray, at: Int): Long {
 		var v = 0L
 		for (i in 0 until 8) v = (v shl 8) or (b[at + i].toLong() and 0xff)
@@ -510,6 +585,7 @@ internal class KmsGattServer(
 		val SIG: UUID = UUID.fromString("e7c8a1b0-4f3e-4c2a-9b6d-6b6d73000004")
 		val GRANTER: UUID = UUID.fromString("e7c8a1b0-4f3e-4c2a-9b6d-6b6d73000005")
 		val STATUS: UUID = UUID.fromString("e7c8a1b0-4f3e-4c2a-9b6d-6b6d73000006")
+		val KEYS: UUID = UUID.fromString("e7c8a1b0-4f3e-4c2a-9b6d-6b6d73000007")
 		val CCCD: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
 	}
 }
