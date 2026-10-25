@@ -38,6 +38,11 @@ import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.TextFieldDefaults
+import androidx.compose.material.TextFieldColors
+import net.rotko.zigner.ui.theme.accentPink
+import net.rotko.zigner.ui.theme.red500
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -62,6 +67,15 @@ import net.rotko.zigner.ui.theme.backgroundSecondary
 import net.rotko.zigner.ui.theme.textSecondary
 import net.rotko.zigner.ui.theme.textTertiary
 import java.security.Signature
+import net.rotko.zigner.R
+import androidx.compose.ui.res.dimensionResource
+import net.rotko.zigner.components.NetworkLabelWithIcon
+import net.rotko.zigner.components.base.PrimaryButton
+import net.rotko.zigner.ui.theme.fill12
+import net.rotko.zigner.ui.theme.accentGreen
+import net.rotko.zigner.ui.theme.pink500
+import net.rotko.zigner.ui.theme.red500fill12
+import androidx.compose.material.icons.outlined.ContentCopy
 
 /**
  * Controls for the remote signer. Back closes this screen only.
@@ -242,6 +256,7 @@ private fun SignerKeySets() {
 				onBack = { openId = null },
 				onScan = { beginScan(open.id) },
 				onNew = { beginScan(null) },
+				onDeleted = { openId = null; tab = 0 },
 			)
 			else -> Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
 				Text("Validators", style = SignerTypeface.TitleS, color = MaterialTheme.colors.primary)
@@ -257,7 +272,6 @@ private fun SignerKeySets() {
 						color = MaterialTheme.colors.fill6,
 						shape = RoundedCornerShape(16.dp),
 						modifier = Modifier.fillMaxWidth().clickable {
-							SignerRuntime.selectKey(context, key.id)
 							tab = 0
 							openId = key.id
 						},
@@ -295,13 +309,69 @@ private fun ValidatorKeyPage(
 	onBack: () -> Unit,
 	onScan: () -> Unit,
 	onNew: () -> Unit,
+	onDeleted: () -> Unit,
 ) {
+	val context = LocalContext.current
+	var renaming by remember(key.id) { mutableStateOf(false) }
+	var draft by remember(key.id) { mutableStateOf(key.name) }
 	Column(Modifier.fillMaxSize()) {
 		ScreenHeaderClose(
 			title = key.name,
 			subtitle = if (key.chainId.isBlank()) "Terp" else "Terp · ${key.chainId}",
 			onClose = onBack,
 		)
+		if (renaming) {
+			Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+				OutlinedTextField(
+					value = draft,
+					onValueChange = { draft = it.take(40) },
+					singleLine = true,
+					textStyle = SignerTypeface.BodyL,
+					placeholder = { Text("Display name", style = SignerTypeface.BodyL) },
+					colors = signerFieldColors(),
+					modifier = Modifier.weight(1f),
+				)
+				Text(
+					"Save",
+					style = SignerTypeface.LabelM,
+					color = MaterialTheme.colors.primary,
+					modifier = Modifier.padding(start = 12.dp).clickable {
+						if (draft.isNotBlank()) {
+							SignerRuntime.renameKey(context, key.id, draft)
+							renaming = false
+						}
+					},
+				)
+				Text(
+					"Cancel",
+					style = SignerTypeface.LabelM,
+					color = MaterialTheme.colors.textSecondary,
+					modifier = Modifier.padding(start = 12.dp).clickable { draft = key.name; renaming = false },
+				)
+			}
+		} else {
+			Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+				Text(key.name, style = SignerTypeface.BodyM, color = MaterialTheme.colors.textSecondary)
+				Box(
+					modifier = Modifier
+						.padding(start = 8.dp)
+						.size(28.dp)
+						.clip(RoundedCornerShape(6.dp))
+						.clickable { draft = key.name; renaming = true },
+					contentAlignment = androidx.compose.ui.Alignment.Center,
+				) {
+					Icon(
+						imageVector = Icons.Outlined.Edit,
+						contentDescription = "Rename ${key.name}",
+						tint = MaterialTheme.colors.textTertiary,
+						modifier = Modifier.size(14.dp),
+					)
+				}
+			}
+		}
+		KeyChips(key)
+		KeyActions(key, onScan)
+		BatteryCard()
 		Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(horizontal = 8.dp)) {
 			PageTab("Status", tab == 0) { onTab(0) }
 			PageTab("History", tab == 1) { onTab(1) }
@@ -311,13 +381,13 @@ private fun ValidatorKeyPage(
 			Modifier
 				.weight(1f)
 				.verticalScroll(rememberScrollState())
-				.padding(bottom = 16.dp),
+				.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
 			verticalArrangement = Arrangement.spacedBy(8.dp),
 		) {
 			when (tab) {
 				0 -> ValidatorStatusPage(key)
 				1 -> ValidatorHistoryPage(key)
-				else -> ValidatorChainPage(key, onScan, onNew)
+				else -> ValidatorChainPage(key, onScan, onNew, onDeleted)
 			}
 		}
 	}
@@ -384,6 +454,136 @@ private fun PageTab(label: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
+private fun Chip(text: String, color: androidx.compose.ui.graphics.Color = MaterialTheme.colors.textTertiary) {
+	// Same look as NetworkLabel on the public key page (fill12, inner frame radius, CaptionM).
+	Text(
+		text,
+		color = color,
+		style = SignerTypeface.CaptionM,
+		maxLines = 1,
+		modifier = Modifier
+			.background(MaterialTheme.colors.fill12, RoundedCornerShape(dimensionResource(id = R.dimen.innerFramesCornerRadius)))
+			.padding(horizontal = 8.dp, vertical = 2.dp),
+	)
+}
+
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun KeyChips(key: ValidatorKey) {
+	val context = LocalContext.current
+	val started = SignerRuntime.isKeyStarted(context, key.id)
+	val legacy = started && SignerRuntime.activeKey(context) == key.id
+	androidx.compose.foundation.layout.FlowRow(
+		horizontalArrangement = Arrangement.spacedBy(6.dp),
+		verticalArrangement = Arrangement.spacedBy(6.dp),
+		modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+	) {
+		NetworkLabelWithIcon("Terp", "", iconHeight = 20.dp, style = SignerTypeface.CaptionM)
+		Chip(key.chainId.ifBlank { "no chain" })
+		Chip(key.slot.ifBlank { "no slot" })
+		Chip(keyIdHex(key.pubHex).ifBlank { "—" })
+		when (SignerRuntime.nodeValidator) {
+			true -> Chip("validator")
+			false -> Chip("not a validator", MaterialTheme.colors.red500)
+			null -> {}
+		}
+		if (legacy) Chip("legacy 0x10")
+	}
+}
+
+@Composable
+private fun StatusPill(on: Boolean, text: String) {
+	val tint = if (on) MaterialTheme.colors.accentGreen else MaterialTheme.colors.textTertiary
+	Row(
+		verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+		modifier = Modifier
+			.background(MaterialTheme.colors.fill6, RoundedCornerShape(50))
+			.padding(horizontal = 10.dp, vertical = 4.dp),
+	) {
+		Box(Modifier.size(8.dp).background(tint, RoundedCornerShape(50)))
+		Text(text, style = SignerTypeface.LabelS, color = MaterialTheme.colors.primary, modifier = Modifier.padding(start = 6.dp))
+	}
+}
+
+/** Start/Stop and Scan side by side, above the tabs, so neither hides at the bottom. */
+@Composable
+private fun KeyActions(key: ValidatorKey, onScan: () -> Unit) {
+	val context = LocalContext.current
+	val started = SignerRuntime.isKeyStarted(context, key.id)
+	val permit = rememberLauncherForActivityResult(
+		ActivityResultContracts.RequestMultiplePermissions(),
+	) { granted ->
+		if (granted.values.all { it }) SignerRuntime.startKey(context, key.id)
+		else SignerRuntime.status = "allow Bluetooth and notifications to start"
+	}
+	Row(
+		horizontalArrangement = Arrangement.spacedBy(8.dp),
+		modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+	) {
+		PrimaryButton(
+			label = if (started) "Stop key" else "Start key",
+			modifier = Modifier.weight(1f),
+			activeBackground = if (started) MaterialTheme.colors.fill12 else MaterialTheme.colors.pink500,
+			activeText = if (started) MaterialTheme.colors.primary else androidx.compose.ui.graphics.Color.White,
+			onClicked = {
+				if (started) {
+					SignerRuntime.stopKey(context, key.id)
+				} else {
+					val missing = runtimeBluetoothPermissions().filter {
+						context.checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED
+					}
+					if (missing.isNotEmpty()) permit.launch(missing.toTypedArray()) else SignerRuntime.startKey(context, key.id)
+				}
+			},
+		)
+		PrimaryButton(
+			label = "Scan",
+			modifier = Modifier.weight(1f),
+			activeBackground = MaterialTheme.colors.fill12,
+			activeText = MaterialTheme.colors.primary,
+			onClicked = onScan,
+		)
+	}
+}
+
+/** One tap to exempt zigner from battery optimization, so Doze and app standby do not cut signing. */
+@Composable
+private fun BatteryCard() {
+	val context = LocalContext.current
+	var exempt by remember { mutableStateOf(BatteryExemption.isExempt(context)) }
+	LaunchedEffect(Unit) {
+		while (!exempt) { delay(1500); exempt = BatteryExemption.isExempt(context) }
+	}
+	if (exempt) return
+	Row(
+		Modifier
+			.fillMaxWidth()
+			.padding(horizontal = 16.dp, vertical = 4.dp)
+			.clip(RoundedCornerShape(12.dp))
+			.background(MaterialTheme.colors.fill6)
+			.clickable { BatteryExemption.request(context) }
+			.padding(horizontal = 12.dp, vertical = 10.dp),
+		horizontalArrangement = Arrangement.spacedBy(10.dp),
+		verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+	) {
+		Text("\u26A1", style = MaterialTheme.typography.body1)
+		Text("Keep signing when asleep", style = MaterialTheme.typography.body2, color = MaterialTheme.colors.primary, modifier = Modifier.weight(1f))
+		Text("Allow", style = MaterialTheme.typography.body2, color = MaterialTheme.colors.pink500)
+	}
+}
+
+@Composable
+private fun Card(content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
+	Column(
+		Modifier
+			.fillMaxWidth()
+			.background(MaterialTheme.colors.fill6, RoundedCornerShape(16.dp))
+			.padding(horizontal = 16.dp, vertical = 4.dp),
+		content = content,
+	)
+}
+
+@Composable
 private fun ValidatorStatusPage(key: ValidatorKey) {
 	val context = LocalContext.current
 	var now by remember { mutableStateOf(SystemClock.elapsedRealtime()) }
@@ -393,112 +593,140 @@ private fun ValidatorStatusPage(key: ValidatorKey) {
 			now = SystemClock.elapsedRealtime()
 		}
 	}
+	val started = SignerRuntime.isKeyStarted(context, key.id)
 	val seen = SignerRuntime.blockSeenAt
 	val mine = key.chainId.isBlank() || SignerRuntime.nodeChain.isBlank() || SignerRuntime.nodeChain == key.chainId
-	val updated = if (seen == 0L) "—" else "${(now - seen) / 1000}s ago"
-	val height = if (!mine || SignerRuntime.blockHeight == 0L) "—" else SignerRuntime.blockHeight.toString()
-	val lag = if (!mine || SignerRuntime.blockLagMs < 0) "—" else "${SignerRuntime.blockLagMs} ms"
-	val role = when (SignerRuntime.nodeValidator) {
-		true -> "Validator"
-		false -> "Not a validator"
-		null -> "—"
+	val last = rowsFor(key).firstOrNull { it.result == "signed" }
+	Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+		val lastMs = last?.atMs ?: 0L
+		val live = SignHistory.isLive(started, lastMs, System.currentTimeMillis() + (now - now))
+		StatusPill(live, SignHistory.liveLabel(started, lastMs, System.currentTimeMillis() + (now - now)))
+		StatusPill(SignerRuntime.running, if (SignerRuntime.running) "Radio on · ${SignerRuntime.armedKeys(context).size}" else "Radio off")
 	}
-	val runningThis = SignerRuntime.running && SignerRuntime.selected == key.id
-	val permit = rememberLauncherForActivityResult(
-		ActivityResultContracts.RequestMultiplePermissions(),
-	) { granted ->
-		if (granted.values.all { it }) {
-			SignerRuntime.startKey(context, key.id)
-		} else {
-			SignerRuntime.status = "allow Bluetooth and notifications, then start the signer"
-		}
+	Card {
+		Text("Last signed", style = SignerTypeface.CaptionM, color = MaterialTheme.colors.textTertiary, modifier = Modifier.padding(top = 12.dp))
+		Text(last?.height?.toString() ?: "—", style = SignerTypeface.TitleL, color = MaterialTheme.colors.primary)
+		Text(
+			if (last == null) "nothing signed yet" else "${last.at} · ${stepName(last.step)} · ${last.latencyMs} ms",
+			style = SignerTypeface.BodyM, color = MaterialTheme.colors.textSecondary,
+			modifier = Modifier.padding(bottom = 12.dp),
+		)
 	}
-	Column(
-		Modifier
-			.fillMaxWidth()
-			.background(MaterialTheme.colors.fill6, RoundedCornerShape(16.dp))
-			.padding(horizontal = 16.dp),
-	) {
-		DetailLine("Network", "Terp")
-		DetailLine("Chain", key.chainId.ifBlank { "—" })
-		DetailLine("Height", height)
-		DetailLine("Lag", lag)
-		DetailLine("Updated", updated)
-		DetailLine("Role", role)
-		DetailLine("Consensus", SignerRuntime.consensusAddr.ifBlank { "—" })
-		DetailLine("Granter", SignerRuntime.granterAccount.ifBlank { "—" })
-		DetailLine("Radio", if (runningThis) "On" else "Off", last = true)
+	Card {
+		DetailLine("Node height", if (!mine || SignerRuntime.blockHeight == 0L) "—" else SignerRuntime.blockHeight.toString())
+		DetailLine("Lag", if (!mine || SignerRuntime.blockLagMs < 0) "—" else formatLag(SignerRuntime.blockLagMs))
+		DetailLine("Updated", if (seen == 0L) "—" else "${(now - seen) / 1000}s ago", last = true)
 	}
-	PrimaryButtonWide(
-		label = if (runningThis) "Stop this signer" else "Start this signer",
-		onClicked = {
-			if (runningThis) {
-				SignerRuntime.stop(context)
-			} else {
-				val missing = runtimeBluetoothPermissions().filter {
-					context.checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED
-				}
-				if (missing.isNotEmpty()) {
-					permit.launch(missing.toTypedArray())
-				} else {
-					SignerRuntime.startKey(context, key.id)
-				}
-			}
-		},
-	)
-	Text(SignerRuntime.status, style = SignerTypeface.BodyM, color = MaterialTheme.colors.textSecondary)
+	if (SignerRuntime.status.isNotBlank()) {
+		Text(SignerRuntime.status, style = SignerTypeface.CaptionM, color = MaterialTheme.colors.textTertiary)
+	}
+}
+
+private fun formatLag(ms: Long): String = when {
+	ms < 10_000 -> "$ms ms"
+	ms < 3_600_000 -> "${ms / 60_000} min ${(ms / 1000) % 60} s"
+	else -> "${ms / 3_600_000} h ${(ms / 60_000) % 60} min"
+}
+
+private fun stepName(step: Int) = when (step) {
+	0 -> "proposal"; 1 -> "prevote"; 2 -> "precommit"; 3 -> "vote extension"; else -> "step $step"
 }
 
 @Composable
-private fun DetailLine(label: String, value: String, last: Boolean = false) {
+private fun DetailLine(label: String, value: String, last: Boolean = false, copy: Boolean = false) {
+	val clip = androidx.compose.ui.platform.LocalClipboardManager.current
 	Row(
 		verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-		modifier = Modifier.defaultMinSize(minHeight = 48.dp).padding(vertical = 8.dp),
+		modifier = Modifier
+			.fillMaxWidth()
+			.defaultMinSize(minHeight = 48.dp)
+			.then(if (copy && value != "—") Modifier.clickable {
+				clip.setText(androidx.compose.ui.text.AnnotatedString(value))
+				SignerRuntime.status = "copied $label"
+			} else Modifier)
+			.padding(vertical = 8.dp),
 	) {
-		Text(label, style = SignerTypeface.BodyL, color = MaterialTheme.colors.textTertiary)
+		Text(label, style = SignerTypeface.BodyM, color = MaterialTheme.colors.textTertiary)
 		Spacer(Modifier.weight(1f))
 		Text(
 			value,
-			style = SignerTypeface.BodyL,
+			style = SignerTypeface.BodyM,
 			color = MaterialTheme.colors.primary,
-			textAlign = androidx.compose.ui.text.style.TextAlign.End,
-			modifier = Modifier.padding(start = 16.dp),
+			textAlign = TextAlign.End,
+			maxLines = 1,
+			overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+			modifier = Modifier.padding(start = 12.dp).weight(2f, fill = false),
 		)
+		if (copy && value != "—") {
+			Icon(Icons.Outlined.ContentCopy, contentDescription = "Copy $label", tint = MaterialTheme.colors.textTertiary,
+				modifier = Modifier.padding(start = 8.dp).size(16.dp))
+		}
 	}
-	if (!last) SignerDivider(sidePadding = 0.dp)
+	if (!last) SignerDivider()
 }
 
 @Composable
 private fun ValidatorHistoryPage(key: ValidatorKey) {
 	val mine = rowsFor(key).take(100)
 	if (mine.isEmpty()) {
-		Text("No block signed for this validator", style = SignerTypeface.BodyM, color = MaterialTheme.colors.textSecondary)
+		Column(
+			Modifier.fillMaxWidth().padding(vertical = 48.dp),
+			horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+			verticalArrangement = Arrangement.spacedBy(4.dp),
+		) {
+			Text("No signatures yet", style = SignerTypeface.TitleS, color = MaterialTheme.colors.primary)
+			Text("Votes this key signs appear here.", style = SignerTypeface.BodyM, color = MaterialTheme.colors.textTertiary)
+		}
 		return
 	}
-	Column(Modifier.fillMaxWidth().height(280.dp).verticalScroll(rememberScrollState())) {
-		SignHeader()
-		mine.forEach { SignRow(it) }
+	Card {
+		mine.forEachIndexed { i, row -> SignRow(row, last = i == mine.lastIndex) }
 	}
 }
 
 @Composable
-private fun ValidatorChainPage(key: ValidatorKey, onScan: () -> Unit, onNew: () -> Unit) {
-	Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+private fun ValidatorChainPage(key: ValidatorKey, onScan: () -> Unit, onNew: () -> Unit, onDeleted: () -> Unit) {
+	val context = LocalContext.current
+	var confirming by remember(key.id) { mutableStateOf(false) }
+	var typed by remember(key.id) { mutableStateOf("") }
+	val phoneFp = remember {
+		runCatching { KeyExport.fingerprint(X25519.base(ValidatorKeys.noiseSeed(context))) }.getOrDefault("")
+	}
+	Card {
+		DetailLine("Chain id", key.chainId.ifBlank { "—" }, copy = true)
+		DetailLine("KMS slot", key.slot.ifBlank { "—" }, copy = true)
+		DetailLine("Key id", keyIdHex(key.pubHex).ifBlank { "—" }, copy = true)
+		DetailLine("Consensus pubkey", key.pubHex.ifBlank { "—" }, copy = true)
+		DetailLine("Consensus address", SignerRuntime.consensusAddr.ifBlank { "—" }, copy = true)
+		DetailLine("Granter", SignerRuntime.granterAccount.ifBlank { "—" }, copy = true)
+		DetailLine("Phone identity", phoneFp.ifBlank { "—" }, copy = true, last = true)
+	}
+	SecondaryButtonWide(label = "New validator", withBackground = true, onClicked = onNew)
+	Spacer(Modifier.height(24.dp))
+	val chain = key.chainId.ifBlank { "no chain" }
+	if (!confirming) {
+		SecondaryButtonWide(label = "Delete this key", textColor = MaterialTheme.colors.red500, onClicked = { typed = ""; confirming = true })
+	} else {
 		Text(
-			if (key.chainId.isBlank()) "This validator has no chain yet." else "Connected to ${key.chainId}.",
-			style = SignerTypeface.BodyL,
-			color = MaterialTheme.colors.onBackground,
-		)
-		Text(
-			"Scan the chain QR on the zcinti page. This key set keeps its own consensus key.",
+			"Delete \"${key.name}\" (Terp · $chain)? This wipes its consensus key and high-water mark from this phone. Other keys are untouched. Type the name to confirm.",
 			style = SignerTypeface.BodyM,
-			color = MaterialTheme.colors.textSecondary,
+			color = MaterialTheme.colors.red500,
 		)
-		SecondaryButtonWide(
-			label = if (key.chainId.isBlank()) "Scan chain QR" else "Scan this chain again",
-			onClicked = onScan,
+		OutlinedTextField(
+			value = typed,
+			onValueChange = { typed = it },
+			singleLine = true,
+			textStyle = SignerTypeface.BodyL,
+			placeholder = { Text("Type ${key.name}", style = SignerTypeface.BodyL) },
+			colors = signerFieldColors(focus = MaterialTheme.colors.red500),
+			modifier = Modifier.fillMaxWidth(),
 		)
-		SecondaryButtonWide(label = "New validator", onClicked = onNew)
+		PrimaryButtonWide(label = "Delete ${key.name}", isEnabled = typed.trim() == key.name, activeBackground = MaterialTheme.colors.red500, onClicked = {
+			SignerRuntime.deleteKey(context, key.id)
+			confirming = false
+			onDeleted()
+		})
+		SecondaryButtonWide(label = "Keep this key", onClicked = { confirming = false })
 	}
 }
 
@@ -594,31 +822,34 @@ internal fun SignerSummary() {
 }
 
 @Composable
-private fun SignHeader() {
-	Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-		Text("Height", style = SignerTypeface.CaptionM, color = MaterialTheme.colors.textTertiary, modifier = Modifier.weight(1.2f))
-		Text("Round", style = SignerTypeface.CaptionM, color = MaterialTheme.colors.textTertiary, modifier = Modifier.weight(0.8f), textAlign = TextAlign.End)
-		Text("Step", style = SignerTypeface.CaptionM, color = MaterialTheme.colors.textTertiary, modifier = Modifier.weight(0.6f), textAlign = TextAlign.End)
-		Text("Latency", style = SignerTypeface.CaptionM, color = MaterialTheme.colors.textTertiary, modifier = Modifier.weight(1f), textAlign = TextAlign.End)
-		Text("Time", style = SignerTypeface.CaptionM, color = MaterialTheme.colors.textTertiary, modifier = Modifier.weight(1f), textAlign = TextAlign.End)
-	}
+private fun ResultBadge(result: String) {
+	val ok = result == "signed"
+	Text(
+		if (ok) "Signed" else "Refused",
+		style = SignerTypeface.CaptionM,
+		color = if (ok) MaterialTheme.colors.accentGreen else MaterialTheme.colors.red500,
+		modifier = Modifier
+			.background(if (ok) MaterialTheme.colors.fill12 else MaterialTheme.colors.red500fill12, RoundedCornerShape(50))
+			.padding(horizontal = 8.dp, vertical = 2.dp),
+	)
 }
 
 @Composable
-private fun SignRow(row: SignedRow) {
-	Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-		Text(
-			if (row.height == 0L) "key" else row.height.toString(),
-			style = SignerTypeface.BodyM,
-			color = MaterialTheme.colors.primary,
-			modifier = Modifier.weight(1.2f),
-		)
-		Text(row.round.toString(), style = SignerTypeface.BodyM, color = MaterialTheme.colors.primary, modifier = Modifier.weight(0.8f), textAlign = TextAlign.End)
-		Text(row.step.toString(), style = SignerTypeface.BodyM, color = MaterialTheme.colors.primary, modifier = Modifier.weight(0.6f), textAlign = TextAlign.End)
-		Text("${row.latencyMs} ms", style = SignerTypeface.BodyM, color = MaterialTheme.colors.primary, modifier = Modifier.weight(1f), textAlign = TextAlign.End)
-		Text(row.at, style = SignerTypeface.CaptionM, color = MaterialTheme.colors.textSecondary, modifier = Modifier.weight(1f), textAlign = TextAlign.End)
+private fun SignRow(row: SignedRow, last: Boolean = false) {
+	Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+		Column(Modifier.weight(1f)) {
+			Text(row.height.toString(), style = SignerTypeface.BodyL, color = MaterialTheme.colors.primary)
+			Text(
+				"round ${row.round} · ${stepName(row.step)}" + if (row.result == "signed") " · ${row.latencyMs} ms" else "",
+				style = SignerTypeface.CaptionM, color = MaterialTheme.colors.textTertiary,
+			)
+		}
+		Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
+			ResultBadge(row.result)
+			Text(row.at, style = SignerTypeface.CaptionM, color = MaterialTheme.colors.textTertiary, modifier = Modifier.padding(top = 2.dp))
+		}
 	}
-	Divider(color = MaterialTheme.colors.onBackground.copy(alpha = 0.12f))
+	if (!last) SignerDivider()
 }
 
 @Composable
@@ -660,3 +891,15 @@ private fun radioOn(adapter: BluetoothAdapter?, context: android.content.Context
 		false
 	}
 }
+
+/** Outlined field colors from the app theme, so light and dark both read right. */
+@Composable
+private fun signerFieldColors(focus: androidx.compose.ui.graphics.Color = MaterialTheme.colors.accentPink): TextFieldColors =
+	TextFieldDefaults.outlinedTextFieldColors(
+		textColor = MaterialTheme.colors.primary,
+		backgroundColor = MaterialTheme.colors.fill6,
+		cursorColor = focus,
+		focusedBorderColor = focus,
+		unfocusedBorderColor = MaterialTheme.colors.appliedStroke,
+		placeholderColor = MaterialTheme.colors.textTertiary,
+	)

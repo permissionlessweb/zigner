@@ -91,7 +91,7 @@ private fun isFvkNetwork(networkLogo: String): Boolean {
 private fun isCosmosNetwork(networkLogo: String): Boolean {
 	val logo = networkLogo.lowercase()
 	return logo.contains("noble") || logo.contains("osmosis") ||
-		logo.contains("celestia") || logo.contains("cosmos")
+		logo.contains("celestia") || logo.contains("cosmos") || logo.contains("terp")
 }
 
 /**
