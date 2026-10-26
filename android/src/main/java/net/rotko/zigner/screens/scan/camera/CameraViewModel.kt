@@ -456,17 +456,29 @@ class CameraViewModel() : ViewModel() {
 
 				is DecodeSequenceResult.Other -> {
 					resetScanValues()
-					// Multi-frame PCZT module requests arrive here after the
-					// Rust sequence decoder reassembles them into one hex payload.
-					if (isZcashModulePcztRequest(payload.s)) {
-						if (!allow(ScanCapability.ZCASH)) return
-						_zcashModulePcztPayload.value = payload.s
-					} else {
-						// The Substrate path: SCALE plus runtime metadata, the
-						// largest parser in the app and the one with the most
-						// upstream churn.
-						if (!allow(ScanCapability.SUBSTRATE)) return
-						addPendingTransaction(payload.s)
+					// Multi-frame (raptorq) requests arrive here after the Rust
+					// sequence decoder reassembles them into one hex payload, so
+					// the chain prefix is only visible now.
+					when (reassembledRoute(payload.s)) {
+						ReassembledRoute.PENUMBRA -> {
+							if (!allow(ScanCapability.PENUMBRA)) return
+							_penumbraSignRequestPayload.value = payload.s
+						}
+						ReassembledRoute.COSMOS -> {
+							if (!allow(ScanCapability.COSMOS)) return
+							_cosmosSignRequestPayload.value = payload.s
+						}
+						ReassembledRoute.ZCASH_PCZT -> {
+							if (!allow(ScanCapability.ZCASH)) return
+							_zcashModulePcztPayload.value = payload.s
+						}
+						ReassembledRoute.SUBSTRATE -> {
+							// The Substrate path: SCALE plus runtime metadata, the
+							// largest parser in the app and the one with the most
+							// upstream churn.
+							if (!allow(ScanCapability.SUBSTRATE)) return
+							addPendingTransaction(payload.s)
+						}
 					}
 				}
 

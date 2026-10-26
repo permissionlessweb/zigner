@@ -497,6 +497,11 @@ extension CameraView {
             case let .penumbraTransaction(hexData):
                 penumbraQrHex = hexData
                 isPresentingPenumbraTransaction = true
+            case .cosmosSignRequest:
+                // No Cosmos signing screen on iOS yet. Refuse explicitly so a
+                // 530510 request is never handed to the Substrate parser.
+                presentableError = .featureNotAvailable()
+                isPresentingError = true
             case let .zcashNotes(urFrames):
                 zcashNotesUrFrames = urFrames
                 isPresentingZcashNoteSync = true

@@ -1,0 +1,41 @@
+{
+  "account_index": 0,
+  "addresses_note": "mock addresses from the throwaway local chain deploy-rehearsal-1; no real keys",
+  "chain_id": "deploy-rehearsal-1",
+  "emission_order": "frames/000.bin .. in order; per source block: source packets (ESI 0..K-1) then repair packets; see raptorq_oti.source_blocks",
+  "frame_bytes_requested": 300,
+  "frame_count": 108,
+  "frame_len": 304,
+  "header": {
+    "format": "big-endian u32; top bit set (0x80000000); low 31 bits = payload_len",
+    "len": 4,
+    "value_hex": "80003f40"
+  },
+  "packet": "raptorq 1.8 EncodingPacket::serialize(): 4-byte PayloadId (SBN u8, ESI u24 BE) + symbol (frame_bytes)",
+  "payload_len": 16192,
+  "payload_prefix_hex": "530510",
+  "payload_sha256": "edf6dc68cb0bfc77c61c26a8d7a217feda865299c01753f99e907e3fff1b2051",
+  "raptorq_oti": {
+    "constructor": "Encoder::with_defaults(payload, frame_bytes); decoder: ObjectTransmissionInformation::with_defaults(payload_len, frame_len - 8)",
+    "serialized_hex": "0000003f4000012801000108",
+    "source_blocks": 1,
+    "sub_blocks": 1,
+    "symbol_alignment": 8,
+    "symbol_size": 296,
+    "transfer_length": 16192
+  },
+  "repair_frames": 53,
+  "repair_requested": 53,
+  "self_check": {
+    "all": true,
+    "fails_with_source_minus_1": true,
+    "odd_frames_only": false,
+    "reversed": true,
+    "skip_first_5": true
+  },
+  "sign_doc_len": 16176,
+  "sign_doc_sha256": "95a86e04733cec2538cc8e1c9e54fb4ff86a575042dcaa4c8a98e9e6331d9947",
+  "source_frames": 55,
+  "symbol_size": 296,
+  "zigner_chain_name": "terp"
+}

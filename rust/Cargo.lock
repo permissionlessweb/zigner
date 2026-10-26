@@ -6258,6 +6258,7 @@ dependencies = [
  "hex",
  "nom",
  "raptorq",
+ "sha2 0.10.8",
  "thiserror 1.0.69",
  "transaction_parsing",
 ]

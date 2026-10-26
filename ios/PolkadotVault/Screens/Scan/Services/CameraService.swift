@@ -14,6 +14,7 @@ enum DecodedPayloadType: Equatable {
     case dynamicDerivations
     case dynamicDerivationsTransaction
     case penumbraTransaction
+    case cosmosSignRequest
     case zcashNotes
     case frost
     case zcashPczt
@@ -25,6 +26,7 @@ enum DecodedPayload: Equatable {
     case dynamicDerivations(String)
     case dynamicDerivationsTransaction([String])
     case penumbraTransaction(String)
+    case cosmosSignRequest(String) // hex, prefix 530510 (single or reassembled raptorq)
     case zcashNotes([String])
     case frost(String) // raw JSON string with "frost" key
     case zcashPczt([String]) // UR frames for PCZT signing
@@ -40,6 +42,8 @@ enum DecodedPayload: Equatable {
             DecodedPayloadType.dynamicDerivationsTransaction
         case .penumbraTransaction:
             DecodedPayloadType.penumbraTransaction
+        case .cosmosSignRequest:
+            DecodedPayloadType.cosmosSignRequest
         case .frost:
             DecodedPayloadType.frost
         case .zcashPczt:
@@ -296,6 +300,16 @@ private extension CameraService {
             }
         }
 
+        // Single-frame Cosmos requests are caught here by their prefix, like
+        // Penumbra. Raptorq frames only reveal 530510 after reassembly (below).
+        if let first = completeOperationPayload.first, Self.isCosmosSignRequest(first) {
+            callbackQueue.async {
+                self.payload = .cosmosSignRequest(first.lowercased())
+                self.shutdown()
+            }
+            return
+        }
+
         guard let result = try? qrparserTryDecodeQrSequence(
             data: completeOperationPayload,
             password: nil,
@@ -318,13 +332,27 @@ private extension CameraService {
                 self.payload = .dynamicDerivations(payload)
                 self.shutdown()
             case let .other(s: payload):
-                self.payload = .transaction(payload)
+                // Reassembled multi-frame payloads: route by chain prefix
+                // instead of sending everything to Substrate.
+                if Self.isCosmosSignRequest(payload) {
+                    self.payload = .cosmosSignRequest(payload)
+                } else if payload.prefix(6).lowercased() == "530310" {
+                    self.payload = .penumbraTransaction(payload)
+                } else {
+                    self.payload = .transaction(payload)
+                }
                 self.shutdown()
             case let .dynamicDerivationTransaction(s: payload):
                 self.payload = .dynamicDerivationsTransaction(payload)
                 self.shutdown()
             }
         }
+    }
+}
+
+extension CameraService {
+    static func isCosmosSignRequest(_ hex: String) -> Bool {
+        hex.prefix(6).lowercased() == "530510"
     }
 }
 

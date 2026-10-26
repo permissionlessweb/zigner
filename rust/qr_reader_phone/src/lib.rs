@@ -134,3 +134,79 @@ mod tests {
         assert_eq!(res.unwrap(), vec![171]);
     }
 }
+
+/// Multi-frame (raptorq) Cosmos sign requests, against the cw-orch-kms
+/// fixture in `tests/fixtures/cosmos-raptorq` (16192-byte `530510` request).
+#[cfg(test)]
+mod cosmos_raptorq_fixture {
+    use super::*;
+    use sha2::{Digest, Sha256};
+
+    const SHA256: &str = "edf6dc68cb0bfc77c61c26a8d7a217feda865299c01753f99e907e3fff1b2051";
+
+    fn frames(set: &str) -> Vec<String> {
+        let path = format!(
+            "{}/tests/fixtures/cosmos-raptorq/{set}/frames/frames.hex",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        std::fs::read_to_string(path)
+            .unwrap()
+            .lines()
+            .filter(|l| !l.is_empty())
+            .map(str::to_string)
+            .collect()
+    }
+
+    fn assert_cosmos(set: &[String]) {
+        match decode_sequence(set, &None, true).unwrap() {
+            DecodeSequenceResult::Other { s } => {
+                assert!(s.starts_with("530510"), "not a cosmos request: {}", &s[..6]);
+                let bytes = hex::decode(&s).unwrap();
+                assert_eq!(bytes.len(), 16192);
+                assert_eq!(hex::encode(Sha256::digest(&bytes)), SHA256);
+            }
+            _ => panic!("expected Other (cosmos) payload"),
+        }
+    }
+
+    fn check(set: &str, frame_len: usize, source: usize, count: usize) {
+        let all = frames(set);
+        assert_eq!(all.len(), count);
+        for f in &all {
+            let raw = hex::decode(f).unwrap();
+            assert_eq!(raw.len(), frame_len);
+            assert_eq!(&raw[..4], &[0x80, 0x00, 0x3f, 0x40]);
+        }
+        // Progress total reported to the UI equals the source count, and the
+        // symbol size is derived from the frame (frame_len - 8).
+        assert_eq!(get_length(&all[0], true).unwrap() as usize, source);
+
+        assert_cosmos(&all);
+        assert_cosmos(&all[5..]);
+        let mut rev = all.clone();
+        rev.reverse();
+        assert_cosmos(&rev);
+        // Exactly `source` distinct frames, repair-only where possible.
+        let tail: Vec<String> = all[all.len() - source..].to_vec();
+        assert_cosmos(&tail);
+        // source - 1 frames must not complete.
+        assert!(matches!(
+            decode_sequence(&all[..source - 1], &None, true),
+            Err(Error::UnableToDecode)
+        ));
+        assert!(matches!(
+            decode_sequence(&rev[..source - 1], &None, true),
+            Err(Error::UnableToDecode)
+        ));
+    }
+
+    #[test]
+    fn frames_1000() {
+        check("frames-1000", 1008, 17, 33);
+    }
+
+    #[test]
+    fn frames_300_symbol_rounded_to_296() {
+        check("frames-300", 304, 55, 108);
+    }
+}
