@@ -167,9 +167,14 @@ internal object MoveFlow {
 		val (s, target) = MoveStore.outGet(base(context), keyId) ?: throw IllegalStateException("no move out for this key")
 		val key = ValidatorKeys.list(context).firstOrNull { it.id == keyId } ?: throw IllegalStateException("key is gone")
 		val pub = key.pubHex.hexOrNull() ?: throw IllegalStateException("key set")
-		if (!MoveQr.verify(pub, MoveQr.ackMessage(s, pub, target), MoveQr.ackSig(ackText))) {
+		val (sig, mac) = MoveQr.ackParse(ackText)
+		val msg = MoveQr.ackMessage(s, pub, target)
+		if (!MoveQr.verify(pub, msg, sig)) {
 			throw IllegalArgumentException("Imported QR is not from the phone this key was moved to")
 		}
+		val idSeed = ValidatorKeys.noiseSeed(context)
+		val idOk = try { MoveQr.ackMacOk(idSeed, target, X25519.base(idSeed), target, msg, mac) } finally { idSeed.fill(0) }
+		if (!idOk) throw IllegalArgumentException("Imported QR was not made by the new phone's identity")
 		val (priv, _) = ValidatorKeys.materialFor(context, key.id)
 		val proof = try { MoveQr.retiredText(target, MoveQr.sign(priv, MoveQr.retireMessage(s, pub, target))) } finally { priv.wipe() }
 		MoveStore.write(MoveStore.proofFile(base(context)), proof)
@@ -213,17 +218,23 @@ internal object MoveFlow {
 			if (ValidatorKeys.list(context).any { it.pubHex == pubHex }) throw IllegalArgumentException("this key is already on this phone")
 			val kms = pairedKms(context)
 			if (kms != null && !kms.contentEquals(s.kmsPub)) throw IllegalArgumentException("this phone is paired to another KMS")
-			MoveStore.markNonce(b, s.nonceHex)
 			ValidatorKeys.importSecret(context, s.chain, o.secret, s.label)
 			val key = ValidatorKeys.list(context).first { it.pubHex == pubHex }
+			// Frozen first: it signs only after the console pinned this phone (PhoneGate.releaseImported).
+			PhoneGate.freezeImported(b, key.id, s.floor)
 			// The floor goes down before the key can sign anything.
 			HighWater().also { it.note(s.floor, Int.MAX_VALUE, Int.MAX_VALUE) }.write(hwm(context, key.id))
 			PhoneGate.setFloor(b, key.id, s.floor)
-			PhoneGate.unfreeze(b, key.id)
+			// Only a completed import uses up the nonce.
+			MoveStore.markNonce(b, s.nonceHex)
 			if (kms == null) File(b, "zcinti-kms.peer").writeBytes(s.kmsPub)
 			if (o.owner.startsWith("terp1")) GranterAccount.pin(context, o.owner)
 			val (priv, _) = ValidatorKeys.materialFor(context, key.id)
-			val ack = try { MoveQr.ackText(MoveQr.sign(priv, MoveQr.ackMessage(s, o.pub, o.target))) } finally { priv.wipe() }
+			val msg = MoveQr.ackMessage(s, o.pub, o.target)
+			val sig = try { MoveQr.sign(priv, msg) } finally { priv.wipe() }
+			val myId = ValidatorKeys.noiseSeed(context)
+			val mac = try { MoveQr.ackMac(myId, o.oldId, o.oldId, o.target, msg) } finally { myId.fill(0) }
+			val ack = MoveQr.ackText(sig, mac)
 			MoveStore.write(MoveStore.ackFile(b), ack)
 			cancelReceive()
 			SignerRuntime.refreshKeys(context)

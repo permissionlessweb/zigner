@@ -13,8 +13,8 @@ import javax.crypto.Cipher
  *
  *   console   START     zcinti-move:2:<chain>:<slot>:<nonceHex>:<floor>:<kmsB64>
  *   new phone RECEIVE   zcinti-recv:1:<ephB64>:<idB64>:<fp16hex>
- *   old phone SEALED    zcinti-p2p:1:<b64(oldId | oldEph | ct)>      (animated zc-anim frames)
- *   new phone IMPORTED  zcinti-imported:1:<sigB64>                 (consensus key signature)
+ *   old phone SEALED    zcinti-p2p:1:<b64(oldId | oldEph | ct)>      (animated zc-anim:2 frames)
+ *   new phone IMPORTED  zcinti-imported:2:<sigB64>:<macB64>        (consensus key signature + identity MAC)
  *   old phone RETIRED   zcinti-retired:2:<targetIdB64>:<sigB64>      (consensus key signature)
  *
  * Seal key = sha256(label | DH(oldEph,newEph) | DH(oldId,newEph) | DH(oldEph,newId) | transcript):
@@ -29,10 +29,11 @@ internal object MoveQr {
 	const val START = "zcinti-move:2:"
 	const val RECV = "zcinti-recv:1:"
 	const val SEALED = "zcinti-p2p:1:"
-	const val IMPORTED = "zcinti-imported:1:"
+	const val IMPORTED = "zcinti-imported:2:"
 	const val RETIRED = "zcinti-retired:2:"
 	private const val LABEL = "zcinti-p2p-v1"
-	const val RECV_TTL_MS = 10 * 60 * 1000L
+	/** Matches handoffTTL in the KMS console. */
+	const val RECV_TTL_MS = 15 * 60 * 1000L
 
 	data class Start(val chain: String, val slot: String, val nonce: ByteArray, val floor: Long, val kmsPub: ByteArray) {
 		val label get() = "${chain}_$slot"
@@ -185,13 +186,38 @@ internal object MoveQr {
 		}
 	}
 
-	fun ackText(sig: ByteArray) = IMPORTED + B64.enc(sig)
+	fun ackText(sig: ByteArray, mac: ByteArray) = IMPORTED + B64.enc(sig) + ":" + B64.enc(mac)
 
-	fun ackSig(payload: String): ByteArray {
+	/** (consensus signature, identity MAC) from an Imported QR. */
+	fun ackParse(payload: String): Pair<ByteArray, ByteArray> {
 		val t = payload.trim()
 		if (!t.startsWith(IMPORTED)) throw IllegalArgumentException("scan the Imported QR on the new phone")
-		return B64.dec(t.removePrefix(IMPORTED))?.takeIf { it.size == 64 } ?: throw IllegalArgumentException("damaged Imported QR")
+		val p = t.removePrefix(IMPORTED).split(":")
+		if (p.size != 2) throw IllegalArgumentException("damaged Imported QR")
+		val sig = B64.dec(p[0])?.takeIf { it.size == 64 } ?: throw IllegalArgumentException("damaged Imported QR")
+		val mac = B64.dec(p[1])?.takeIf { it.size == 32 } ?: throw IllegalArgumentException("damaged Imported QR")
+		return sig to mac
 	}
+
+	/**
+	 * Proof by the new phone's identity (X25519, so a DH MAC rather than a
+	 * signature): HMAC-SHA256 under sha256(label | DH(myId, peerId) | oldId | newId).
+	 * The new phone computes it with its identity seed and the old phone's id;
+	 * the old phone checks it with its seed and the id from the Receive QR.
+	 */
+	fun ackMac(myIdSeed: ByteArray, peerId: ByteArray, oldId: ByteArray, newId: ByteArray, msg: ByteArray): ByteArray {
+		val shared = dh(myIdSeed, peerId)
+		val k = sha256("zcinti-imported-id:1".toByteArray() + shared + oldId + newId)
+		shared.fill(0)
+		return try {
+			val m = javax.crypto.Mac.getInstance("HmacSHA256")
+			m.init(javax.crypto.spec.SecretKeySpec(k, "HmacSHA256"))
+			m.doFinal(msg)
+		} finally { k.fill(0) }
+	}
+
+	fun ackMacOk(myIdSeed: ByteArray, peerId: ByteArray, oldId: ByteArray, newId: ByteArray, msg: ByteArray, mac: ByteArray): Boolean =
+		java.security.MessageDigest.isEqual(ackMac(myIdSeed, peerId, oldId, newId, msg), mac)
 
 	fun retiredText(target: ByteArray, sig: ByteArray) = RETIRED + B64.enc(target) + ":" + B64.enc(sig)
 
@@ -241,25 +267,35 @@ internal object MoveStore {
 		return try { val a = JSONArray(f.readText()); (0 until a.length()).any { a.optString(it) == nonceHex } } catch (_: Exception) { true }
 	}
 
+	/** A damaged list throws: rewriting it empty would forget every nonce. */
 	fun markNonce(base: File, nonceHex: String) {
 		val f = usedFile(base)
-		val a = try { if (f.exists()) JSONArray(f.readText()) else JSONArray() } catch (_: Exception) { JSONArray() }
+		val a = readList(f, "move nonce list")
 		a.put(nonceHex)
 		write(f, a.toString())
 	}
 
 	fun addTombstone(base: File, pubHex: String) {
 		val f = File(base, "validator-keys/tombstones.json")
-		val a = try { if (f.exists()) JSONArray(f.readText()) else JSONArray() } catch (_: Exception) { JSONArray() }
+		val a = readList(f, "tombstone list")
 		a.put(pubHex)
 		write(f, a.toString())
 	}
 
+	private fun readList(f: File, what: String): JSONArray {
+		if (!f.exists()) return JSONArray()
+		return try { JSONArray(f.readText()) } catch (e: Exception) { throw IllegalStateException("$what is damaged; refusing to overwrite it", e) }
+	}
+
+	/** tmp + fsync + rename, so a crash leaves either the old or the new file. */
 	fun write(f: File, s: String) {
 		f.parentFile?.mkdirs()
 		val tmp = File(f.parentFile, f.name + ".tmp")
-		tmp.writeText(s)
-		if (!tmp.renameTo(f)) { tmp.copyTo(f, true); tmp.delete() }
+		java.io.FileOutputStream(tmp).use { out -> out.write(s.toByteArray()); out.flush(); out.fd.sync() }
+		if (!tmp.renameTo(f)) {
+			java.io.FileOutputStream(f).use { out -> out.write(s.toByteArray()); out.flush(); out.fd.sync() }
+			tmp.delete()
+		}
 	}
 }
 
@@ -293,24 +329,32 @@ internal object B64 {
 	}
 }
 
-/** Collects zc-anim:1:<i>/<n>:<part> frames; returns the payload once all arrived. */
+/**
+ * Collects zc-anim:2:<session>:<i>/<n>:<part> frames; returns the payload once
+ * all arrived. A frame from another session (or with another count) starts over,
+ * so two animated QRs in view never mix.
+ */
 internal class AnimCollector {
 	private var parts: Array<String?> = emptyArray()
+	private var session = ""
 	val have get() = parts.count { it != null }
 	val total get() = parts.size
 
 	/** Returns the whole payload, or null while frames are missing. Non-frame text returns as is. */
 	fun add(text: String): String? {
-		if (!text.startsWith("zc-anim:1:")) return text
-		val p = text.split(":", limit = 4)
-		if (p.size != 4) return null
-		val ix = p[2].split("/")
+		if (text.startsWith("zc-anim:1:")) return null // unsessioned frames are no longer accepted
+		if (!text.startsWith("zc-anim:2:")) return text
+		val p = text.split(":", limit = 5)
+		if (p.size != 5) return null
+		val sid = p[2]
+		if (sid.length !in 4..32 || !sid.all { it.isLetterOrDigit() }) return null
+		val ix = p[3].split("/")
 		val i = ix.getOrNull(0)?.toIntOrNull() ?: return null
 		val n = ix.getOrNull(1)?.toIntOrNull() ?: return null
 		if (n <= 0 || n > 64 || i < 0 || i >= n) return null
-		if (parts.size != n) parts = arrayOfNulls(n)
-		parts[i] = p[3]
-		return if (parts.all { it != null }) parts.joinToString("").also { parts = emptyArray() } else null
+		if (sid != session || parts.size != n) { session = sid; parts = arrayOfNulls(n) }
+		parts[i] = p[4]
+		return if (parts.all { it != null }) parts.joinToString("").also { parts = emptyArray(); session = "" } else null
 	}
 }
 

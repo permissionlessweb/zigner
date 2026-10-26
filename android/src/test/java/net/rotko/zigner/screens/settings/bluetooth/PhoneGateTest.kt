@@ -48,4 +48,14 @@ class PhoneGateTest {
 		File(b, "validator-keys/tombstones.json").writeText("{bad")
 		assertNotNull(PhoneGate.check(b, "k1", "cd".repeat(32), 1))
 	}
+
+	@Test fun importedKeyFrozenUntilKmsSession() {
+		val b = base()
+		PhoneGate.freezeImported(b, "k", 100)
+		PhoneGate.freeze(b, "m", 50) // a move-out freeze on another key
+		assertNotNull(PhoneGate.check(b, "k", "aa", 200))
+		PhoneGate.releaseImported(b)
+		assertNull(PhoneGate.check(b, "k", "aa", 200))
+		assertNotNull(PhoneGate.check(b, "m", "bb", 200)) // move-out freeze stays
+	}
 }

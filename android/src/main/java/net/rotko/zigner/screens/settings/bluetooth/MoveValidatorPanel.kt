@@ -193,7 +193,7 @@ private fun withAuth(context: android.content.Context, onOk: () -> Unit) {
 		SignerRuntime.status = "unlock is unavailable here"
 		return
 	}
-	ServiceLocator.authentication.authenticate(activity, onOk)
+	ServiceLocator.authentication.authenticate(activity, validatorSigner = true, onSuccess = onOk)
 }
 
 /* ---------- old phone: Chain tab ---------- */
@@ -209,6 +209,9 @@ internal fun MoveOutCard(key: ValidatorKey, onScan: () -> Unit) {
 	var confirmCancel by remember(key.id) { mutableStateOf(false) }
 	var error by remember(key.id) { mutableStateOf("") }
 	val me = remember { runCatching { MoveFlow.phoneId(context) }.getOrNull() }
+	val quiz = remember(key.id, target) { target?.let { TileChallenge.make(it.id) } }
+	var picked by remember(key.id, target) { mutableStateOf(setOf<Int>()) }
+	val quizDone = quiz != null && picked == quiz.answer
 	val frozen = PhoneGate.frozen(context.filesDir, key.id)
 	val step = when {
 		start == null && !waiting -> 0
@@ -217,12 +220,32 @@ internal fun MoveOutCard(key: ValidatorKey, onScan: () -> Unit) {
 		else -> 3
 	}
 	MoveCard(Icons.Outlined.SwapHoriz, "Move out", trailing = { if (frozen) Pill("frozen", MaterialTheme.colors.red500) }) {
-		Steps(listOf("Scan the console's Move QR", "Scan the new phone's Receive QR", "Match tiles · show move QR", "Scan the new phone's Imported QR"), step)
+		Steps(listOf("Scan the console's Move QR", "Scan the new phone's Receive QR", "Pick the new phone's tiles · show move QR", "Scan the new phone's Imported QR"), step)
 		start?.let { Text("floor ${it.floor} · ${it.chain}/${it.slot}", style = SignerTypeface.CaptionM, color = MaterialTheme.colors.textTertiary) }
 		if (target != null && me != null && payload == null) {
 			Identity("This phone", me)
-			Identity("New phone", target.id)
-			Text("Both phones show the same tiles for each phone? Then show the move QR.", style = SignerTypeface.BodyM, color = MaterialTheme.colors.textSecondary)
+			if (quiz != null && !waiting) {
+				Text("Look at the NEW phone's Receive screen. Tap the ${TileChallenge.PICK} tiles below that appear among its first 4 tiles. A wrong tap cancels.",
+					style = SignerTypeface.BodyM, color = MaterialTheme.colors.textSecondary)
+				Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+					quiz.options.forEachIndexed { i, (g, c) ->
+						val on = i in picked
+						Box(
+							Modifier.size(38.dp).clip(RoundedCornerShape(7.dp))
+								.background(Color(c).copy(alpha = if (on) 0.35f else 1f))
+								.clickable(enabled = !on && !quizDone) {
+									if (quiz.correct(i)) picked = picked + i
+									else {
+										picked = emptySet()
+										MoveFlow.outTarget = MoveFlow.outTarget - key.id
+										error = "That tile is not on the new phone. Scan its Receive QR again."
+									}
+								},
+							contentAlignment = Alignment.Center,
+						) { Text(if (on) "✓" else g, color = Color.White, fontSize = 19.sp) }
+					}
+				}
+			}
 		}
 		payload?.let { p ->
 			SecretQr(p) { payload = null; tick++ }
@@ -231,8 +254,8 @@ internal fun MoveOutCard(key: ValidatorKey, onScan: () -> Unit) {
 		when (step) {
 			0 -> PrimaryButtonWide(label = "Scan console QR", onClicked = onScan)
 			1 -> PrimaryButtonWide(label = "Scan new phone", onClicked = onScan)
-			2 -> PrimaryButtonWide(label = "Tiles match · Show move QR", onClicked = {
-				withAuth(context) {
+			2 -> PrimaryButtonWide(label = "Show move QR", isEnabled = quizDone, onClicked = {
+				if (quizDone) withAuth(context) {
 					try { payload = MoveFlow.sealOut(context, key.id); error = "" } catch (e: Exception) { error = e.message ?: "could not seal" }
 					tick++
 				}

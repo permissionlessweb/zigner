@@ -6,7 +6,7 @@
 //! secret copy made here is zeroized before return.
 
 use crate::ErrorDisplayed;
-use chacha20poly1305::aead::{Aead, KeyInit, Payload};
+use chacha20poly1305::aead::{Aead, AeadInPlace, KeyInit, Payload};
 use chacha20poly1305::ChaCha20Poly1305;
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use std::convert::TryFrom;
@@ -72,9 +72,13 @@ pub fn chacha20poly1305_open(
     aad: &[u8],
     ct: &[u8],
 ) -> Result<Vec<u8>, ErrorDisplayed> {
+    // Decrypt in a buffer that is wiped on drop (also on the error path).
+    // The returned Vec is the one copy uniffi hands to Kotlin.
+    let mut buf = Zeroizing::new(ct.to_vec());
     cipher(key, nonce)?
-        .decrypt(nonce.into(), Payload { msg: ct, aad })
-        .map_err(|_| err("chacha20poly1305 open"))
+        .decrypt_in_place(nonce.into(), aad, &mut *buf)
+        .map_err(|_| err("chacha20poly1305 open"))?;
+    Ok(buf.to_vec())
 }
 
 #[cfg(test)]

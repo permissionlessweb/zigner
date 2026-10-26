@@ -17,6 +17,19 @@ import kotlin.coroutines.suspendCoroutine
 class Authentication {
 
 	companion object {
+		/**
+		 * androidx.biometric rejects STRONG | DEVICE_CREDENTIAL on API 28-29
+		 * (PromptInfo.build() throws). Only the validator signer path (old
+		 * phones used as dedicated signers) falls back to WEAK | DEVICE_CREDENTIAL
+		 * there; everything else stays BIOMETRIC_STRONG (no PIN fallback on 28-29).
+		 */
+		fun requiredAuthMethods(sdk: Int, validatorSigner: Boolean): Int {
+			val strong = BiometricManager.Authenticators.BIOMETRIC_STRONG
+			val cred = BiometricManager.Authenticators.DEVICE_CREDENTIAL
+			if (sdk != 28 && sdk != 29) return strong or cred
+			return if (validatorSigner) BiometricManager.Authenticators.BIOMETRIC_WEAK or cred else strong
+		}
+
 		fun canAuthenticate(context: Context): Boolean {
 			val keygoard =
 				context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
@@ -29,17 +42,18 @@ class Authentication {
 	 * BIOMETRIC_STRONG requires hardware-backed biometrics.
 	 * DEVICE_CREDENTIAL allows PIN/password/pattern as fallback.
 	 */
-	private fun getRequiredAuthMethods(): Int {
-		return BiometricManager.Authenticators.BIOMETRIC_STRONG or
-			BiometricManager.Authenticators.DEVICE_CREDENTIAL
-	}
+	private fun getRequiredAuthMethods(validatorSigner: Boolean = false): Int =
+		requiredAuthMethods(android.os.Build.VERSION.SDK_INT, validatorSigner)
 
 	private lateinit var biometricPrompt: BiometricPrompt
 
 	private val _auth = MutableStateFlow<Boolean>(false)
 	val auth: StateFlow<Boolean> = _auth.asStateFlow()
 
-	fun authenticate(activity: FragmentActivity, onSuccess: () -> Unit) {
+	fun authenticate(activity: FragmentActivity, onSuccess: () -> Unit) = authenticate(activity, false, onSuccess)
+
+	/** validatorSigner = true only for the validator key screens (move, export). */
+	fun authenticate(activity: FragmentActivity, validatorSigner: Boolean, onSuccess: () -> Unit) {
 		if (FeatureFlags.isEnabled(FeatureOption.SKIP_UNLOCK_FOR_DEVELOPMENT)) {
 			_auth.value = true
 			onSuccess()
@@ -52,7 +66,7 @@ class Authentication {
 			BiometricPrompt.PromptInfo.Builder()
 				.setTitle(context.getString(R.string.unlock_device_title))
 				.setSubtitle(context.getString(R.string.unlock_device_subtitle))
-				.setAllowedAuthenticators(getRequiredAuthMethods())
+				.setAllowedAuthenticators(getRequiredAuthMethods(validatorSigner))
 				.build()
 
 		if (canAuthenticate(context)) {

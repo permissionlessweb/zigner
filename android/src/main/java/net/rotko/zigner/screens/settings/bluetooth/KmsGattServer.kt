@@ -489,6 +489,8 @@ internal class KmsGattServer(
 			notify(device, byteArrayOf(0x5e))
 			return
 		}
+		// The KMS only completes a session with the phone the console pinned.
+		PhoneGate.releaseImported(app.filesDir)
 		notify(device, byteArrayOf(0x53))
 	}
 

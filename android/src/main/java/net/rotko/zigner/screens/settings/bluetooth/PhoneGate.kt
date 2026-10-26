@@ -27,6 +27,27 @@ internal object PhoneGate {
 
 	fun unfreeze(base: File, keyId: String) { frozenFile(base, keyId).delete() }
 
+	private const val IMPORT_MARK = "import:"
+
+	/** New phone (review L5): an imported key stays frozen until the console pins this phone. */
+	fun freezeImported(base: File, keyId: String, floor: Long) {
+		keyDir(base, keyId).mkdirs()
+		write(frozenFile(base, keyId), IMPORT_MARK + floor)
+	}
+
+	fun importFrozen(base: File, keyId: String): Boolean =
+		frozenFile(base, keyId).let { it.exists() && runCatching { it.readText().startsWith(IMPORT_MARK) }.getOrDefault(false) }
+
+	/**
+	 * The paired KMS finished a Noise session with this phone: the console has
+	 * pinned it (pair), so imported keys may sign. Move-out freezes stay.
+	 */
+	fun releaseImported(base: File) {
+		File(base, "validator-keys").listFiles()?.forEach { d ->
+			if (d.isDirectory && importFrozen(base, d.name)) frozenFile(base, d.name).delete()
+		}
+	}
+
 	fun frozen(base: File, keyId: String): Boolean = frozenFile(base, keyId).exists()
 
 	fun setFloor(base: File, keyId: String, floor: Long) {
@@ -55,14 +76,11 @@ internal object PhoneGate {
 	/** Why this key may not sign at height, or null when it may. */
 	fun check(base: File, keyId: String, pubHex: String, height: Long): String? = when {
 		tombstoned(base, pubHex) -> "this key was retired on this phone"
+		importFrozen(base, keyId) -> "this key was just imported; it signs once the console pairs this phone"
 		frozen(base, keyId) -> "this key is frozen for a move; cancel the move on this phone to sign here"
 		floor(base, keyId)?.let { height <= it } == true -> "height $height is at or below this key's move floor ${floor(base, keyId)}"
 		else -> null
 	}
 
-	private fun write(f: File, s: String) {
-		val tmp = File(f.parentFile, f.name + ".tmp")
-		tmp.writeText(s)
-		if (!tmp.renameTo(f)) { tmp.copyTo(f, true); tmp.delete() }
-	}
+	private fun write(f: File, s: String) = MoveStore.write(f, s)
 }

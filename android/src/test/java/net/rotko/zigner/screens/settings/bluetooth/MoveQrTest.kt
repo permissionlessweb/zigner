@@ -102,10 +102,38 @@ class MoveQrTest {
 		assertEquals("zcinti-retire:2|morocco-1|zcinti2|${MoveQr.keyId(pub)}|1234|${start.nonceHex}|${MoveQr.hex(t)}", ret)
 		val priv = MoveQr.privateFromSeed(secret.copyOfRange(0, 32))
 		val sig = MoveQr.sign(priv, MoveQr.ackMessage(start, pub, t))
-		assertArrayEquals(sig, MoveQr.ackSig(MoveQr.ackText(sig)))
+		val mac = ByteArray(32) { 9 }
+		val (sig2, mac2) = MoveQr.ackParse(MoveQr.ackText(sig, mac))
+		assertArrayEquals(sig, sig2); assertArrayEquals(mac, mac2)
+		try { MoveQr.ackParse("zcinti-imported:1:" + B64.enc(sig)); fail() } catch (_: IllegalArgumentException) {}
 		assertTrue(MoveQr.verify(pub, MoveQr.ackMessage(start, pub, t), sig))
 		assertFalse(MoveQr.verify(pub, MoveQr.ackMessage(start, pub, rnd(32)), sig))
 	}
+
+	@Test fun ackMacProvesNewPhoneIdentity() {
+		val oldSeed = rnd(32); val newSeed = rnd(32); val otherSeed = rnd(32)
+		val oldId = X25519.base(oldSeed); val newId = X25519.base(newSeed)
+		val msg = "ack".toByteArray()
+		val mac = MoveQr.ackMac(newSeed, oldId, oldId, newId, msg)
+		assertTrue(MoveQr.ackMacOk(oldSeed, newId, oldId, newId, msg, mac))
+		// another phone (not the one in the Receive QR) cannot make it
+		val forged = MoveQr.ackMac(otherSeed, oldId, oldId, newId, msg)
+		assertFalse(MoveQr.ackMacOk(oldSeed, newId, oldId, newId, msg, forged))
+		assertFalse(MoveQr.ackMacOk(oldSeed, newId, oldId, newId, "other".toByteArray(), mac))
+	}
+
+	@Test fun damagedListsThrowInsteadOfReset() {
+		val b: File = Files.createTempDirectory("move").toFile()
+		File(b, "validator-keys").mkdirs()
+		File(b, "validator-keys/move-nonces.json").writeText("{not json")
+		File(b, "validator-keys/tombstones.json").writeText("{not json")
+		try { MoveStore.markNonce(b, "aa"); fail() } catch (_: IllegalStateException) {}
+		try { MoveStore.addTombstone(b, "aa"); fail() } catch (_: IllegalStateException) {}
+		assertEquals("{not json", File(b, "validator-keys/move-nonces.json").readText())
+		assertTrue(MoveStore.nonceUsed(b, "anything")) // damaged list still fails closed
+	}
+
+	@Test fun receiveTtlMatchesConsole() { assertEquals(15 * 60 * 1000L, MoveQr.RECV_TTL_MS) }
 
 	@Test fun nonceReplayAndOneTargetPerNonce() {
 		val b: File = Files.createTempDirectory("move").toFile()
