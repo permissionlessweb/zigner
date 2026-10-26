@@ -21,13 +21,21 @@ import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 
-/** Reads one zcinti chain QR from the laptop page. */
+/** Reads one zcinti QR from the laptop page. */
 @Composable
-internal fun ZcintiQrScan(onCode: (String) -> Unit) {
+internal fun ZcintiQrScan(onCode: (String) -> Unit) = ZcintiQrStream { onCode(it); true }
+
+/**
+ * Keeps reading QR codes (animated zc-anim frames included) until onText
+ * returns true. Repeats of the same text are skipped.
+ */
+@Composable
+internal fun ZcintiQrStream(onText: (String) -> Boolean) {
 	val context = LocalContext.current
 	val lifecycleOwner = LocalLifecycleOwner.current
 	val provider = remember { ProcessCameraProvider.getInstance(context) }
 	val handed = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
+	val last = remember { java.util.concurrent.atomic.AtomicReference("") }
 	AndroidView(
 		modifier = Modifier.fillMaxWidth().height(240.dp),
 		factory = { viewContext ->
@@ -58,7 +66,9 @@ internal fun ZcintiQrScan(onCode: (String) -> Unit) {
 					scanner.process(image)
 						.addOnSuccessListener { codes ->
 							val text = codes.firstOrNull { it.format == Barcode.FORMAT_QR_CODE }?.rawValue
-							if (!text.isNullOrBlank() && handed.compareAndSet(false, true)) onCode(text)
+							if (!text.isNullOrBlank() && !handed.get() && last.getAndSet(text) != text) {
+								if (onText(text)) handed.set(true)
+							}
 						}
 						.addOnCompleteListener { frame.close() }
 				}

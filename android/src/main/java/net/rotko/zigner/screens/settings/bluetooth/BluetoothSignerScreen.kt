@@ -77,135 +77,6 @@ import net.rotko.zigner.ui.theme.pink500
 import net.rotko.zigner.ui.theme.red500fill12
 import androidx.compose.material.icons.outlined.ContentCopy
 
-/**
- * Controls for the remote signer. Back closes this screen only.
- * The foreground service keeps the Bluetooth session.
- */
-@Composable
-fun BluetoothSignerScreen(onBack: () -> Unit) {
-	val context = LocalContext.current
-	var scanning by remember { mutableStateOf(false) }
-	var kmsPub by remember { mutableStateOf<ByteArray?>(null) }
-	var openId by remember { mutableStateOf<String?>(null) }
-	var qrText by remember { mutableStateOf<String?>(null) }
-	var typedFingerprint by remember { mutableStateOf("") }
-	var fingerprintMatches by remember { mutableStateOf(false) }
-	var exportMenu by remember { mutableStateOf(false) }
-	val camera = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-		scanning = granted
-	}
-	LaunchedEffect(Unit) {
-		SignerRuntime.refreshKeys(context)
-		SignerRuntime.refreshGranter(context)
-	}
-	Column(
-		Modifier.fillMaxSize().background(MaterialTheme.colors.background).padding(16.dp),
-		verticalArrangement = Arrangement.spacedBy(8.dp),
-	) {
-		ScreenHeaderClose(title = "Export signer key", onClose = onBack)
-		Text(
-			"This screen sends one signer key set back to the KMS. A fresh ephemeral key seals it to the KMS identity on the zcinti page. The Bluetooth session key is not used.",
-			style = SignerTypeface.BodyM,
-			color = MaterialTheme.colors.onBackground,
-		)
-		if (scanning) {
-			ZcintiQrScan { text ->
-				scanning = false
-				try {
-					kmsPub = KeyExport.kmsPublic(text)
-				} catch (err: Exception) {
-					SignerRuntime.status = err.message ?: "scan the KMS identity QR"
-				}
-			}
-			SecondaryButtonWide(label = "Cancel", onClicked = { scanning = false })
-		} else {
-			ValidatorMenu(
-				keys = SignerRuntime.keys,
-				selected = SignerRuntime.keys.firstOrNull { it.id == openId },
-				expanded = exportMenu,
-				onExpand = { exportMenu = true },
-				onDismiss = { exportMenu = false },
-				onPick = { id ->
-					openId = id
-					exportMenu = false
-					qrText = null
-					fingerprintMatches = false
-				},
-			)
-			SecondaryButtonWide(label = "Scan KMS identity", onClicked = {
-				if (context.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-					scanning = true
-				} else {
-					camera.launch(Manifest.permission.CAMERA)
-				}
-			})
-			val chosen = SignerRuntime.keys.firstOrNull { it.id == openId }
-			val scanned = kmsPub
-			if (chosen != null && scanned != null) {
-				val expected = KeyExport.fingerprint(scanned)
-				Text(
-					"Type the fingerprint from the zcinti page. It is not shown here. A different code means this QR is not that KMS.",
-					style = SignerTypeface.BodyM,
-					color = MaterialTheme.colors.textSecondary,
-				)
-				OutlinedTextField(
-					value = typedFingerprint,
-					onValueChange = {
-						typedFingerprint = it
-						fingerprintMatches = false
-						qrText = null
-					},
-					label = { Text("Fingerprint from the page") },
-					modifier = Modifier.fillMaxWidth(),
-				)
-				SecondaryButtonWide(label = "Check fingerprint", onClicked = {
-					fingerprintMatches = typedFingerprint.trim().lowercase() == expected
-					if (!fingerprintMatches) {
-						SignerRuntime.status = "fingerprint does not match this QR"
-						qrText = null
-					}
-				})
-				if (fingerprintMatches) {
-					PrimaryButtonWide(label = "Seal this key", onClicked = {
-						try {
-							val payload = KeyExport.box(context, chosen.id, scanned)
-							qrText = payload
-						} catch (_: Exception) {
-							SignerRuntime.status = "could not seal this key set"
-						}
-					})
-				}
-			}
-			if (qrText != null) {
-				Text(
-					"Show this QR to the zcinti page. Only that KMS identity can open it.",
-					style = SignerTypeface.BodyM,
-					color = MaterialTheme.colors.onBackground,
-				)
-				RecoveryQr(qrText!!)
-			}
-		}
-		Text(SignerRuntime.status, style = SignerTypeface.BodyM, color = MaterialTheme.colors.onBackground)
-	}
-}
-
-@Composable
-private fun RecoveryQr(payload: String) {
-	var image by remember(payload) { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
-	LaunchedEffect(payload) {
-		try {
-			val png = io.parity.signer.uniffi.encodeToQr(payload.encodeToByteArray().map { it.toUByte() }, false)
-			val bytes = png.map { it.toByte() }.toByteArray()
-			image = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
-		} catch (_: Exception) {
-			image = null
-		}
-	}
-	if (image != null) {
-		androidx.compose.foundation.Image(bitmap = image!!, contentDescription = "Recovery QR", modifier = Modifier.height(220.dp).fillMaxWidth())
-	}
-}
-
 @Composable
 private fun SignerKeySets() {
 	val context = LocalContext.current
@@ -235,18 +106,32 @@ private fun SignerKeySets() {
 		when {
 			scanning -> Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
 				Text(
-					"Scan the chain QR on the zcinti page. Only Terp is accepted.",
+					"Point at any zcinti QR: chain, KMS, Move, Receive, move, Imported.",
 					style = SignerTypeface.BodyM,
 					color = MaterialTheme.colors.onBackground,
 				)
-				ZcintiQrScan { text ->
+				val collector = remember { AnimCollector() }
+				var progress by remember { mutableStateOf("") }
+				ZcintiQrStream { raw ->
+					val text = collector.add(raw)
+					if (text == null) {
+						progress = "animated QR · ${collector.have}/${collector.total} frames"
+						return@ZcintiQrStream false
+					}
 					scanning = false
 					try {
-						SignerRuntime.acceptQr(context, text, scanBind)
+						if (scanBind != null || text.startsWith("zcinti:1:")) {
+							SignerRuntime.acceptQr(context, text, scanBind)
+						} else {
+							SignerRuntime.status = MoveFlow.route(context, text, openId)
+							MoveFlow.focusKey?.let { openId = it; tab = 2; MoveFlow.focusKey = null }
+						}
 					} catch (err: Exception) {
-						SignerRuntime.status = err.message ?: "that QR was not a Terp chain"
+						SignerRuntime.status = err.message ?: "that QR was not usable here"
 					}
+					true
 				}
+				if (progress.isNotEmpty()) Text(progress, style = SignerTypeface.CaptionM, color = MaterialTheme.colors.textSecondary)
 				SecondaryButtonWide(label = "Cancel scan", onClicked = { scanning = false })
 			}
 			open != null -> ValidatorKeyPage(
@@ -255,11 +140,15 @@ private fun SignerKeySets() {
 				onTab = { tab = it },
 				onBack = { openId = null },
 				onScan = { beginScan(open.id) },
+				onMoveScan = { beginScan(null) },
 				onNew = { beginScan(null) },
 				onDeleted = { openId = null; tab = 0 },
 			)
-			else -> Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-				Text("Validators", style = SignerTypeface.TitleS, color = MaterialTheme.colors.primary)
+			else -> Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+				ScanHeader(onScan = { beginScan(null) })
+				RetireProofCard()
+				PairingCard(onScan = { beginScan(null) })
+				Text("VALIDATORS", style = SignerTypeface.CaptionM, color = MaterialTheme.colors.textSecondary)
 				if (keys.isEmpty()) {
 					Text(
 						"No validator yet. Scan a chain QR to create the first key set.",
@@ -292,7 +181,7 @@ private fun SignerKeySets() {
 						}
 					}
 				}
-				SecondaryButtonWide(label = "New validator", onClicked = { beginScan(null) })
+				ReceiveKeyCard(onScan = { beginScan(null) })
 				if (SignerRuntime.status.isNotBlank()) {
 					Text(SignerRuntime.status, style = SignerTypeface.BodyM, color = MaterialTheme.colors.textSecondary)
 				}
@@ -308,6 +197,7 @@ private fun ValidatorKeyPage(
 	onTab: (Int) -> Unit,
 	onBack: () -> Unit,
 	onScan: () -> Unit,
+	onMoveScan: () -> Unit,
 	onNew: () -> Unit,
 	onDeleted: () -> Unit,
 ) {
@@ -387,57 +277,7 @@ private fun ValidatorKeyPage(
 			when (tab) {
 				0 -> ValidatorStatusPage(key)
 				1 -> ValidatorHistoryPage(key)
-				else -> ValidatorChainPage(key, onScan, onNew, onDeleted)
-			}
-		}
-	}
-}
-
-@Composable
-private fun ValidatorMenu(
-	keys: List<ValidatorKey>,
-	selected: ValidatorKey?,
-	expanded: Boolean,
-	onExpand: () -> Unit,
-	onDismiss: () -> Unit,
-	onPick: (String) -> Unit,
-) {
-	Box(Modifier.fillMaxWidth()) {
-		Surface(
-			shape = RoundedCornerShape(20.dp),
-			color = MaterialTheme.colors.backgroundSecondary,
-			modifier = Modifier
-				.fillMaxWidth()
-				.border(1.dp, MaterialTheme.colors.appliedStroke, RoundedCornerShape(20.dp))
-				.clickable(onClick = onExpand),
-		) {
-			Row(
-				Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-				verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-			) {
-				Column(Modifier.weight(1f)) {
-					Text(selected?.name ?: "Validator", style = SignerTypeface.TitleS, color = MaterialTheme.colors.primary)
-					Text(
-						if (selected == null || selected.chainId.isBlank()) "Terp" else "Terp · ${selected.chainId}",
-						style = SignerTypeface.CaptionM,
-						color = MaterialTheme.colors.textSecondary,
-					)
-				}
-				Icon(Icons.Outlined.ExpandMore, contentDescription = null, tint = MaterialTheme.colors.textTertiary, modifier = Modifier.size(20.dp))
-			}
-		}
-		DropdownMenu(expanded = expanded, onDismissRequest = onDismiss, modifier = Modifier.fillMaxWidth()) {
-			keys.forEach { key ->
-				DropdownMenuItem(onClick = { onPick(key.id) }) {
-					Column {
-						Text(key.name, style = SignerTypeface.BodyL, color = MaterialTheme.colors.primary)
-						Text(
-							if (key.chainId.isBlank()) "No chain yet" else key.chainId,
-							style = SignerTypeface.CaptionM,
-							color = MaterialTheme.colors.textSecondary,
-						)
-					}
-				}
+				else -> ValidatorChainPage(key, onMoveScan, onNew, onDeleted)
 			}
 		}
 	}
@@ -701,6 +541,8 @@ private fun ValidatorChainPage(key: ValidatorKey, onScan: () -> Unit, onNew: () 
 		DetailLine("Granter", SignerRuntime.granterAccount.ifBlank { "—" }, copy = true)
 		DetailLine("Phone identity", phoneFp.ifBlank { "—" }, copy = true, last = true)
 	}
+	MoveOutCard(key, onScan)
+	BiometricHint()
 	SecondaryButtonWide(label = "New validator", withBackground = true, onClicked = onNew)
 	Spacer(Modifier.height(24.dp))
 	val chain = key.chainId.ifBlank { "no chain" }

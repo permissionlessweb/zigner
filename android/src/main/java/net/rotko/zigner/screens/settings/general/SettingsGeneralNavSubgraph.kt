@@ -50,7 +50,6 @@ internal fun SettingsGeneralNavSubgraph(
 			onMultisigSettings = { coreNavController.navigate(SettingsNavSubgraph.multisig) },
 			onReleaseKey = { coreNavController.navigate(SettingsNavSubgraph.releaseKey) },
 			onAdvancedSettings = { coreNavController.navigate(SettingsNavSubgraph.advanced) },
-			onBluetoothSigner = { coreNavController.navigate(SettingsNavSubgraph.bluetooth) },
 			onExposedClicked = { menuNavController.navigate(SettingsGeneralMenu.exposed_shield_alert) },
 			onLightThemeToggle = { vm.toggleLightTheme() },
 			isLightThemeEnabled = lightThemeEnabled.value,

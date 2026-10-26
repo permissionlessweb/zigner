@@ -27,7 +27,6 @@ import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.outlined.Policy
-import androidx.compose.material.icons.outlined.Bluetooth
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
@@ -65,7 +64,6 @@ internal fun SettingsScreenGeneralView(
 	onMultisigSettings: Callback,
 	onReleaseKey: Callback,
 	onAdvancedSettings: Callback,
-	onBluetoothSigner: Callback,
 	onExposedClicked: Callback,
 	onLightThemeToggle: Callback,
 	isLightThemeEnabled: Boolean,
@@ -107,11 +105,6 @@ internal fun SettingsScreenGeneralView(
 					name = "Release key",
 					icon = Icons.Outlined.Key,
 					onClick = onReleaseKey,
-				)
-				SettingsElement(
-					name = "Export signer key",
-					icon = Icons.Outlined.Bluetooth,
-					onClick = onBluetoothSigner,
 				)
 				SettingsElement(
 					name = "Advanced Settings",
@@ -298,7 +291,6 @@ private fun PreviewSettingsScreen() {
 			onMultisigSettings = {},
 		onReleaseKey = {},
 			onAdvancedSettings = {},
-			onBluetoothSigner = {},
 			onExposedClicked = {},
 			onLightThemeToggle = {},
 			isLightThemeEnabled = false,

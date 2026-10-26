@@ -4,7 +4,6 @@ import java.math.BigInteger
 import java.security.MessageDigest
 import javax.crypto.Cipher
 import javax.crypto.Mac
-import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
 /**
@@ -207,8 +206,17 @@ internal fun nonce(n: Long): ByteArray {
 }
 
 internal fun chaCha(mode: Int, key: ByteArray, nonce: ByteArray, aad: ByteArray?, input: ByteArray): ByteArray {
-	val cipher = Cipher.getInstance("ChaCha20-Poly1305")
-	cipher.init(mode, SecretKeySpec(key, "ChaCha20-Poly1305"), IvParameterSpec(nonce))
-	if (aad != null) cipher.updateAAD(aad)
-	return cipher.doFinal(input)
+	// Rust on a phone: Conscrypt has ChaCha20-Poly1305 only from API 28.
+	val ad = aad ?: ByteArray(0)
+	return try {
+		when (mode) {
+			Cipher.ENCRYPT_MODE -> Ed25519.backend.seal(key, nonce, ad, input)
+			Cipher.DECRYPT_MODE -> Ed25519.backend.open(key, nonce, ad, input)
+			else -> throw IllegalArgumentException("cipher mode")
+		}
+	} catch (e: javax.crypto.AEADBadTagException) {
+		throw e
+	} catch (e: Exception) {
+		if (mode == Cipher.DECRYPT_MODE) throw javax.crypto.AEADBadTagException(e.message) else throw e
+	}
 }

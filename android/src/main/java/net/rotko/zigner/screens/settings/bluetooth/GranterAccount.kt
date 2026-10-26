@@ -36,6 +36,15 @@ internal object GranterAccount {
 			.edit()
 			.putString(PINNED, address)
 			.apply()
+		bindOperator(address)
+	}
+
+	/** Tell the Rust card builder which owner this phone's slot is bound to. */
+	fun bindOperator(address: String) {
+		try {
+			io.parity.signer.uniffi.setBoundOperator(address.takeIf { it.startsWith("terp1") })
+		} catch (_: Throwable) {
+		}
 	}
 
 	private fun terpKeys(seedName: String): List<String> {

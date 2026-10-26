@@ -16,7 +16,6 @@ import net.rotko.zigner.screens.settings.backup.SeedBackupIntegratedScreen
 import net.rotko.zigner.screens.settings.frost.FrostBackupAgeScreen
 import net.rotko.zigner.screens.settings.frost.FrostBackupSelectionScreen
 import net.rotko.zigner.screens.settings.frost.FrostSettingsScreen
-import net.rotko.zigner.screens.settings.bluetooth.BluetoothSignerScreen
 import net.rotko.zigner.screens.settings.general.SettingsAdvancedNavSubgraph
 import net.rotko.zigner.screens.settings.general.SettingsGeneralNavSubgraph
 import net.rotko.zigner.screens.settings.logs.logsNavigationSubgraph
@@ -88,9 +87,6 @@ fun NavGraphBuilder.settingsFullSubgraph(
 				coreNavController.popBackStack(SettingsNavSubgraph.home, false)
 			}
 		}
-		composable(SettingsNavSubgraph.bluetooth) {
-			BluetoothSignerScreen(onBack = { coreNavController.popBackStack() })
-		}
 		composable(SettingsNavSubgraph.advanced) {
 			SettingsAdvancedNavSubgraph(coreNavController = coreNavController)
 		}
@@ -103,7 +99,6 @@ internal object SettingsNavSubgraph {
 	const val privacyPolicy = "settings_privacy_polcy"
 	const val backup = "settings_backup"
 	const val advanced = "settings_advanced"
-	const val bluetooth = "settings_bluetooth"
 	const val logs = "settings_logs"
 	const val generalVerifier = "settings_general_verifier"
 	const val zcashTestQr = "settings_zcash_test_qr"

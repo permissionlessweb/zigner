@@ -14,7 +14,6 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import java.security.PrivateKey
-import java.security.Signature
 import java.util.UUID
 
 internal data class SignedRow(
@@ -36,7 +35,7 @@ internal data class SignedRow(
  */
 internal class KmsGattServer(
 	context: Context,
-	private val material: () -> Pair<java.security.PrivateKey, ByteArray>,
+	private val material: () -> Pair<Ed25519Key, ByteArray>,
 	private val onSigned: (SignedRow) -> Unit,
 	private val onStatus: (String) -> Unit,
 	private val onPeers: (Int) -> Unit = {},
@@ -44,9 +43,20 @@ internal class KmsGattServer(
 	private val app = context.applicationContext
 	private val main = Handler(Looper.getMainLooper())
 	private var server: BluetoothGattServer? = null
-	private var incoming = ByteArray(0)
-	private var statusIncoming = ByteArray(0)
-	private var pendingStatus = false
+	/**
+	 * Write assembly is per central: several KMS hosts (or a KMS and a
+	 * scanner restart) may be connected at once, and a long write from one
+	 * must never be spliced into another's frame. Binder callbacks can run
+	 * on different threads, so every callback that touches this state, the
+	 * sessions or the marks holds [lock].
+	 */
+	private class Assembly {
+		var incoming = ByteArray(0)
+		var statusIncoming = ByteArray(0)
+		var pendingStatus = false
+	}
+	private val lock = Any()
+	private val assembly = mutableMapOf<String, Assembly>()
 	private var sigChar: BluetoothGattCharacteristic? = null
 	private var keysChar: BluetoothGattCharacteristic? = null
 	private var granterChar: BluetoothGattCharacteristic? = null
@@ -61,6 +71,9 @@ internal class KmsGattServer(
 			private val peers = mutableSetOf<String>()
 
 			override fun onConnectionStateChange(device: BluetoothDevice, status: Int, newState: Int) {
+				var joined = false
+				var count = 0
+				synchronized(lock) {
 				val id = try {
 					device.address
 				} catch (_: SecurityException) {
@@ -69,16 +82,22 @@ internal class KmsGattServer(
 				if (newState == BluetoothProfile.STATE_CONNECTED) {
 					peers.add(id)
 					clients.add(device)
-					SignerRuntime.refreshGranter(app)
+					joined = true
 				} else {
 					peers.remove(id)
 					clients.remove(device)
 					sessions.remove(id)
+					assembly.remove(id)
 					// Android stops the advertisement while a laptop is connected.
 					// Without a new one, the scanner cannot find this phone again.
-					SignerRuntime.centralLeft(app)
 				}
-				onPeers(peers.size)
+				count = peers.size
+				}
+				// Outside the lock: the granter lookup blocks on storage, and holding the
+				// GATT lock through it stalls every read/notify-subscribe from the KMS.
+				if (joined) Thread { SignerRuntime.refreshGranter(app) }.start()
+				else SignerRuntime.centralLeft(app)
+				onPeers(count)
 			}
 
 			override fun onServiceAdded(status: Int, service: BluetoothGattService?) {
@@ -90,7 +109,7 @@ internal class KmsGattServer(
 				requestId: Int,
 				offset: Int,
 				characteristic: BluetoothGattCharacteristic,
-			) {
+			): Unit = synchronized(lock) {
 				val body = when {
 					characteristic.uuid == PUB && offset == 0 -> legacyPub()
 					characteristic.uuid == KEYS -> encodeKeyList(ValidatorKeys.list(app)).let {
@@ -110,23 +129,26 @@ internal class KmsGattServer(
 				responseNeeded: Boolean,
 				offset: Int,
 				value: ByteArray,
-			) {
-				if (characteristic.uuid == STATUS) {
-					if (offset == 0) statusIncoming = ByteArray(0)
-					statusIncoming = assemble(statusIncoming, offset, value)
-					pendingStatus = true
+			): Unit = synchronized(lock) {
+				val a = assemblyFor(device)
+				if (a == null) {
+					// unknown address: nothing to key the assembly on
+				} else if (characteristic.uuid == STATUS) {
+					if (offset == 0) a.statusIncoming = ByteArray(0)
+					a.statusIncoming = assemble(a.statusIncoming, offset, value)
+					a.pendingStatus = true
 					if (!preparedWrite) {
-						handleStatus(device, statusIncoming)
-						statusIncoming = ByteArray(0)
-						pendingStatus = false
+						handleStatus(device, a.statusIncoming)
+						a.statusIncoming = ByteArray(0)
+						a.pendingStatus = false
 					}
 				} else if (characteristic.uuid == SIGN) {
-					pendingStatus = false
-					if (offset == 0) incoming = ByteArray(0)
-					incoming = assemble(incoming, offset, value)
+					a.pendingStatus = false
+					if (offset == 0) a.incoming = ByteArray(0)
+					a.incoming = assemble(a.incoming, offset, value)
 					if (!preparedWrite) {
-						reply(device, incoming)
-						incoming = ByteArray(0)
+						reply(device, a.incoming)
+						a.incoming = ByteArray(0)
 					}
 				}
 				if (responseNeeded) {
@@ -134,15 +156,18 @@ internal class KmsGattServer(
 				}
 			}
 
-			override fun onExecuteWrite(device: BluetoothDevice, requestId: Int, execute: Boolean) {
-				if (execute && pendingStatus && statusIncoming.isNotEmpty()) {
-					handleStatus(device, statusIncoming)
-				} else if (execute && incoming.isNotEmpty()) {
-					reply(device, incoming)
+			override fun onExecuteWrite(device: BluetoothDevice, requestId: Int, execute: Boolean): Unit = synchronized(lock) {
+				val a = assemblyFor(device)
+				if (a != null) {
+					if (execute && a.pendingStatus && a.statusIncoming.isNotEmpty()) {
+						handleStatus(device, a.statusIncoming)
+					} else if (execute && a.incoming.isNotEmpty()) {
+						reply(device, a.incoming)
+					}
+					a.incoming = ByteArray(0)
+					a.statusIncoming = ByteArray(0)
+					a.pendingStatus = false
 				}
-				incoming = ByteArray(0)
-				statusIncoming = ByteArray(0)
-				pendingStatus = false
 				server?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, 0, null)
 			}
 
@@ -316,6 +341,7 @@ internal class KmsGattServer(
 			}
 		}
 		clients.clear()
+		assembly.clear()
 		try {
 			current.clearServices()
 		} catch (_: RuntimeException) {
@@ -348,17 +374,15 @@ internal class KmsGattServer(
 					byteArrayOf(0x23)
 				}
 				0x24.toByte() -> {
-					val phone = importer ?: return null
-					val opened = phone.open(frame.copyOfRange(1, frame.size))
-					val chainLen = opened[0].toInt() and 0xff
-					val chain = opened.copyOfRange(1, 1 + chainLen).decodeToString()
-					val secret = opened.copyOfRange(1 + chainLen, 1 + chainLen + 64)
-					val pub = secret.copyOfRange(32, 64)
-					ValidatorKeys.importSecret(app, chain, secret)
-					secret.fill(0)
-					opened.fill(0)
-					onStatus("Imported the KMS key for $chain")
-					byteArrayOf(0x25) + pub
+					// A key without a height floor could double-sign: refused.
+					onStatus("import refused: use Move validator (key needs a height floor)")
+					null
+				}
+				0x26.toByte() -> {
+					// Key moves are phone-to-phone over QR only; key bytes never cross the radio.
+					importer = null
+					onStatus("move refused: keys move phone-to-phone by QR (chain tab > Move out)")
+					null
 				}
 				else -> null
 			}
@@ -388,7 +412,9 @@ internal class KmsGattServer(
 	private fun legacyPub(): ByteArray {
 		val active = SignerRuntime.activeKey(app)
 		val key = ValidatorKeys.list(app).firstOrNull { it.id == active }
-		return if (key != null) ValidatorKeys.materialFor(app, key.id).second else material().second
+		val (k, pub) = if (key != null) ValidatorKeys.materialFor(app, key.id) else material()
+		k.wipe()
+		return pub
 	}
 
 	private fun assemble(current: ByteArray, offset: Int, value: ByteArray): ByteArray {
@@ -396,6 +422,11 @@ internal class KmsGattServer(
 		current.copyInto(next, 0, 0, minOf(current.size, offset))
 		value.copyInto(next, offset)
 		return next
+	}
+
+	private fun assemblyFor(device: BluetoothDevice): Assembly? {
+		val id = deviceId(device) ?: return null
+		return assembly.getOrPut(id) { Assembly() }
 	}
 
 	private fun deviceId(device: BluetoothDevice): String? =
@@ -494,6 +525,11 @@ internal class KmsGattServer(
 		}
 		val key = (route as Route.Use).key
 		val keyId = key.id
+		PhoneGate.check(app.filesDir, keyId, key.pubHex, parsed.height)?.let { why ->
+			notify(device, refusal(REFUSE_LOCKED, why))
+			onStatus("refused ${kindName(sb.kind)} at ${parsed.height}: $why")
+			return
+		}
 		val mark = marks.getOrPut(keyId) {
 			HighWater.read(java.io.File(app.filesDir, "validator-keys/$keyId/hwm.txt"))
 		}
@@ -512,10 +548,8 @@ internal class KmsGattServer(
 			}
 			Decision.Sign -> Unit
 		}
-		val signer = Signature.getInstance("Ed25519")
-		signer.initSign(ValidatorKeys.materialFor(app, keyId).first)
-		signer.update(parsed.msg)
-		val sig = signer.sign()
+		val signer = ValidatorKeys.materialFor(app, keyId).first
+		val sig = try { signer.sign(parsed.msg) } finally { signer.wipe() }
 		if (sig.size != 64) {
 			onStatus("signature length ${sig.size}")
 			return

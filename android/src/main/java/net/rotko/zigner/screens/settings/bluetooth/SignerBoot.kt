@@ -26,7 +26,7 @@ class SignerBootReceiver : BroadcastReceiver() {
 		// alone could fall back to the bootstrap key for a deleted id.
 		val ok = try {
 			val stored = ValidatorKeys.list(app).map { it.id }.toSet()
-			resumeKeysOk(keys, stored) && keys.all { ValidatorKeys.materialFor(app, it); true }
+			resumeKeysOk(keys, stored) && keys.all { ValidatorKeys.materialFor(app, it).first.wipe(); true }
 		} catch (_: Exception) {
 			false
 		}

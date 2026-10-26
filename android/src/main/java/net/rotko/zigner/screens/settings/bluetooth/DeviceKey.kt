@@ -4,37 +4,41 @@ import android.content.Context
 import android.util.Base64
 import org.json.JSONObject
 import java.io.File
-import java.security.KeyFactory
-import java.security.KeyPair
-import java.security.spec.PKCS8EncodedKeySpec
-import java.security.spec.X509EncodedKeySpec
 
 /**
- * Ed25519 key kept in the app's private files. Android's Ed25519 generator
- * rejects a 256-bit initialize, so this never calls initialize(256).
+ * Ed25519 key kept in the app's private files: pkcs8 (RFC 8410 v1, sealed by
+ * AtRest), spki and raw public key. Same bytes the JCA generator used to
+ * write; signing now runs in Rust ([Ed25519]) so API 23+ works.
  * An import file is read once and deleted. Its bytes are not logged.
  */
 internal object DeviceKey {
-	private val pkcs8Prefix = byteArrayOf(
-		0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20,
-	)
-	private val spkiPrefix = byteArrayOf(
-		0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00,
-	)
-
-	fun load(context: Context): KeyPair {
+	/** The selected key and its raw public key. */
+	fun load(context: Context): Pair<Ed25519Key, ByteArray> {
 		if (ValidatorKeys.list(context).isEmpty()) importIfPresent(context)
 		val key = ValidatorKeys.bootstrap(context).first
-		val folder = File(context.filesDir, "validator-keys/${key.id}")
-		val factory = KeyFactory.getInstance("Ed25519")
-		val priv = factory.generatePrivate(PKCS8EncodedKeySpec(readPkcs8(folder)))
-		val pub = factory.generatePublic(X509EncodedKeySpec(File(folder, "spki").readBytes()))
-		return KeyPair(pub, priv)
+		return ValidatorKeys.materialFor(context, key.id)
+	}
+
+	/**
+	 * Open a stored key. The seed comes out of the sealed PKCS#8 and its
+	 * derived public key must equal the stored raw one, so a wrong or damaged
+	 * file can never sign under a validator's name. Nothing is rewritten.
+	 */
+	fun open(folder: File): Pair<Ed25519Key, ByteArray> {
+		val raw = File(folder, "raw").readBytes()
+		val pkcs8 = readPkcs8(folder)
+		val seed = try { Ed25519.seedFromPkcs8(pkcs8) } finally { pkcs8.fill(0) }
+		val key = Ed25519Key(seed)
+		if (!key.pub().contentEquals(raw)) {
+			key.wipe()
+			throw IllegalStateException("stored key does not match its public key")
+		}
+		return key to raw
 	}
 
 	internal fun writeSeed(folder: File, seed: ByteArray, pub: ByteArray) {
-		val pkcs8 = pkcs8Prefix + seed
-		val spki = spkiPrefix + pub
+		val pkcs8 = Ed25519.pkcs8(seed)
+		val spki = Ed25519.spki(pub)
 		folder.mkdirs()
 		writePkcs8(folder, pkcs8)
 		File(folder, "spki").writeBytes(spki)
@@ -54,12 +58,6 @@ internal object DeviceKey {
 	fun writePkcs8(folder: File, pkcs8: ByteArray) {
 		folder.mkdirs()
 		File(folder, "pkcs8").writeBytes(AtRest.seal(VaultKey.get(), pkcs8))
-	}
-
-	fun rawPublic(pair: KeyPair): ByteArray {
-		val encoded = pair.public.encoded
-		if (encoded.size >= 32) return encoded.copyOfRange(encoded.size - 32, encoded.size)
-		return encoded
 	}
 
 	private fun importIfPresent(context: Context) {

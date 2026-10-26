@@ -5,11 +5,6 @@ import android.util.Base64
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
-import java.security.KeyFactory
-import java.security.KeyPairGenerator
-import java.security.PrivateKey
-import java.security.spec.PKCS8EncodedKeySpec
-import java.security.spec.X509EncodedKeySpec
 
 /**
  * Validator keys for zcinti. One phone holds many. Each key is for Terp.
@@ -100,12 +95,11 @@ internal object ValidatorKeys {
 		val id = "terp-$n"
 		val folder = dir(context, id)
 		folder.mkdirs()
-		val gen = KeyPairGenerator.getInstance("Ed25519")
-		val pair = gen.generateKeyPair()
-		val raw = DeviceKey.rawPublic(pair)
-		DeviceKey.writePkcs8(folder, pair.private.encoded)
-		File(folder, "spki").writeBytes(pair.public.encoded)
-		File(folder, "raw").writeBytes(raw)
+		// Same files the JCA generator wrote (48-byte RFC 8410 PKCS#8, SPKI, raw).
+		val seed = ByteArray(32).also { java.security.SecureRandom().nextBytes(it) }
+		val raw = Ed25519.pub(seed)
+		DeviceKey.writeSeed(folder, seed, raw)
+		seed.fill(0)
 		val root = readIndex(context)
 		val keys = root.optJSONArray("keys") ?: JSONArray()
 		keys.put(JSONObject().put("id", id).put("network", CHAIN).put("chain", "").put("name", "Terp $n"))
@@ -182,9 +176,10 @@ internal object ValidatorKeys {
 	 * exact key (same public key) is already on the phone, in which case that
 	 * set is refreshed. Another validator's key on the same chain is never replaced.
 	 */
-	fun importSecret(context: Context, chainId: String, secret: ByteArray) {
+	fun importSecret(context: Context, chainId: String, secret: ByteArray, slot: String? = null) {
 		if (secret.size != 64) throw IllegalArgumentException("consensus secret")
 		val pubHex = secret.copyOfRange(32, 64).joinToString("") { "%02x".format(it) }
+		if (Handoff.tombstoned(context, pubHex)) throw IllegalArgumentException("that key was retired on this phone")
 		val existing = list(context).firstOrNull { it.pubHex == pubHex }
 		val id = existing?.id ?: add(context).id
 		val same = list(context).count { it.chainId == chainId && it.id != id }
@@ -205,7 +200,7 @@ internal object ValidatorKeys {
 		root.put("keys", keys)
 		root.put("selected", id)
 		writeIndex(context, root)
-		if (existing == null) pinSlot(context, id, null)
+		if (existing == null || slot != null) pinSlot(context, id, slot)
 	}
 
 	fun noiseSeed(context: Context): ByteArray {
@@ -229,17 +224,13 @@ internal object ValidatorKeys {
 		writeIndex(context, root)
 	}
 
-	fun material(context: Context): Pair<PrivateKey, ByteArray> {
+	fun material(context: Context): Pair<Ed25519Key, ByteArray> {
 		return materialFor(context, selectedId(context))
 	}
 
-	fun materialFor(context: Context, id: String?): Pair<PrivateKey, ByteArray> {
+	fun materialFor(context: Context, id: String?): Pair<Ed25519Key, ByteArray> {
 		val key = list(context).firstOrNull { it.id == id } ?: bootstrap(context).first
-		val folder = dir(context, key.id)
-		val factory = KeyFactory.getInstance("Ed25519")
-		val privateKey = factory.generatePrivate(PKCS8EncodedKeySpec(DeviceKey.readPkcs8(folder)))
-		val raw = File(folder, "raw").readBytes()
-		return privateKey to raw
+		return DeviceKey.open(dir(context, key.id))
 	}
 
 	private fun migrateLegacy(context: Context) {
