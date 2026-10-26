@@ -57,7 +57,7 @@ frost-spend = { workspace = true, optional = true }
 default = []
 penumbra = ["decaf377", "decaf377-rdsa", "blake2b_simd", "rand_chacha", "bip32", "hmac", "sha2", "pbkdf2", "poseidon377", "bech32", "subtle", "penumbra-transaction", "penumbra-keys", "penumbra-proto"]
 zcash = ["orchard", "secp256k1", "ripemd", "bs58", "pasta_curves", "rand", "bip32", "bech32", "sha2", "zip32", "zcash_address", "zcash_protocol", "frost-spend"]
-cosmos = ["secp256k1", "sha2", "serde_json"]
+cosmos = ["secp256k1", "sha2", "serde_json", "bech32"]
 
 
 [dev-dependencies]

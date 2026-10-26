@@ -538,17 +538,7 @@ fn cosmos_derive_multisigner_and_address(
 
     // Get bech32 prefix from network name
     let prefix = network_specs
-        .map(|ns| match ns.name.as_str() {
-            "osmosis" => cosmos::PREFIX_OSMOSIS,
-            "noble" => cosmos::PREFIX_NOBLE,
-            "celestia" => cosmos::PREFIX_CELESTIA,
-            "terra" => cosmos::PREFIX_TERRA,
-            "kava" => cosmos::PREFIX_KAVA,
-            "secret" => cosmos::PREFIX_SECRET,
-            "injective" => cosmos::PREFIX_INJECTIVE,
-            "terp" => cosmos::PREFIX_TERP,
-            _ => cosmos::PREFIX_COSMOS,
-        })
+        .map(|ns| cosmos::prefix_for_network(ns.name.as_str()))
         .unwrap_or(cosmos::PREFIX_COSMOS);
 
     // Generate bech32 address

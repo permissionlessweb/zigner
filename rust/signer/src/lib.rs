@@ -31,6 +31,11 @@ use zcash_transparent as _;
 
 pub mod age_backup;
 pub mod auth;
+pub mod ed25519_ffi;
+pub use ed25519_ffi::{
+    chacha20poly1305_open, chacha20poly1305_seal, ed25519_pubkey_from_seed, ed25519_sign,
+    ed25519_verify,
+};
 pub mod backup;
 mod ffi_types;
 pub mod frost_backup;
@@ -528,6 +533,10 @@ fn keys_by_seed_name(seed_name: &str) -> anyhow::Result<MKeysNew, ErrorDisplayed
 }
 
 /// Encode binary info into qr code
+fn set_bound_operator(owner: Option<String>) {
+    transaction_signing::cosmos::set_bound_operator(owner);
+}
+
 fn encode_to_qr(payload: &[u8], is_danger: bool) -> anyhow::Result<Vec<u8>, String> {
     use qrcode_static::DataType;
     let sensitivity = if is_danger {
@@ -1187,10 +1196,23 @@ fn export_cosmos_accounts(
     network_name: &str,
 ) -> Result<CosmosAccountExport, ErrorDisplayed> {
     use db_handling::cosmos::{
-        derive_cosmos_account_xpub, derive_cosmos_key, SLIP0044_COSMOS,
+        cosmos_chain_info, derive_cosmos_account_xpub, derive_cosmos_key, SLIP0044_COSMOS,
     };
 
-    let key = derive_cosmos_key(seed_phrase, SLIP0044_COSMOS, account_index, 0).map_err(|e| {
+    // The four legacy chains (and the empty "all" filter) keep the exact
+    // pre-multichain output. Any other known chain exports just that chain,
+    // with its own prefix and coin type.
+    let name = network_name.to_lowercase();
+    let legacy_chains: Vec<(&str, &str)> = cosmos_export_chains();
+    let extra: Option<(&'static str, &'static str, u32)> =
+        if name.is_empty() || legacy_chains.iter().any(|(id, _)| *id == name) {
+            None
+        } else {
+            cosmos_chain_info(&name).map(|c| (c.name, c.prefix, c.coin_type))
+        };
+    let coin_type = extra.map(|(_, _, c)| c).unwrap_or(SLIP0044_COSMOS);
+
+    let key = derive_cosmos_key(seed_phrase, coin_type, account_index, 0).map_err(|e| {
         ErrorDisplayed::Str {
             s: format!("Failed to derive Cosmos key: {e}"),
         }
@@ -1203,21 +1225,19 @@ fn export_cosmos_accounts(
     // signable on this device at the matching address_index and recoverable
     // from the seed. This is the rotation backbone - see the note in
     // db_handling::cosmos::derive_cosmos_account_xpub.
-    let xpub =
-        derive_cosmos_account_xpub(seed_phrase, SLIP0044_COSMOS, account_index).map_err(|e| {
-            ErrorDisplayed::Str {
-                s: format!("Failed to derive Cosmos xpub: {e}"),
-            }
-        })?;
+    let xpub = derive_cosmos_account_xpub(seed_phrase, coin_type, account_index).map_err(|e| {
+        ErrorDisplayed::Str {
+            s: format!("Failed to derive Cosmos xpub: {e}"),
+        }
+    })?;
 
     // Generate addresses for supported chains (filter by network_name if specified)
-    let all_chains: Vec<(&str, &str)> = cosmos_export_chains();
-
-    let chains: Vec<(&str, &str)> = if network_name.is_empty() {
-        all_chains
+    let chains: Vec<(&str, &str)> = if let Some((id, prefix, _)) = extra {
+        vec![(id, prefix)]
+    } else if network_name.is_empty() {
+        legacy_chains
     } else {
-        let name = network_name.to_lowercase();
-        all_chains
+        legacy_chains
             .into_iter()
             .filter(|(id, _)| *id == name)
             .collect()
@@ -1282,10 +1302,11 @@ fn parse_cosmos_sign_request(qr_hex: &str) -> Result<CosmosSignRequest, ErrorDis
         s: format!("Failed to parse Cosmos QR: {e}"),
     })?;
 
-    let display =
-        CosmosSignDocDisplay::from_sign_bytes(&req.sign_doc_bytes).map_err(|e| ErrorDisplayed::Str {
+    let display = CosmosSignDocDisplay::from_sign_bytes(&req.sign_doc_bytes).map_err(|e| {
+        ErrorDisplayed::Str {
             s: format!("Failed to parse sign doc: {e}"),
-        })?;
+        }
+    })?;
 
     let msgs = display
         .msgs
@@ -1331,9 +1352,11 @@ fn sign_cosmos_transaction(
             s: format!("Failed to re-parse QR: {e}"),
         })?;
 
-    if let Some(binding) = granter_binding(&req.sign_doc_bytes).map_err(|e| ErrorDisplayed::Str {
-        s: format!("Failed to parse sign doc: {e}"),
-    })? {
+    if let Some(binding) =
+        granter_binding(&req.sign_doc_bytes).map_err(|e| ErrorDisplayed::Str {
+            s: format!("Failed to parse sign doc: {e}"),
+        })?
+    {
         let shown = request.msgs.first();
         let card_ok = request.msgs.len() == 1
             && request.chain_id.is_empty()
@@ -1349,8 +1372,9 @@ fn sign_cosmos_transaction(
                 s: "Granter card does not match the QR".to_string(),
             });
         }
-        let key = cosmos_key_for_signers(
+        let key = cosmos_key_for_request(
             seed_phrase,
+            &request.raw_qr_hex,
             &request.chain_name,
             req.account_index,
             req.address_index,
@@ -1406,14 +1430,28 @@ fn sign_cosmos_transaction(
         });
     }
 
+    for (i, (shown, parsed)) in request.msgs.iter().zip(display.msgs.iter()).enumerate() {
+        if shown.msg_type != parsed.msg_type
+            || shown.recipient != parsed.recipient
+            || shown.amount != parsed.amount
+            || shown.detail != parsed.detail
+            || shown.blind != parsed.blind
+        {
+            return Err(ErrorDisplayed::Str {
+                s: format!("Message {} does not match the QR", i + 1),
+            });
+        }
+    }
+
     // The QR account index is only a hint. A device with several Terp key
     // sets must sign with the derivation whose address is the message
     // signer, which is the address the preview shows.
     let signers = extract_signers(&req.sign_doc_bytes).map_err(|e| ErrorDisplayed::Str {
         s: format!("Failed to read message signers: {e}"),
     })?;
-    let key = cosmos_key_for_signers(
+    let key = cosmos_key_for_request(
         seed_phrase,
+        &request.raw_qr_hex,
         &request.chain_name,
         req.account_index,
         req.address_index,
@@ -1430,6 +1468,92 @@ fn sign_cosmos_transaction(
     Ok(signature.to_vec())
 }
 
+/// Bech32 prefix and candidate coin types for a request.
+///
+/// Prefix: explicit QR extension, else the common bech32 HRP of the sign
+/// doc's signer addresses, else the chain-name table (unknown -> `cosmos`).
+/// Coin types: explicit QR extension only; otherwise the table value for
+/// `chain_name` (unknown -> 118), followed by 118 when that differs, so every
+/// legacy payload that signed before still finds the same 118 key.
+fn cosmos_resolve_chain(
+    raw_qr_hex: &str,
+    chain_name: &str,
+    signers: &[String],
+) -> Result<(String, Vec<u32>), ErrorDisplayed> {
+    use db_handling::cosmos::{
+        bech32_prefix_of, coin_type_for_network, is_valid_bech32_prefix, prefix_for_network,
+        SLIP0044_COSMOS,
+    };
+    use transaction_signing::cosmos::CosmosQrExtension;
+
+    let ext = CosmosQrExtension::from_qr_hex(raw_qr_hex)
+        .map_err(|e| ErrorDisplayed::Str {
+            s: format!("Failed to re-parse QR: {e}"),
+        })?
+        .unwrap_or_default();
+
+    let signer_prefix = {
+        let hrps: Vec<Option<String>> = signers.iter().map(|a| bech32_prefix_of(a)).collect();
+        match hrps.first() {
+            Some(Some(first)) if hrps.iter().all(|h| h.as_deref() == Some(first.as_str())) => {
+                Some(first.clone())
+            }
+            _ => None,
+        }
+    };
+    let prefix = ext
+        .bech32_prefix
+        .clone()
+        .or(signer_prefix)
+        .filter(|p| is_valid_bech32_prefix(p))
+        .unwrap_or_else(|| prefix_for_network(chain_name).to_string());
+
+    let coin_types = match ext.coin_type {
+        Some(c) => vec![c],
+        None => {
+            let c = coin_type_for_network(chain_name);
+            if c == SLIP0044_COSMOS {
+                vec![c]
+            } else {
+                vec![c, SLIP0044_COSMOS]
+            }
+        }
+    };
+    Ok((prefix, coin_types))
+}
+
+fn cosmos_key_for_request(
+    seed_phrase: &str,
+    raw_qr_hex: &str,
+    chain_name: &str,
+    hint_account: u32,
+    hint_address: u32,
+    signers: &[String],
+) -> Result<db_handling::cosmos::CosmosKeyPair, ErrorDisplayed> {
+    let (prefix, coin_types) = cosmos_resolve_chain(raw_qr_hex, chain_name, signers)?;
+    let mut first_err = None;
+    for coin_type in coin_types {
+        match cosmos_key_for_signers(
+            seed_phrase,
+            &prefix,
+            coin_type,
+            hint_account,
+            hint_address,
+            signers,
+        ) {
+            Ok(key) => return Ok(key),
+            Err(e) => {
+                if first_err.is_none() {
+                    first_err = Some(e);
+                }
+            }
+        }
+    }
+    Err(first_err.unwrap_or(ErrorDisplayed::Str {
+        s: "no coin type to derive with".to_string(),
+    }))
+}
+
 /// Derivation on `seed_phrase` whose bech32 address equals every message signer.
 ///
 /// The QR indices are tried first. A key set often stores the Terp address at
@@ -1439,11 +1563,12 @@ fn sign_cosmos_transaction(
 fn cosmos_key_for_signers(
     seed_phrase: &str,
     prefix: &str,
+    coin_type: u32,
     hint_account: u32,
     hint_address: u32,
     signers: &[String],
 ) -> Result<db_handling::cosmos::CosmosKeyPair, ErrorDisplayed> {
-    use db_handling::cosmos::{derive_cosmos_key, pubkey_to_bech32_address, SLIP0044_COSMOS};
+    use db_handling::cosmos::{derive_cosmos_key, pubkey_to_bech32_with_prefix};
 
     let mut candidates = vec![(hint_account, hint_address)];
     for account in 0..16 {
@@ -1455,12 +1580,12 @@ fn cosmos_key_for_signers(
     }
     let mut hinted = None;
     for (account, address) in candidates {
-        let key = derive_cosmos_key(seed_phrase, SLIP0044_COSMOS, account, address).map_err(|e| {
+        let key = derive_cosmos_key(seed_phrase, coin_type, account, address).map_err(|e| {
             ErrorDisplayed::Str {
                 s: format!("Key derivation failed: {e}"),
             }
         })?;
-        let device_addr = pubkey_to_bech32_address(&key.public_key, prefix).map_err(|e| {
+        let device_addr = pubkey_to_bech32_with_prefix(&key.public_key, prefix).map_err(|e| {
             ErrorDisplayed::Str {
                 s: format!("Address derivation failed: {e}"),
             }
@@ -1506,9 +1631,10 @@ fn cosmos_public_key_for_signers(
         extract_signers, granter_binding, CosmosSignRequest as InternalRequest,
     };
 
-    let req = InternalRequest::from_qr_hex(&request.raw_qr_hex).map_err(|e| ErrorDisplayed::Str {
-        s: format!("Failed to re-parse QR: {e}"),
-    })?;
+    let req =
+        InternalRequest::from_qr_hex(&request.raw_qr_hex).map_err(|e| ErrorDisplayed::Str {
+            s: format!("Failed to re-parse QR: {e}"),
+        })?;
     let signers = if granter_binding(&req.sign_doc_bytes)
         .map_err(|e| ErrorDisplayed::Str {
             s: format!("Failed to parse sign doc: {e}"),
@@ -1521,8 +1647,9 @@ fn cosmos_public_key_for_signers(
             s: format!("Failed to read message signers: {e}"),
         })?
     };
-    let key = cosmos_key_for_signers(
+    let key = cosmos_key_for_request(
         seed_phrase,
+        &request.raw_qr_hex,
         &request.chain_name,
         req.account_index,
         req.address_index,
@@ -1560,7 +1687,11 @@ fn encode_cworch_signature(
     if max_fragment_len == 0 && single.len() <= ONE_CODE_LIMIT {
         return Ok(vec![single]);
     }
-    let fragment = if max_fragment_len == 0 { 200 } else { max_fragment_len as usize };
+    let fragment = if max_fragment_len == 0 {
+        200
+    } else {
+        max_fragment_len as usize
+    };
     let mut encoder = ur::ur::Encoder::new(&payload, fragment, "cworch-sig").map_err(|e| {
         ErrorDisplayed::Str {
             s: format!("Failed to create UR encoder: {e:?}"),
@@ -5267,6 +5398,240 @@ pub fn module_response_to_ur(
         })?);
     }
     Ok(parts)
+}
+
+#[cfg(test)]
+mod multichain_cosmos_tests {
+    use super::*;
+    use db_handling::cosmos::{derive_cosmos_key, pubkey_to_bech32_with_prefix};
+    use transaction_signing::cosmos::{
+        encode_cosmos_sign_request, sign_cosmos_amino, CosmosQrExtension,
+    };
+
+    const M: &str = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
+
+    fn doc(chain_id: &str, from: &str, denom: &str) -> String {
+        format!(
+            r#"{{"account_number":"7","chain_id":"{chain_id}","fee":{{"amount":[{{"amount":"2500","denom":"{denom}"}}],"gas":"200000"}},"memo":"t","msgs":[{{"type":"cosmos-sdk/MsgSend","value":{{"amount":[{{"amount":"1000","denom":"{denom}"}}],"from_address":"{from}","to_address":"{from}"}}}}],"sequence":"3"}}"#
+        )
+    }
+
+    /// (chain_name in QR, chain-id, prefix, fee denom)
+    const FIXTURES: &[(&str, &str, &str, &str)] = &[
+        ("osmosis", "osmosis-1", "osmo", "uosmo"),
+        ("juno", "juno-1", "juno", "ujuno"),
+        ("atomone", "atomone-1", "atone", "uatone"),
+        ("terp", "morocco-1", "terp", "uthiol"),
+    ];
+
+    fn roundtrip(
+        qr_chain: &str,
+        chain_id: &str,
+        prefix: &str,
+        denom: &str,
+        ext: Option<&CosmosQrExtension>,
+    ) {
+        let (acct, idx) = (1u32, 2u32);
+        let key = derive_cosmos_key(M, 118, acct, idx).unwrap();
+        let addr = pubkey_to_bech32_with_prefix(&key.public_key, prefix).unwrap();
+        assert!(addr.starts_with(&format!("{prefix}1")), "{addr}");
+        let d = doc(chain_id, &addr, denom);
+        let qr = hex::encode(encode_cosmos_sign_request(
+            acct,
+            qr_chain,
+            d.as_bytes(),
+            idx,
+            ext,
+        ));
+
+        let req = parse_cosmos_sign_request(&qr).unwrap();
+        assert_eq!(req.chain_id, chain_id);
+        assert_eq!(req.chain_name, qr_chain);
+        assert_eq!(req.fee, format!("2500 {denom}"));
+        assert_eq!(req.msgs.len(), 1);
+        assert_eq!(req.msgs[0].amount, format!("1000 {denom}"));
+        assert_eq!(req.msgs[0].recipient, addr);
+
+        assert_eq!(
+            cosmos_public_key_for_signers(M, req.clone()).unwrap(),
+            hex::encode(key.public_key)
+        );
+        let sig = sign_cosmos_transaction(M, req).unwrap();
+        let expect = sign_cosmos_amino(&key.secret_key, d.as_bytes()).unwrap();
+        assert_eq!(sig, expect.to_vec());
+
+        // display/sign binding still enforced
+        let mut tampered = parse_cosmos_sign_request(&qr).unwrap();
+        tampered.fee = "1 uatom".into();
+        assert!(sign_cosmos_transaction(M, tampered).is_err());
+    }
+
+    #[test]
+    fn four_chain_fixtures_legacy_payload() {
+        for (n, c, p, d) in FIXTURES {
+            roundtrip(n, c, p, d, None);
+        }
+    }
+
+    #[test]
+    fn unknown_chain_name_takes_prefix_from_signer() {
+        // e.g. the camera wraps raw JSON as chain_name "terp"; a juno doc must still sign.
+        roundtrip("terp", "juno-1", "juno", "ujuno", None);
+        roundtrip("somechain", "atomone-1", "atone", "uatone", None);
+    }
+
+    #[test]
+    fn extension_prefix_and_coin_type() {
+        let ext = CosmosQrExtension {
+            coin_type: Some(118),
+            bech32_prefix: Some("juno".into()),
+        };
+        roundtrip("juno", "juno-1", "juno", "ujuno", Some(&ext));
+
+        // coin type 330 from the extension
+        let key = derive_cosmos_key(M, 330, 0, 0).unwrap();
+        let addr = pubkey_to_bech32_with_prefix(&key.public_key, "terra").unwrap();
+        let d = doc("phoenix-1", &addr, "uluna");
+        let ext = CosmosQrExtension {
+            coin_type: Some(330),
+            bech32_prefix: None,
+        };
+        let qr = hex::encode(encode_cosmos_sign_request(
+            0,
+            "whatever",
+            d.as_bytes(),
+            0,
+            Some(&ext),
+        ));
+        let sig = sign_cosmos_transaction(M, parse_cosmos_sign_request(&qr).unwrap()).unwrap();
+        assert_eq!(
+            sig,
+            sign_cosmos_amino(&key.secret_key, d.as_bytes())
+                .unwrap()
+                .to_vec()
+        );
+        // table coin type for "terra" without extension also works
+        let qr = hex::encode(encode_cosmos_sign_request(
+            0,
+            "terra",
+            d.as_bytes(),
+            0,
+            None,
+        ));
+        let sig = sign_cosmos_transaction(M, parse_cosmos_sign_request(&qr).unwrap()).unwrap();
+        assert_eq!(
+            sig,
+            sign_cosmos_amino(&key.secret_key, d.as_bytes())
+                .unwrap()
+                .to_vec()
+        );
+    }
+
+    #[test]
+    fn create_validator_signed_by_operator_account() {
+        use transaction_signing::cosmos::account_to_operator;
+        let key = derive_cosmos_key(M, 118, 0, 1).unwrap();
+        let owner = pubkey_to_bech32_with_prefix(&key.public_key, "terp").unwrap();
+        let valoper = account_to_operator(&owner).unwrap();
+        let d = format!(
+            r#"{{"account_number":"42","chain_id":"morocco-1","fee":{{"amount":[{{"amount":"40000","denom":"uthiol"}}],"gas":"400000"}},"memo":"","msgs":[{{"type":"cosmos-sdk/MsgCreateValidator","value":{{"commission":{{"max_change_rate":"0.010000000000000000","max_rate":"0.200000000000000000","rate":"0.100000000000000000"}},"description":{{"details":"zcinti","moniker":"zcinti2"}},"min_self_delegation":"1","pubkey":{{"type":"tendermint/PubKeyEd25519","value":"BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc="}},"validator_address":"{valoper}","value":{{"amount":"1000000","denom":"uterp"}}}}}}],"sequence":"0"}}"#
+        );
+        // QR hints account 0 / address 0; the signer search finds 0/1.
+        let qr = hex::encode(encode_cosmos_sign_request(0, "terp", d.as_bytes(), 0, None));
+        let req = parse_cosmos_sign_request(&qr).unwrap();
+        assert_eq!(req.msgs[0].msg_type, "Create Validator");
+        assert!(!req.msgs[0].blind);
+        let sig = sign_cosmos_transaction(M, req).unwrap();
+        assert_eq!(
+            sig,
+            sign_cosmos_amino(&key.secret_key, d.as_bytes())
+                .unwrap()
+                .to_vec()
+        );
+
+        // a tampered card is refused
+        let mut t = parse_cosmos_sign_request(&qr).unwrap();
+        t.msgs[0].detail = t.msgs[0].detail.replace("10%", "1%");
+        assert!(sign_cosmos_transaction(M, t).is_err());
+        let mut t = parse_cosmos_sign_request(&qr).unwrap();
+        t.msgs[0].amount = "1 uterp".into();
+        assert!(sign_cosmos_transaction(M, t).is_err());
+
+        // an operator this seed does not own is a source mismatch
+        let far = derive_cosmos_key(M, 118, 20, 0).unwrap();
+        let far = pubkey_to_bech32_with_prefix(&far.public_key, "terp").unwrap();
+        {
+            let foreign = account_to_operator(&far).unwrap();
+            let d2 = d.replace(&valoper, &foreign);
+            let qr2 = hex::encode(encode_cosmos_sign_request(
+                0,
+                "terp",
+                d2.as_bytes(),
+                0,
+                None,
+            ));
+            let err =
+                sign_cosmos_transaction(M, parse_cosmos_sign_request(&qr2).unwrap()).unwrap_err();
+            assert!(format!("{err:?}").contains("Source mismatch"), "{err:?}");
+        }
+    }
+
+    #[test]
+    fn wrong_signer_still_rejected() {
+        let d = doc(
+            "juno-1",
+            "juno1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqzz9vml",
+            "ujuno",
+        );
+        let qr = hex::encode(encode_cosmos_sign_request(0, "juno", d.as_bytes(), 0, None));
+        let err = sign_cosmos_transaction(M, parse_cosmos_sign_request(&qr).unwrap()).unwrap_err();
+        assert!(format!("{err:?}").contains("Source mismatch"), "{err:?}");
+    }
+
+    /// Pre-change export algorithm, kept here as the byte-identical reference.
+    fn legacy_export_json(account_index: u32, label: &str, filter: &str) -> Vec<u8> {
+        use db_handling::cosmos::derive_cosmos_account_xpub;
+        let key = derive_cosmos_key(M, 118, account_index, 0).unwrap();
+        let xpub = derive_cosmos_account_xpub(M, 118, account_index).unwrap();
+        let all = [
+            ("osmosis", "osmo"),
+            ("noble", "noble"),
+            ("celestia", "celestia"),
+            ("terp", "terp"),
+        ];
+        let addrs: Vec<_> = all
+            .iter()
+            .filter(|(id, _)| filter.is_empty() || *id == filter)
+            .map(|(id, p)| serde_json::json!({"chain_id": id, "address": key.bech32_address(p).unwrap(), "prefix": p}))
+            .collect();
+        serde_json::json!({
+            "type": "cosmos-accounts", "version": 1,
+            "label": if label.is_empty() { "Zigner" } else { label },
+            "account_index": account_index,
+            "public_key": hex::encode(key.public_key), "xpub": xpub, "addresses": addrs,
+        })
+        .to_string()
+        .into_bytes()
+    }
+
+    #[test]
+    fn export_legacy_chains_byte_identical() {
+        for f in ["", "osmosis", "noble", "celestia", "terp", "unknownchain"] {
+            let got = export_cosmos_accounts(M, 3, "L", f).unwrap();
+            let want = encode_to_qr(&legacy_export_json(3, "L", f), false).unwrap();
+            assert_eq!(got.qr_data, want, "filter {f:?}");
+        }
+    }
+
+    #[test]
+    fn export_juno_and_atomone() {
+        for (n, p) in [("juno", "juno"), ("atomone", "atone")] {
+            let e = export_cosmos_accounts(M, 0, "", n).unwrap();
+            assert_eq!(e.addresses.len(), 1);
+            assert_eq!(e.addresses[0].prefix, p);
+            assert!(e.addresses[0].address.starts_with(&format!("{p}1")));
+        }
+    }
 }
 
 #[cfg(test)]

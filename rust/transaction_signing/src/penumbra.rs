@@ -2,6 +2,10 @@
 //!
 //! implements decaf377-rdsa signing for penumbra transactions.
 //! based on ledger-penumbra implementation by zondax.
+//!
+//! TODO(multichain): add display for a future external-custody / IbcRelay
+//! action (relayed IBC packets signed under external custody). Penumbra
+//! signing itself is intentionally unchanged.
 
 #[cfg(feature = "penumbra")]
 use decaf377::{Fq, Fr};

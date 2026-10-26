@@ -43,7 +43,7 @@ internal object KeyExport {
 		val pkcs8 = DeviceKey.readPkcs8(folder)
 		val pub = File(folder, "raw").readBytes()
 		if (pkcs8.size < 32 || pub.size != 32) throw IllegalStateException("key set")
-		val seed = pkcs8.copyOfRange(pkcs8.size - 32, pkcs8.size)
+		val seed = Ed25519.seedFromPkcs8(pkcs8)
 		pkcs8.fill(0)
 		return seed + pub
 	}

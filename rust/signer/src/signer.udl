@@ -734,6 +734,21 @@ namespace signer {
     [Throws=ErrorDisplayed]
     MKeysNew keys_by_seed_name([ByRef] string seed_name);
 
+    // Owner account bound to this phone's validator slot; shown on create-validator cards.
+    void set_bound_operator(string? owner);
+
+    // Ed25519 + ChaCha20-Poly1305 for the validator signer, so Android 6-12
+    // (no JCA Ed25519 before API 33, no ChaCha20-Poly1305 before API 28) work.
+    [Throws=ErrorDisplayed]
+    sequence<u8> ed25519_pubkey_from_seed([ByRef] sequence<u8> seed);
+    [Throws=ErrorDisplayed]
+    sequence<u8> ed25519_sign([ByRef] sequence<u8> seed, [ByRef] sequence<u8> msg);
+    boolean ed25519_verify([ByRef] sequence<u8> pubkey, [ByRef] sequence<u8> msg, [ByRef] sequence<u8> sig);
+    [Throws=ErrorDisplayed]
+    sequence<u8> chacha20poly1305_seal([ByRef] sequence<u8> key, [ByRef] sequence<u8> nonce, [ByRef] sequence<u8> aad, [ByRef] sequence<u8> plain);
+    [Throws=ErrorDisplayed]
+    sequence<u8> chacha20poly1305_open([ByRef] sequence<u8> key, [ByRef] sequence<u8> nonce, [ByRef] sequence<u8> aad, [ByRef] sequence<u8> ct);
+
     [Throws=ErrorDisplayed]
     sequence<u8> encode_to_qr([ByRef] sequence<u8> payload, boolean is_danger);
 

@@ -64,18 +64,9 @@ pub fn pubkey_to_bech32_address(pubkey_bytes: &[u8], network_name: &str) -> Resu
         )));
     }
 
-    // Map network name to bech32 prefix
-    let prefix = match network_name {
-        "osmosis" => PREFIX_OSMOSIS,
-        "noble" => PREFIX_NOBLE,
-        "celestia" => PREFIX_CELESTIA,
-        "terra" => PREFIX_TERRA,
-        "kava" => PREFIX_KAVA,
-        "secret" => PREFIX_SECRET,
-        "injective" => PREFIX_INJECTIVE,
-        "terp" => PREFIX_TERP,
-        _ => PREFIX_COSMOS,
-    };
+    // Map network name to bech32 prefix (fixed table, unknown names -> cosmos).
+    // Callers that know the real prefix should use `pubkey_to_bech32_with_prefix`.
+    let prefix = prefix_for_network(network_name);
 
     // RIPEMD160(SHA256(pubkey)) → 20 bytes address
     let sha256_hash = Sha256::digest(pubkey_bytes);
@@ -110,6 +101,136 @@ pub const PREFIX_SECRET: &str = "secret";
 pub const PREFIX_INJECTIVE: &str = "inj";
 pub const PREFIX_TERP: &str = "terp";
 pub const SLIP0044_TERP: u32 = 118;
+pub const PREFIX_JUNO: &str = "juno";
+pub const SLIP0044_JUNO: u32 = 118;
+pub const PREFIX_ATOMONE: &str = "atone";
+pub const SLIP0044_ATOMONE: u32 = 118;
+
+/// Static description of a known Cosmos SDK chain. This table is only a
+/// fallback: the signer prefers the bech32 prefix of the request's own signer
+/// addresses (or an explicit QR extension) over anything listed here.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CosmosChainInfo {
+    /// chain name as used in the QR `chain_name` field (e.g. "osmosis")
+    pub name: &'static str,
+    /// bech32 account prefix (e.g. "osmo")
+    pub prefix: &'static str,
+    /// SLIP-0044 coin type used in m/44'/coin'/account'/0/index
+    pub coin_type: u32,
+}
+
+/// Known chains. Order matters only for documentation.
+pub const KNOWN_COSMOS_CHAINS: &[CosmosChainInfo] = &[
+    CosmosChainInfo {
+        name: "cosmos",
+        prefix: PREFIX_COSMOS,
+        coin_type: SLIP0044_COSMOS,
+    },
+    CosmosChainInfo {
+        name: "osmosis",
+        prefix: PREFIX_OSMOSIS,
+        coin_type: SLIP0044_OSMOSIS,
+    },
+    CosmosChainInfo {
+        name: "noble",
+        prefix: PREFIX_NOBLE,
+        coin_type: SLIP0044_NOBLE,
+    },
+    CosmosChainInfo {
+        name: "celestia",
+        prefix: PREFIX_CELESTIA,
+        coin_type: SLIP0044_CELESTIA,
+    },
+    CosmosChainInfo {
+        name: "terra",
+        prefix: PREFIX_TERRA,
+        coin_type: SLIP0044_TERRA,
+    },
+    CosmosChainInfo {
+        name: "kava",
+        prefix: PREFIX_KAVA,
+        coin_type: SLIP0044_KAVA,
+    },
+    CosmosChainInfo {
+        name: "secret",
+        prefix: PREFIX_SECRET,
+        coin_type: SLIP0044_SECRET,
+    },
+    CosmosChainInfo {
+        name: "injective",
+        prefix: PREFIX_INJECTIVE,
+        coin_type: SLIP0044_INJECTIVE,
+    },
+    CosmosChainInfo {
+        name: "terp",
+        prefix: PREFIX_TERP,
+        coin_type: SLIP0044_TERP,
+    },
+    CosmosChainInfo {
+        name: "juno",
+        prefix: PREFIX_JUNO,
+        coin_type: SLIP0044_JUNO,
+    },
+    CosmosChainInfo {
+        name: "atomone",
+        prefix: PREFIX_ATOMONE,
+        coin_type: SLIP0044_ATOMONE,
+    },
+];
+
+/// Look up a known chain by its exact (case-sensitive) chain name.
+pub fn cosmos_chain_info(network_name: &str) -> Option<&'static CosmosChainInfo> {
+    KNOWN_COSMOS_CHAINS.iter().find(|c| c.name == network_name)
+}
+
+/// Bech32 prefix for a chain name; unknown names fall back to `cosmos`
+/// (unchanged legacy behaviour).
+pub fn prefix_for_network(network_name: &str) -> &'static str {
+    cosmos_chain_info(network_name)
+        .map(|c| c.prefix)
+        .unwrap_or(PREFIX_COSMOS)
+}
+
+/// SLIP-0044 coin type for a chain name; unknown names default to 118.
+pub fn coin_type_for_network(network_name: &str) -> u32 {
+    cosmos_chain_info(network_name)
+        .map(|c| c.coin_type)
+        .unwrap_or(SLIP0044_COSMOS)
+}
+
+/// Human-readable part of a bech32 address, lowercased, or `None` if the
+/// string is not valid bech32.
+pub fn bech32_prefix_of(address: &str) -> Option<String> {
+    let (hrp, _) = bech32::decode(address).ok()?;
+    Some(hrp.to_lowercase())
+}
+
+/// True if `prefix` is a usable bech32 human-readable part.
+pub fn is_valid_bech32_prefix(prefix: &str) -> bool {
+    !prefix.is_empty()
+        && prefix.len() <= 83
+        && prefix
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+        && bech32::Hrp::parse(prefix).is_ok()
+}
+
+/// Bech32 address for a compressed pubkey with an explicit prefix.
+pub fn pubkey_to_bech32_with_prefix(pubkey_bytes: &[u8], prefix: &str) -> Result<String> {
+    use bech32::{Bech32, Hrp};
+    if pubkey_bytes.len() != 33 {
+        return Err(Error::Other(anyhow::anyhow!(
+            "expected 33-byte compressed secp256k1 pubkey, got {} bytes",
+            pubkey_bytes.len()
+        )));
+    }
+    let sha256_hash = Sha256::digest(pubkey_bytes);
+    let ripemd160_hash = Ripemd160::digest(sha256_hash);
+    let hrp = Hrp::parse(prefix)
+        .map_err(|e| Error::Other(anyhow::anyhow!("Invalid bech32 prefix: {}", e)))?;
+    bech32::encode::<Bech32>(hrp, &ripemd160_hash)
+        .map_err(|e| Error::Other(anyhow::anyhow!("Bech32 encoding error: {}", e)))
+}
 
 /// Cosmos key pair with secp256k1 keys
 #[derive(Zeroize, ZeroizeOnDrop)]
@@ -320,6 +441,38 @@ pub fn parse_cosmos_path(path: &str) -> Result<(u32, u32, u32)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const TEST_MNEMONIC: &str = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
+
+    #[test]
+    fn table_covers_juno_and_atomone() {
+        assert_eq!(prefix_for_network("juno"), "juno");
+        assert_eq!(prefix_for_network("atomone"), "atone");
+        assert_eq!(coin_type_for_network("juno"), 118);
+        assert_eq!(coin_type_for_network("atomone"), 118);
+        assert_eq!(coin_type_for_network("terra"), 330);
+        assert_eq!(coin_type_for_network("nonexistent"), 118);
+        assert_eq!(prefix_for_network("nonexistent"), "cosmos");
+    }
+
+    #[test]
+    fn explicit_prefix_matches_table_and_roundtrips() {
+        let key = derive_cosmos_key(TEST_MNEMONIC, 118, 0, 0).unwrap();
+        for (name, prefix) in [
+            ("osmosis", "osmo"),
+            ("juno", "juno"),
+            ("atomone", "atone"),
+            ("terp", "terp"),
+        ] {
+            let a = pubkey_to_bech32_address(&key.public_key, name).unwrap();
+            let b = pubkey_to_bech32_with_prefix(&key.public_key, prefix).unwrap();
+            assert_eq!(a, b);
+            assert_eq!(bech32_prefix_of(&a).as_deref(), Some(prefix));
+        }
+        assert!(bech32_prefix_of("not-bech32").is_none());
+        assert!(is_valid_bech32_prefix("atone"));
+        assert!(!is_valid_bech32_prefix("Bad Prefix"));
+    }
 
     #[test]
     fn terp_address_uses_the_terp_prefix() {

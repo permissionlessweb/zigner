@@ -56,6 +56,11 @@ serde = { version = "1.0", features = ["derive"] }
 # BIP39 mnemonic for hot wallet derivation
 bip39 = { package = "tiny-bip39", version = "1.0.0", default-features = false }
 chacha20poly1305 = "0.10"
+# Validator consensus / device-identity Ed25519, done here instead of the
+# Android JCA provider (Ed25519 there is API 33+). Default features include
+# zeroize, so SigningKey wipes its secret on drop. Also used by tests to check
+# sp_core signatures against dalek's strict verifier.
+ed25519-dalek = "2"
 zeroize = { version = "1.7", features = ["derive"] }
 # Verified erasure-coded QR transport (zoda-vss)
 zoda-vss = { workspace = true }
@@ -93,9 +98,6 @@ log = "0.4.21"
 [dev-dependencies]
 # Builder for the test PCZTs.
 zcash_primitives = { package = "zakura-primitives", version = "=2.2.0", default-features = false, features = ["transparent-inputs"] }
-# Cross-library check: signatures this crate makes with sp_core must verify in
-# the kernel verifier, which uses dalek's strict equation.
-ed25519-dalek = "2"
 pczt = { package = "zakura-pczt", version = "=0.1.0-rc4", default-features = false, features = ["signer", "orchard", "transparent", "io-finalizer", "zcp-builder", "prover", "spend-finalizer", "tx-extractor"] }
 zcash_protocol = { package = "zakura-protocol", version = "=2.2.0", default-features = false, features = ["local-consensus"] }
 # Halo2 proving/verifying keys, so the round-trip test can finalize + extract a
