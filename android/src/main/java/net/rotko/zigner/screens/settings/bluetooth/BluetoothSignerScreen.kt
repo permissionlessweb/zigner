@@ -99,10 +99,13 @@ fun BluetoothSignerScreen(onBack: () -> Unit) {
 		SignerRuntime.refreshGranter(context)
 	}
 	Column(
-		Modifier.fillMaxSize().background(MaterialTheme.colors.background).padding(16.dp),
+		Modifier.fillMaxSize().background(MaterialTheme.colors.background).verticalScroll(rememberScrollState()).padding(16.dp),
 		verticalArrangement = Arrangement.spacedBy(8.dp),
 	) {
 		ScreenHeaderClose(title = "Export signer key", onClose = onBack)
+		MoveValidatorPanel()
+		SignerDivider()
+		Text("Recovery export (legacy)", style = SignerTypeface.TitleS, color = MaterialTheme.colors.onBackground)
 		Text(
 			"This screen sends one signer key set back to the KMS. A fresh ephemeral key seals it to the KMS identity on the zcinti page. The Bluetooth session key is not used.",
 			style = SignerTypeface.BodyM,

@@ -21,6 +21,13 @@ class MainActivity : AppCompatActivity() {
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
 		ServiceLocator.initActivityDependencies(this)
+		// Bind the owner account so create-validator cards can say whether the
+		// operator is the owner this phone's slot belongs to.
+		val ctx = applicationContext
+		Thread {
+			val owner = net.rotko.zigner.screens.settings.bluetooth.GranterAccount.lookup(ctx)
+			net.rotko.zigner.screens.settings.bluetooth.GranterAccount.bindOperator(owner)
+		}.start()
 		if (net.rotko.zigner.screens.settings.bluetooth.SignerRuntime.isArmed(this)) {
 			net.rotko.zigner.screens.settings.bluetooth.RemoteSignerService.resume(this)
 		}

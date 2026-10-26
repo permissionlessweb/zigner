@@ -734,6 +734,9 @@ namespace signer {
     [Throws=ErrorDisplayed]
     MKeysNew keys_by_seed_name([ByRef] string seed_name);
 
+    // Owner account bound to this phone's validator slot; shown on create-validator cards.
+    void set_bound_operator(string? owner);
+
     [Throws=ErrorDisplayed]
     sequence<u8> encode_to_qr([ByRef] sequence<u8> payload, boolean is_danger);
 

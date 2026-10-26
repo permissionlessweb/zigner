@@ -182,9 +182,10 @@ internal object ValidatorKeys {
 	 * exact key (same public key) is already on the phone, in which case that
 	 * set is refreshed. Another validator's key on the same chain is never replaced.
 	 */
-	fun importSecret(context: Context, chainId: String, secret: ByteArray) {
+	fun importSecret(context: Context, chainId: String, secret: ByteArray, slot: String? = null) {
 		if (secret.size != 64) throw IllegalArgumentException("consensus secret")
 		val pubHex = secret.copyOfRange(32, 64).joinToString("") { "%02x".format(it) }
+		if (Handoff.tombstoned(context, pubHex)) throw IllegalArgumentException("that key was retired on this phone")
 		val existing = list(context).firstOrNull { it.pubHex == pubHex }
 		val id = existing?.id ?: add(context).id
 		val same = list(context).count { it.chainId == chainId && it.id != id }
@@ -205,7 +206,7 @@ internal object ValidatorKeys {
 		root.put("keys", keys)
 		root.put("selected", id)
 		writeIndex(context, root)
-		if (existing == null) pinSlot(context, id, null)
+		if (existing == null || slot != null) pinSlot(context, id, slot)
 	}
 
 	fun noiseSeed(context: Context): ByteArray {
