@@ -442,6 +442,19 @@ internal object SignerRuntime {
 		}
 	}
 
+	/**
+	 * Re-scan of the KMS this phone is already paired to: keep the pin and
+	 * any live session, and only re-advertise when nothing is connected so the
+	 * console can find the phone again.
+	 */
+	fun refreshLink(context: Context): String {
+		val app = context.applicationContext
+		if (!running) return "Already paired with this KMS. Start a key to connect."
+		if (sessions > 0) return "Already paired and connected to this KMS."
+		if (code.isNotBlank()) advertise(app, code)
+		return "Already paired with this KMS. Advertising $code so it reconnects."
+	}
+
 	fun recordKeyCheck(row: SignedRow) {
 		rows.add(0, row)
 		while (rows.size > 100) rows.removeAt(rows.lastIndex)
