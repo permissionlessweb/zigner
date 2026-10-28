@@ -1711,6 +1711,7 @@ dependencies = [
  "lazy_static",
  "orchard 0.10.2",
  "parity-scale-codec",
+ "penumbra-sdk-keys",
  "poseidon377",
  "pretty_assertions",
  "qrcode_rtx",
