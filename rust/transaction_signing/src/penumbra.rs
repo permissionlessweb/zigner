@@ -43,47 +43,16 @@ impl SpendKeyBytes {
         Self(bytes)
     }
 
-    /// derive from seed phrase using bip44 path m/44'/6532'/0'
+    /// derive from seed phrase using bip44 path m/44'/6532'/account', with
+    /// penumbra-sdk (12- and 24-word phrases)
     pub fn from_seed_phrase(seed_phrase: &str, account: u32) -> Result<Self> {
-        use bip32::{Mnemonic, XPrv};
-        use hmac::Hmac;
-        use sha2::Sha512;
+        use penumbra_keys::keys::{Bip44Path, SeedPhrase, SpendKey};
+        use std::str::FromStr;
 
-        // parse mnemonic
-        let mnemonic = Mnemonic::new(seed_phrase, bip32::Language::English)
+        let phrase = SeedPhrase::from_str(seed_phrase)
             .map_err(|e| Error::PenumbraKeyDerivation(format!("invalid mnemonic: {e}")))?;
-
-        // derive seed using pbkdf2 with 2048 rounds
-        let password = mnemonic.phrase();
-        let salt = "mnemonic";
-        let mut seed_bytes = [0u8; 64];
-        pbkdf2::pbkdf2::<Hmac<Sha512>>(
-            password.as_bytes(),
-            salt.as_bytes(),
-            2048, // NUM_PBKDF2_ROUNDS in penumbra
-            &mut seed_bytes,
-        )
-        .map_err(|e| Error::PenumbraKeyDerivation(format!("pbkdf2 failed: {e}")))?;
-
-        // derive child key from bip44 path
-        let path = format!("m/44'/{}'/{}'", PENUMBRA_COIN_TYPE, account);
-        let child_key = XPrv::derive_from_path(
-            seed_bytes,
-            &path.parse().map_err(|e| {
-                Error::PenumbraKeyDerivation(format!("invalid derivation path: {e}"))
-            })?,
-        )
-        .map_err(|e| Error::PenumbraKeyDerivation(format!("key derivation failed: {e}")))?;
-
-        // extract 32-byte private key and zeroize intermediates
-        let mut child_key_bytes = child_key.to_bytes();
-        let mut key_bytes = [0u8; 32];
-        key_bytes.copy_from_slice(&child_key_bytes[..32]);
-
-        seed_bytes.zeroize();
-        child_key_bytes.zeroize();
-
-        Ok(Self(key_bytes))
+        let key = SpendKey::from_seed_phrase_bip44(phrase, &Bip44Path::new(account));
+        Ok(Self(key.to_bytes().0))
     }
 
     /// get raw bytes

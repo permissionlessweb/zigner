@@ -18,25 +18,14 @@
 
 use frame_metadata::{decode_different::DecodeDifferent, v14::RuntimeMetadataV14, RuntimeMetadata};
 use parity_scale_codec::{Decode, Encode};
-#[cfg(feature = "active")]
-use sc_executor_common::{
-    runtime_blob::RuntimeBlob,
-    wasm_runtime::{InvokeMethod, WasmModule},
-};
-#[cfg(feature = "active")]
-use sc_executor_wasmi::create_runtime;
 use sled::IVec;
 #[cfg(feature = "active")]
 use sp_core::H256;
-#[cfg(feature = "active")]
-use sp_io::SubstrateHostFunctions;
 use sp_version::RuntimeVersion;
-#[cfg(feature = "active")]
-use sp_wasm_interface::HostFunctions;
 use std::collections::HashMap;
 
 #[cfg(feature = "active")]
-use crate::{crypto::Encryption, error_active::Wasm, helpers::unhex, keyring::AddressBookKey};
+use crate::{crypto::Encryption, helpers::unhex, keyring::AddressBookKey};
 use crate::{
     error::{Error, MetadataError, Result},
     keyring::MetaKey,
@@ -142,15 +131,6 @@ impl MetaValues {
         })
     }
 
-    /// Gets [`MetaValues`] from `wasm` file
-    ///
-    /// Could be used to generate metadata updates before metadata release.
-    #[cfg(feature = "active")]
-    pub fn from_wasm_file(filename: &str) -> Result<Self> {
-        let metadata = convert_wasm_into_metadata(filename)?;
-        Self::from_slice_metadata(&metadata)
-    }
-
     /// Gets [`MetaValues`] from raw hexadecimal metadata
     ///
     /// Is used only on Active side, for:
@@ -161,28 +141,6 @@ impl MetaValues {
         let meta_vec = unhex(meta)?;
         Self::from_slice_metadata(&meta_vec)
     }
-}
-
-/// Extracts raw metadata in `Vec<u8>` format from `wasm` file.
-///
-/// Is used only on Active side, to generate metadata updates before metadata
-/// release.
-#[cfg(feature = "active")]
-pub fn convert_wasm_into_metadata(filename: &str) -> Result<Vec<u8>> {
-    let buffer = std::fs::read(filename).map_err(Wasm::File)?;
-    let runtime_blob = RuntimeBlob::uncompress_if_needed(&buffer).map_err(Wasm::WasmError)?;
-    let wasmi_runtime = create_runtime(
-        runtime_blob,
-        64,
-        SubstrateHostFunctions::host_functions(),
-        false,
-    )
-    .map_err(Wasm::WasmError)?;
-    let mut wasmi_instance = wasmi_runtime.new_instance().map_err(Wasm::Executor)?;
-    let data = wasmi_instance
-        .call(InvokeMethod::Export("Metadata_metadata"), &[])
-        .map_err(Wasm::Executor)?;
-    Ok(<Vec<u8>>::decode(&mut &data[..]).map_err(|_| Wasm::DecodingMetadata)?)
 }
 
 /// Get [`MetaInfo`] from
@@ -779,26 +737,6 @@ mod tests {
         assert!(
             meta_values.warn_incomplete_extensions,
             "Expected incomplete extensions warning in shell200."
-        )
-    }
-
-    #[test]
-    fn unwasm_westend9150() {
-        let filename = "for_tests/westend_runtime-v9150.compact.compressed.wasm";
-        let meta_values = MetaValues::from_wasm_file(filename).unwrap();
-        assert!(
-            meta_values.name == *"westend",
-            "Unexpected network name: {}",
-            meta_values.name
-        );
-        assert!(
-            meta_values.version == 9150,
-            "Unexpected network name: {}",
-            meta_values.version
-        );
-        assert!(
-            !meta_values.warn_incomplete_extensions,
-            "Expected complete extensions in westend9150."
         )
     }
 }

@@ -2428,3 +2428,41 @@ fn test_validate_key_password() {
     assert!(!validate_key_password(&db, &address_key, ALICE_SEED_PHRASE, "wrong_pass").unwrap());
     assert!(validate_key_password(&db, &address_key, ALICE_SEED_PHRASE, "password").unwrap());
 }
+
+#[test]
+fn export_alice_penumbra_is_tagged_penumbra() {
+    let dbname = tempdir().unwrap();
+    let db = sled::open(dbname).unwrap();
+
+    populate_all_network_specs(&db).unwrap();
+    try_create_seed(&db, "Alice", ALICE_SEED_PHRASE, true).unwrap();
+
+    let genesis =
+        H256::from_str("0000000000000000000000000000000000000000000000000000000000006532").unwrap();
+    let specs_key = NetworkSpecsKey::from_parts(&genesis, &Encryption::Penumbra);
+    try_create_address(
+        &db,
+        "Alice",
+        ALICE_SEED_PHRASE,
+        "m/44'/6532'/0'",
+        &specs_key,
+    )
+    .unwrap();
+
+    let multisigner = get_addresses_by_seed_name(&db, "Alice")
+        .unwrap()
+        .into_iter()
+        .find(|(_, details)| details.network_id.as_ref() == Some(&specs_key))
+        .map(|(multisigner, _)| multisigner)
+        .unwrap();
+    let key = export_key(&db, &multisigner, "Alice", &specs_key).unwrap();
+
+    assert!(key.base58.starts_with("penumbra1"), "{}", key.base58);
+    let definitions::navigation::QrData::Regular { data } = key.qr else {
+        panic!("penumbra export is a single QR");
+    };
+    assert_eq!(
+        String::from_utf8(data).unwrap(),
+        format!("penumbra:{}:0x{}", key.base58, hex::encode(genesis))
+    );
+}

@@ -1005,6 +1005,11 @@ fn sign_network_spec_with_key(
 ///   ? 3: tstr                ; name - optional label
 /// }
 /// ```
+/// Genesis hash Zigner's penumbra network specs carry (`defaults`), the third
+/// field of the `penumbra:` address QR.
+const PENUMBRA_SPECS_GENESIS: &str =
+    "0000000000000000000000000000000000000000000000000000000000006532";
+
 #[allow(clippy::vec_init_then_push)]
 fn export_penumbra_fvk(
     seed_phrase: &str,
@@ -1154,6 +1159,15 @@ fn export_penumbra_fvk(
         ur::ur::encode(&cbor_data, &ur::Type::Custom("penumbra-accounts"))
     };
 
+    // the receive address, derived again with the seed: this is also how a
+    // key added before zigner#35 gets a stored address it owns
+    let receive_address =
+        db_handling::penumbra::refresh_receive_address(&get_db()?, seed_phrase, account_index)
+            .map_err(|e| ErrorDisplayed::Str {
+                s: format!("Failed to derive receive address: {e}"),
+            })?;
+    let receive_qr_text = format!("penumbra:{receive_address}:0x{PENUMBRA_SPECS_GENESIS}");
+
     Ok(PenumbraFvkExport {
         account_index,
         label: label_opt.unwrap_or_default(),
@@ -1161,6 +1175,8 @@ fn export_penumbra_fvk(
         wallet_id_bech32m,
         qr_data: export_data.encode_qr(),
         ur_string,
+        receive_address,
+        receive_qr_text,
     })
 }
 

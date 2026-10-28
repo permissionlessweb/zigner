@@ -1543,6 +1543,10 @@ dictionary PenumbraFvkExport {
     string wallet_id_bech32m;
     sequence<u8> qr_data;
     string ur_string;
+    // receive address (index 0), derived with penumbra-sdk from the seed
+    string receive_address;
+    // `penumbra:<address>:0x<genesis>` for the receive QR
+    string receive_qr_text;
 };
 
 // Cosmos account export for Zafu wallet import

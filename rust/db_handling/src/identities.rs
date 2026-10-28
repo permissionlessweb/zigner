@@ -100,11 +100,14 @@ fn get_display_address(
     network_name: Option<&str>,
 ) -> String {
     // For Penumbra, try to get the stored bech32m address
+    // Never fall back to another encoding: a key added before zigner#35 shows
+    // no address until it is derived again with the seed.
     if encryption == Encryption::Penumbra {
-        let ak_hex = hex::encode(multisigner_to_public(multisigner));
-        if let Ok(Some(address)) = crate::penumbra::get_penumbra_address(database, &ak_hex) {
-            return address;
-        }
+        let key_id_hex = hex::encode(multisigner_to_public(multisigner));
+        return crate::penumbra::get_penumbra_address(database, &key_id_hex)
+            .ok()
+            .flatten()
+            .unwrap_or_default();
     }
     // For Zcash, try to get the stored unified address
     #[cfg(feature = "zcash")]
@@ -378,31 +381,19 @@ fn penumbra_derive_multisigner_and_address(
     seed_phrase: &str,
     path: &str,
 ) -> Result<(MultiSigner, String)> {
-    use penumbra_keys::keys::{AddressIndex, Bip44Path, SeedPhrase, SpendKey};
-    use std::str::FromStr;
+    use crate::penumbra;
 
     // Parse account number from path (m/44'/6532'/account'/...)
     // Default to account 0 if parsing fails
     let account = parse_penumbra_account(path).unwrap_or(0);
 
-    // Derive exactly as the FVK export and signer do (transaction_signing::penumbra,
-    // = penumbra-sdk: pbkdf2 seed + BIP32 m/44'/6532'/account'). The old
-    // db_handling::penumbra::keys path (blake2b "PenumbraSpendKey" + AES-ECB
-    // diversifier) produced addresses that no Penumbra key can view or spend.
-    let seed = SeedPhrase::from_str(seed_phrase)
-        .map_err(|e| Error::Other(anyhow::anyhow!("Invalid mnemonic: {e}")))?;
-    let sk = SpendKey::from_seed_phrase_bip44(seed, &Bip44Path::new(account));
-    let fvk = sk.full_viewing_key();
+    let bech32m_address = penumbra::receive_address(seed_phrase, account)?;
 
-    // Default address: AddressIndex { account: 0, randomizer: 0 } of this BIP44 account
-    let (address, _dtk) = fvk.payment_address(AddressIndex::from(0u32));
-    let bech32m_address = address.to_string();
-
-    // Get the verification key (ak) - 32 bytes
-    let ak_bytes: [u8; 32] = fvk.spend_verification_key().to_bytes();
-
-    // Store as Ed25519 since both are 32-byte keys
-    let multisigner = MultiSigner::Ed25519(ed25519::Public::from_raw(ak_bytes));
+    // Stored as Ed25519 since both are 32-byte values; see penumbra::key_id
+    let multisigner = MultiSigner::Ed25519(ed25519::Public::from_raw(penumbra::key_id(
+        seed_phrase,
+        account,
+    )?));
 
     Ok((multisigner, bech32m_address))
 }
@@ -1184,8 +1175,8 @@ pub(crate) fn create_address(
             let (multisigner, bech32m_address) =
                 penumbra_derive_multisigner_and_address(seed_phrase, path)?;
             // Store the bech32m address for later retrieval
-            let ak_hex = hex::encode(multisigner_to_public(&multisigner));
-            crate::penumbra::store_penumbra_address(database, &ak_hex, &bech32m_address)?;
+            let key_id_hex = hex::encode(multisigner_to_public(&multisigner));
+            crate::penumbra::store_penumbra_address(database, &key_id_hex, &bech32m_address)?;
             multisigner
         }
         #[cfg(not(feature = "penumbra"))]

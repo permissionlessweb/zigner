@@ -17,9 +17,6 @@ pub enum Error {
     CodecError(#[from] parity_scale_codec::Error),
 
     #[error(transparent)]
-    Wasm(#[from] crate::error_active::Wasm),
-
-    #[error(transparent)]
     Ss58(#[from] sp_core::crypto::PublicError),
 
     #[error(transparent)]

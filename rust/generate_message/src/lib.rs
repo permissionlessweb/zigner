@@ -956,33 +956,6 @@
 //! Output file is in `/generate_message/` folder, file name would be
 //! `derivations-<address_book_title>`.
 //!
-//! ## Prepare payload for `load_metadata` update from `.wasm` file
-//!
-//! `$ cargo run unwasm [OPTIONS] --filename <FILENAME>`
-//!
-//! This command extracts metadata from `.wasm` file and uses this metadata to
-//! produce `load_metadata` update payload. Only networks with network specs
-//! entries in the hot database could be processed with `unwasm` command, since
-//! the `load_metadata` update payload in addition to metadata requires also
-//! network genesis hash. `unwasm` command could be used to generate update QR
-//! codes before the metadata becomes accessible from the node.
-//!
-//! Network name found in the metadata is used to find
-//! [`NetworkSpecs`](definitions::network_specs::NetworkSpecs) for
-//! the network. `NetworkSpecs` are used to get genesis hash and to check
-//! base58 prefix, it the network metadata has base58 prefix inside.
-//!
-//! A raw bytes update payload file is generated in dedicated
-//! [`FOLDER`](constants::FOLDER) to (optionally) be signed and later be
-//! transformed into `load_metadata` update QR. Update payload file name is
-//! `sign_me_load_metadata_<network_name>V<version>`.
-//!
-//! By default, metadata extracted from `.wasm` file is added to the database.
-//! Optional `-d` key could be used is database should **not** be updated.
-//! If the metadata gets entered in the database (i.e. no `-d` key used),
-//! [`META_HISTORY`](constants::META_HISTORY) gets no entry. Block hash will be
-//! added if the same metadata is later fetched from a node.
-//!
 //! ## Make metadata file for `defaults` release metadata set
 //!
 //! `$ cargo run  meta-default-file --name <NETWORK NAME> --version <NETWORK VERSION>`
@@ -1029,7 +1002,7 @@ use helpers::{
 };
 pub mod interpret_specs;
 mod load;
-use load::{gen_load_meta, meta_default_file, unwasm};
+use load::{gen_load_meta, meta_default_file};
 mod make_message;
 use make_message::make_message;
 pub mod parser;
@@ -1082,15 +1055,6 @@ pub fn full_run(command: Command) -> Result<()> {
             let hot_db = sled::open(hot_db)?;
             let cold_db = sled::open(cold_db)?;
             Ok(transfer_metadata_to_cold(&hot_db, &cold_db)?)
-        }
-        Command::Unwasm {
-            filename,
-            update_db,
-            db_path,
-            files_dir,
-        } => {
-            let database = sled::open(db_path)?;
-            unwasm(&database, &filename, update_db, files_dir)
         }
         Command::MetaDefaultFile {
             name,
