@@ -304,6 +304,7 @@ impl FullViewingKey {
 
 /// Derive spending key bytes from seed phrase using BIP32
 /// Path: m/44'/6532'/account'
+// WARNING: not the Penumbra derivation; addresses from this are unspendable. Use penumbra-sdk SpendKey::from_seed_phrase_bip44.
 pub fn derive_spend_key_bytes(seed_phrase: &str, account: u32) -> Result<SpendKeyBytes> {
     use bip39::{Language, Mnemonic, Seed};
 
