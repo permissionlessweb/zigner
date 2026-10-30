@@ -19,5 +19,5 @@ sha2 = { version = "0.10", default-features = false }
 [dev-dependencies]
 # Compressing test fixtures only - never built into the app, so the C
 # dependency does not reach the NDK or F-Droid build.
-zstd = "0.13"
+zstd = "0.14"
 wat = "1"

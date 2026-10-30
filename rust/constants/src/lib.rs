@@ -82,9 +82,15 @@ pub const METATREE: &[u8] = b"metadata";
 /// information in cold database
 pub const ADDRTREE: &[u8] = b"addresses";
 
-/// Tree name for the tree storing Penumbra bech32m addresses
-/// Key: hex-encoded ak (spend verification key), Value: bech32m address string
-pub const PENUMBRA_ADDRS: &[u8] = b"penumbra_addresses";
+/// Tree that held Penumbra addresses up to 0.12.0. Those addresses came from a
+/// non-standard derivation that no Penumbra key owns (zigner#35); the tree is
+/// never read again and is dropped when a fixed address is stored.
+pub const PENUMBRA_ADDRS_UNSPENDABLE: &[u8] = b"penumbra_addresses";
+
+/// Tree storing Penumbra receive addresses derived with penumbra-sdk.
+/// Key: hex-encoded key id (see `db_handling::penumbra::key_id`), Value:
+/// bech32m address string
+pub const PENUMBRA_RECEIVE_ADDRS: &[u8] = b"penumbra_receive_addresses";
 
 /// Tree name for the tree storing Zcash unified addresses
 /// Key: hex-encoded FVK prefix (32 bytes), Value: unified address string

@@ -61,6 +61,11 @@ ignore = [
     # basic-toml unmaintained (no vulnerability) - read at compile time by the
     # i18n-embed-fl proc macro behind age; nothing on the device parses TOML.
     "RUSTSEC-2026-0374",
+    # crypto-bigint 0.5 timing variability - via k256 0.13 (bip32 0.5, used by
+    # penumbra-sdk-keys and the cosmos path). The fix is in 0.7, which needs the
+    # k256 0.14 stack those crates cannot take yet. Signing runs on an offline
+    # phone, with no remote observer able to time it.
+    "RUSTSEC-2026-0387",
 ]
 
 [licenses]

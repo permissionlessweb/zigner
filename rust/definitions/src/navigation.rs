@@ -867,6 +867,10 @@ pub struct PenumbraFvkExport {
     /// Format: `ur:penumbra-accounts/<bytewords>`
     /// Uses CBOR tag 49301 (penumbra-accounts) containing tag 49302 (penumbra-full-viewing-key)
     pub ur_string: String,
+    /// Receive address (index 0 of the account's key), from penumbra-sdk
+    pub receive_address: String,
+    /// `penumbra:<address>:0x<genesis>`, the text of the receive QR
+    pub receive_qr_text: String,
 }
 
 /// Cosmos account export data for Zafu wallet import

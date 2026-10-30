@@ -100,11 +100,14 @@ fn get_display_address(
     network_name: Option<&str>,
 ) -> String {
     // For Penumbra, try to get the stored bech32m address
+    // Never fall back to another encoding: a key added before zigner#35 shows
+    // no address until it is derived again with the seed.
     if encryption == Encryption::Penumbra {
-        let ak_hex = hex::encode(multisigner_to_public(multisigner));
-        if let Ok(Some(address)) = crate::penumbra::get_penumbra_address(database, &ak_hex) {
-            return address;
-        }
+        let key_id_hex = hex::encode(multisigner_to_public(multisigner));
+        return crate::penumbra::get_penumbra_address(database, &key_id_hex)
+            .ok()
+            .flatten()
+            .unwrap_or_default();
     }
     // For Zcash, try to get the stored unified address
     #[cfg(feature = "zcash")]
@@ -384,19 +387,13 @@ fn penumbra_derive_multisigner_and_address(
     // Default to account 0 if parsing fails
     let account = parse_penumbra_account(path).unwrap_or(0);
 
-    // Derive spend key and full viewing key
-    let spend_key_bytes = penumbra::derive_spend_key_bytes(seed_phrase, account)?;
-    let fvk = spend_key_bytes.full_viewing_key()?;
+    let bech32m_address = penumbra::receive_address(seed_phrase, account)?;
 
-    // Derive the default address (address index 0 within this account)
-    let address = fvk.get_address(0)?;
-    let bech32m_address = address.to_bech32m()?;
-
-    // Get the verification key (ak) - 32 bytes
-    let ak_bytes = fvk.ak.to_bytes();
-
-    // Store as Ed25519 since both are 32-byte keys
-    let multisigner = MultiSigner::Ed25519(ed25519::Public::from_raw(ak_bytes));
+    // Stored as Ed25519 since both are 32-byte values; see penumbra::key_id
+    let multisigner = MultiSigner::Ed25519(ed25519::Public::from_raw(penumbra::key_id(
+        seed_phrase,
+        account,
+    )?));
 
     Ok((multisigner, bech32m_address))
 }
@@ -1178,8 +1175,8 @@ pub(crate) fn create_address(
             let (multisigner, bech32m_address) =
                 penumbra_derive_multisigner_and_address(seed_phrase, path)?;
             // Store the bech32m address for later retrieval
-            let ak_hex = hex::encode(multisigner_to_public(&multisigner));
-            crate::penumbra::store_penumbra_address(database, &ak_hex, &bech32m_address)?;
+            let key_id_hex = hex::encode(multisigner_to_public(&multisigner));
+            crate::penumbra::store_penumbra_address(database, &key_id_hex, &bech32m_address)?;
             multisigner
         }
         #[cfg(not(feature = "penumbra"))]

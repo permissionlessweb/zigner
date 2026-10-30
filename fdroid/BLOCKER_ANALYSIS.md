@@ -94,8 +94,7 @@ No action needed.
 ### Non-Blocker: Test Fixtures
 
 **Files:**
-- `rust/definitions/for_tests/westend_runtime-v9150.compact.compressed.wasm` (~0.5 MB)
-- `rust/generate_message/tests/for_tests/polkadot.wasm` (~0.3 MB)
+- None left: the `.wasm` runtime fixtures were removed with the `unwasm` command.
 
 **Status:** ✓ ACCEPTABLE
 

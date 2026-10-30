@@ -42,7 +42,6 @@
 
 - **gradle-wrapper.jar** (`gradle/wrapper/gradle-wrapper.jar`): Acceptable to F-Droid (standard gradle wrapper, included in their trust policy)
 - **.so native library** (`libsigner.so`): NOT committed; built by rust-android-gradle plugin during build — Correct
-- **Test fixtures** (`rust/definitions/for_tests/westend_runtime-v9150.compact.compressed.wasm`, `rust/generate_message/tests/for_tests/polkadot.wasm`): Acceptable (test resources, not shipped in APK)
 
 ---
 

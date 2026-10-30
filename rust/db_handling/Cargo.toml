@@ -25,13 +25,9 @@ tiny-bip39 = {version = "1.0.0", default-features = false, optional = true}
 zeroize = { version = "1.7.0", optional = true, features = ["std"] }
 
 # Penumbra cryptography
-decaf377 = { version = "0.10.1", default-features = false, optional = true }
-decaf377-rdsa = { version = "0.11", default-features = false, optional = true }
-poseidon377 = { version = "1.1.0", default-features = false, optional = true }
-f4jumble = { version = "0.1.0", default-features = false, features = ["alloc"], optional = true }
 bech32 = { version = "0.11.0", default-features = false, features = ["alloc"], optional = true }
 blake2b_simd = { version = "1.0.2", default-features = false, optional = true }
-aes = { version = "0.8.4", default-features = false, optional = true }
+penumbra-keys = { git = "https://github.com/penumbra-zone/penumbra.git", tag = "v2.0.4", package = "penumbra-sdk-keys", optional = true }
 
 # Ledger Ed25519 (Cardano-style BIP32-Ed25519)
 hmac = { version = "0.12", optional = true }
@@ -60,7 +56,7 @@ tempfile = { version = "3.10" }
 default = []
 active = ["defaults/active", "definitions/active", "tiny-bip39", "sp-core", "sp-runtime", "zeroize", "penumbra", "ledger", "cosmos", "zcash"]
 test = []
-penumbra = ["decaf377", "decaf377-rdsa", "poseidon377", "f4jumble", "bech32", "blake2b_simd", "aes", "tiny-bip39", "zeroize"]
+penumbra = ["blake2b_simd", "tiny-bip39", "zeroize", "penumbra-keys"]
 ledger = ["hmac", "sha2", "tiny-bip39", "zeroize", "sp-core", "sp-runtime"]
 cosmos = ["bip32", "bech32", "sha2", "ripemd", "tiny-bip39", "zeroize", "sp-core", "sp-runtime"]
 zcash = ["bip32/bip39", "tiny-bip39", "zeroize", "orchard", "zcash_address", "zip32", "serde"]

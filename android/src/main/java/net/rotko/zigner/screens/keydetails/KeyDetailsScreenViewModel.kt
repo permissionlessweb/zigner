@@ -233,11 +233,14 @@ class KeyDetailsScreenViewModel : ViewModel() {
 							// Format: "ur:penumbra-accounts/..." (CBOR tag 49301)
 							val urBytes = export.urString.toByteArray(Charsets.UTF_8).map { it.toUByte() }
 							val urQrPng = encodeToQr(urBytes, false)
+							val receiveBytes = export.receiveQrText.toByteArray(Charsets.UTF_8).map { it.toUByte() }
 							FvkExportResult(
 								displayKey = export.fvkBech32m,
 								qrPng = urQrPng.toList(),
 								label = export.label,
-								networkType = "penumbra"
+								networkType = "penumbra",
+								receiveAddress = export.receiveAddress,
+								receiveQrPng = encodeToQr(receiveBytes, false).toList(),
 							)
 						}
 						isCosmosNetwork(networkLogo) -> {
@@ -281,7 +284,10 @@ data class FvkExportResult(
 	val displayKey: String,
 	val qrPng: List<UByte>,
 	val label: String,
-	val networkType: String
+	val networkType: String,
+	/** Penumbra only: the receive address, derived from the seed with the exported key */
+	val receiveAddress: String? = null,
+	val receiveQrPng: List<UByte>? = null,
 )
 
 sealed class ExportTryPasswordReply {
