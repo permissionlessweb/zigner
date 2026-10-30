@@ -55,25 +55,32 @@ fun ScanScreen(
 ) {
 	val viewModel: CameraViewModel = viewModel()
 
-	// Load the scan policy before any frame is processed. Without this the
-	// view model falls back to defaults, which still exclude Substrate,
-	// Penumbra and Cosmos - a missed call weakens the user's own choices but
-	// never opens the parsers the gate exists to keep unreachable.
+	// Load the scan policy before any frame is processed. Until it loads,
+	// the camera reads only recovery, FROST wallet creation and module
+	// updates - a missed call can refuse a code, never open a parser.
 	val policyContext = LocalContext.current
-	LaunchedEffect(policyContext) { viewModel.applyPolicy(policyContext) }
+	LaunchedEffect(Unit) { viewModel.applyPolicy() }
 
 	// A refused payload must say so. Silently ignoring a QR code looks like a
-	// broken camera, and someone debugging that will reach for the setting
-	// that turns the parser back on without knowing why it was off.
+	// broken camera.
 	val refused by viewModel.refusedCapability.collectAsStateWithLifecycle()
 	LaunchedEffect(refused) {
 		val cap = refused ?: return@LaunchedEffect
-		val message = if (cap == ScanCapability.SUBSTRATE || cap == ScanCapability.COSMOS) {
-			// Substrate and Cosmos have no screens left to route to - this is
-			// not "off, enable it", it is not a request zigner reads at all.
-			policyContext.getString(R.string.scan_unsupported_request)
-		} else {
-			"Zigner doesn't read ${cap.label} codes."
+		// Each refusal names what this device is missing; the camera reads
+		// a kind of code once the device holds something it is used with.
+		val message = when {
+			cap == ScanCapability.SUBSTRATE ->
+				policyContext.getString(R.string.scan_unsupported_request)
+			viewModel.policyLookupFailed ->
+				"Couldn't read this device's keys, so only recovery and updates are on."
+			else -> when (cap) {
+				ScanCapability.PENUMBRA -> "No Penumbra key on this device."
+				ScanCapability.ZCASH -> "No Zcash key or FROST wallet on this device."
+				ScanCapability.FROST -> "No FROST wallet on this device."
+				ScanCapability.COSMOS -> "No Cosmos key on this device."
+				ScanCapability.AUTH -> "No key on this device."
+				else -> "Zigner doesn't read ${cap.label} codes."
+			}
 		}
 		Toast.makeText(
 			policyContext,

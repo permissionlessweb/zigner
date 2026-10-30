@@ -755,6 +755,9 @@ namespace signer {
     [Throws=ErrorDisplayed]
     MManageNetworks get_managed_networks();
 
+    [Throws=ErrorDisplayed]
+    sequence<string> scan_readable();
+
     void init_logging(string tag);
 
     [Throws=ErrorDisplayed]

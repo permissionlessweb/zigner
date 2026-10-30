@@ -43,7 +43,7 @@ impl SpendKeyBytes {
         Self(bytes)
     }
 
-    /// derive from seed phrase using bip44 path m/44'/6532'/account', with
+    /// derive from seed phrase using bip44 path `m/44'/6532'/account'`, with
     /// penumbra-sdk (12- and 24-word phrases)
     pub fn from_seed_phrase(seed_phrase: &str, account: u32) -> Result<Self> {
         use penumbra_keys::keys::{Bip44Path, SeedPhrase, SpendKey};

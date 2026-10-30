@@ -31,13 +31,13 @@ fn verify_decoded_metadata_hash(
     let metadata_hash_mode = output
         .check_metadata_hash_mode
         .as_ref()
-        .ok_or_else(|| Error::Decoding(ParserDecodingError::CheckMetadataHashModeExpected))?;
+        .ok_or(Error::Decoding(
+            ParserDecodingError::CheckMetadataHashModeExpected,
+        ))?;
 
     match metadata_hash_mode {
         CheckMetadataHashMode::Enabled => {
-            let expected_hash = output
-                .metadata_hash
-                .ok_or_else(|| Error::MetadataHashMissing)?;
+            let expected_hash = output.metadata_hash.ok_or(Error::MetadataHashMissing)?;
 
             let extrinsic_metadata_hash = metadata_proof.extrinsic.hash();
 

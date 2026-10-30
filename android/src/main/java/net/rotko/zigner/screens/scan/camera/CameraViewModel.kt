@@ -41,10 +41,10 @@ class CameraViewModel() : ViewModel() {
 	// reaches a parser. Classifying by prefix first is a fixed-length string
 	// compare, not the thing being defended against.
 	//
-	// Defaults rather than empty when unset: a missed wiring call should not
-	// brick scanning, and the defaults already exclude Substrate, Penumbra and
-	// Cosmos, so the security property survives that mistake.
-	private var allowed: Set<ScanCapability> = ScanPolicy.DEFAULT_ON
+	// Until applyPolicy runs, only what an empty device needs: a missed
+	// wiring call can refuse a code, but never opens a parser for something
+	// this device does not hold.
+	private var allowed: Set<ScanCapability> = ScanPolicy.ALWAYS
 
 	private val _refusedCapability = MutableStateFlow<ScanCapability?>(null)
 
@@ -52,9 +52,18 @@ class CameraViewModel() : ViewModel() {
 	 *  appearing to ignore the code. */
 	val refusedCapability: StateFlow<ScanCapability?> = _refusedCapability.asStateFlow()
 
-	fun applyPolicy(context: android.content.Context) {
-		allowed = ScanPolicy.enabled(context)
+	/** Re-read on every camera open, so a key added or deleted since takes
+	 *  effect the next time the camera opens. */
+	fun applyPolicy() {
+		val read = ScanPolicy.readable()
+		policyLookupFailed = read == null
+		allowed = read ?: ScanPolicy.ALWAYS
 	}
+
+	/** A failed lookup is a different fact from a missing key, and the
+	 *  refusal message says which one happened. */
+	var policyLookupFailed = false
+		private set
 
 	fun clearRefusal() {
 		_refusedCapability.value = null
@@ -300,7 +309,14 @@ class CameraViewModel() : ViewModel() {
 							val json = JSONObject(jsonText)
 							Timber.d("[FROST] JSON parsed; keys=${json.keys().asSequence().toList()}")
 							if (json.has("frost")) {
-								if (!allow(ScanCapability.FROST)) return@forEach
+								// Key generation starts with no wallet; every
+								// other FROST message needs one on this device.
+								val cap = if (json.optString("frost").startsWith("dkg")) {
+									ScanCapability.FROST_DKG
+								} else {
+									ScanCapability.FROST
+								}
+								if (!allow(cap)) return@forEach
 								Timber.d("[FROST] frost type=${json.optString("frost")} -> setting frostPayload")
 								resetScanValues()
 								_frostPayload.value = json
