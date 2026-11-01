@@ -518,8 +518,8 @@ class ScanViewModel : ViewModel() {
 			} catch (e: Exception) {
 				Timber.e(e, "Failed to verify zcash notes")
 				transactionError.value = LocalErrorSheetModel(
-					title = "Note Sync Failed",
-					subtitle = e.message ?: "Failed to verify zcash notes"
+					title = "Note sync failed",
+					subtitle = e.message ?: "Failed to verify Zcash notes"
 				)
 				zcashNoteSyncFrames.value = null
 			}
@@ -559,7 +559,7 @@ class ScanViewModel : ViewModel() {
 					is RepoResult.Failure -> {
 						Timber.e(TAG, "Failed to get seeds for Penumbra signing: ${seeds.error}")
 						transactionError.value = LocalErrorSheetModel(
-							title = "Signing Error",
+							title = "Signing error",
 							subtitle = "Could not access seed phrases"
 						)
 					}
@@ -567,7 +567,7 @@ class ScanViewModel : ViewModel() {
 						val seedPhrase = seeds.result.values.firstOrNull()
 						if (seedPhrase == null) {
 							transactionError.value = LocalErrorSheetModel(
-								title = "No Seed Found",
+								title = "No seed found",
 								subtitle = "No seed phrase available for signing"
 							)
 							return@launch
@@ -580,7 +580,7 @@ class ScanViewModel : ViewModel() {
 			} catch (e: Exception) {
 				Timber.e(e, "Failed to sign Penumbra transaction")
 				transactionError.value = LocalErrorSheetModel(
-					title = "Signing Failed",
+					title = "Signing failed",
 					subtitle = e.message ?: "Unknown error during signing"
 				)
 			}
@@ -623,7 +623,7 @@ class ScanViewModel : ViewModel() {
 					is RepoResult.Failure -> {
 						Timber.e(TAG, "Failed to get seeds for Cosmos signing: ${seeds.error}")
 						transactionError.value = LocalErrorSheetModel(
-							title = "Signing Error",
+							title = "Signing error",
 							subtitle = "Could not access seed phrases"
 						)
 					}
@@ -631,7 +631,7 @@ class ScanViewModel : ViewModel() {
 						val seedPhrase = seeds.result.values.firstOrNull()
 						if (seedPhrase == null) {
 							transactionError.value = LocalErrorSheetModel(
-								title = "No Seed Found",
+								title = "No seed found",
 								subtitle = "No seed phrase available for signing"
 							)
 							return@launch
@@ -644,7 +644,7 @@ class ScanViewModel : ViewModel() {
 			} catch (e: Exception) {
 				Timber.e(e, "Failed to sign Cosmos transaction")
 				transactionError.value = LocalErrorSheetModel(
-					title = "Signing Failed",
+					title = "Signing failed",
 					subtitle = e.message ?: "Unknown error during signing"
 				)
 			}
@@ -711,7 +711,7 @@ class ScanViewModel : ViewModel() {
 			} catch (e: Exception) {
 				Timber.e(e, "Failed to inspect PCZT")
 				transactionError.value = LocalErrorSheetModel(
-					title = "PCZT Error",
+					title = "PCZT error",
 					subtitle = e.message ?: "Failed to decode or inspect PCZT"
 				)
 			}
@@ -749,7 +749,7 @@ class ScanViewModel : ViewModel() {
 			} catch (e: Exception) {
 				Timber.e(e, "Failed to sign transaction")
 				transactionError.value = LocalErrorSheetModel(
-					title = "Signing Failed",
+					title = "Signing failed",
 					subtitle = e.message ?: "Unknown error during signing"
 				)
 			}
@@ -772,7 +772,7 @@ class ScanViewModel : ViewModel() {
 			is RepoResult.Failure -> {
 				Timber.e(TAG, "Failed to get seeds: ${seeds.error}")
 				transactionError.value = LocalErrorSheetModel(
-					title = "Signing Error",
+					title = "Signing error",
 					subtitle = "Could not access seed phrases"
 				)
 				null
@@ -781,7 +781,7 @@ class ScanViewModel : ViewModel() {
 				val phrase = seeds.result.values.firstOrNull()
 				if (phrase == null) {
 					transactionError.value = LocalErrorSheetModel(
-						title = "No Seed Found",
+						title = "No seed found",
 						subtitle = "No seed phrase available for signing"
 					)
 				}

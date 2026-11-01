@@ -1,13 +1,13 @@
 package net.rotko.zigner.screens.keysets.restore.restorephrase
 
 import android.content.res.Configuration
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
@@ -50,7 +50,7 @@ fun RestoreSeedPhraseSuggest(
 @Composable
 private fun SeedPhraseButton(word: String, select: () -> Unit) {
 	Surface(
-		shape = RoundedCornerShape(16.dp),
+		shape = RectangleShape,
 		color = MaterialTheme.colors.backgroundDanger.compositeOver(
 			MaterialTheme.colors.fill12
 		),

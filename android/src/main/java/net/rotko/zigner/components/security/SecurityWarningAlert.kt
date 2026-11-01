@@ -1,10 +1,10 @@
 package net.rotko.zigner.components.security
 
 import android.content.res.Configuration.UI_MODE_NIGHT_NO
+import androidx.compose.ui.graphics.RectangleShape
 import android.content.res.Configuration.UI_MODE_NIGHT_YES
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
@@ -43,7 +43,7 @@ fun SecurityWarningAlert(
             modifier = Modifier
                 .padding(vertical = 24.dp)
                 .size(80.dp)
-                .clip(RoundedCornerShape(40.dp))
+                .clip(RectangleShape)
                 .background(MaterialTheme.colors.red400.copy(alpha = 0.15f)),
             contentAlignment = Alignment.Center
         ) {
@@ -56,7 +56,7 @@ fun SecurityWarningAlert(
         }
 
         Text(
-            text = "Security Warning",
+            text = "Security warning",
             color = MaterialTheme.colors.red400,
             style = SignerTypeface.TitleL,
             textAlign = TextAlign.Center,
@@ -86,13 +86,13 @@ fun SecurityWarningAlert(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
+                .clip(RectangleShape)
                 .background(MaterialTheme.colors.fill6)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = "Security Status:",
+                text = "Security status:",
                 style = SignerTypeface.LabelM,
                 color = MaterialTheme.colors.textTertiary
             )
@@ -152,7 +152,7 @@ fun SecurityWarningBanner(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RectangleShape)
             .background(MaterialTheme.colors.red400.copy(alpha = 0.15f))
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,

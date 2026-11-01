@@ -2,7 +2,7 @@ package net.rotko.zigner.components
 
 import androidx.compose.material.*
 import androidx.compose.runtime.Composable
-import net.rotko.zigner.ui.theme.SignerOldTheme
+import net.rotko.zigner.ui.theme.SignerNewTheme
 
 /**
  * Alert component used everywhere in Signer
@@ -18,7 +18,7 @@ fun AlertComponent(
 	forwardText: String = "Confirm",
 	showForward: Boolean = true,
 	) {
-	SignerOldTheme() {
+	SignerNewTheme {
 		if (show) {
 			AlertDialog(
 				onDismissRequest = back,

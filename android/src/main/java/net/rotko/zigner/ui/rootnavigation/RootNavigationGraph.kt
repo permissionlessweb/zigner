@@ -84,7 +84,7 @@ fun RootNavigationGraph(
 object MainGraphRoutes {
 	const val splashRoute = "navigation_point_splash"
 	const val firstTimeOnboarding =
-		"navigation_point_once_onboarding"
+		"Navigation_point_once_onboarding"
 	const val eachTimeOnboardingRoute = "navigation_point_enable_airgap"
 	const val mainScreenRoute = "navigation_main_screen"
 }

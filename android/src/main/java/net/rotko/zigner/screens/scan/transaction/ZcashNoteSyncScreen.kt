@@ -1,10 +1,10 @@
 package net.rotko.zigner.screens.scan.transaction
 
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
@@ -46,7 +46,7 @@ fun ZcashNoteSyncScreen(
 	) {
 		// Header
 		Text(
-			text = "Zcash Note Sync",
+			text = "Zcash note sync",
 			style = SignerTypeface.TitleL,
 			color = MaterialTheme.colors.primary,
 			modifier = Modifier.padding(bottom = 16.dp)
@@ -63,7 +63,7 @@ fun ZcashNoteSyncScreen(
 			Column(
 				modifier = Modifier
 					.fillMaxWidth()
-					.clip(RoundedCornerShape(12.dp))
+					.clip(RectangleShape)
 					.background(MaterialTheme.colors.fill6)
 					.padding(16.dp),
 				verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -87,7 +87,7 @@ fun ZcashNoteSyncScreen(
 			Column(
 				modifier = Modifier
 					.fillMaxWidth()
-					.clip(RoundedCornerShape(12.dp))
+					.clip(RectangleShape)
 					.background(MaterialTheme.colors.fill6)
 					.padding(16.dp),
 				verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -98,7 +98,7 @@ fun ZcashNoteSyncScreen(
 					verticalAlignment = Alignment.CenterVertically
 				) {
 					Text(
-						text = "Verified Balance",
+						text = "Verified balance",
 						style = SignerTypeface.LabelM,
 						color = MaterialTheme.colors.textTertiary
 					)
@@ -135,7 +135,7 @@ fun ZcashNoteSyncScreen(
 			Column(
 				modifier = Modifier
 					.fillMaxWidth()
-					.clip(RoundedCornerShape(8.dp))
+					.clip(RectangleShape)
 					.background(MaterialTheme.colors.fill6)
 					.padding(12.dp),
 				verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -161,7 +161,7 @@ fun ZcashNoteSyncScreen(
 			Column(
 				modifier = Modifier
 					.fillMaxWidth()
-					.clip(RoundedCornerShape(8.dp))
+					.clip(RectangleShape)
 					.background(MaterialTheme.colors.fill6)
 					.padding(12.dp),
 				verticalArrangement = Arrangement.spacedBy(4.dp)

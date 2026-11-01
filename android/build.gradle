@@ -258,4 +258,20 @@ dependencies {
 	debugImplementation "androidx.compose.ui:ui-tooling:$compose_libs_version"
 }
 
-preBuild.dependsOn "cargoBuild","buildDB"
+// Palette guard: colours live in ui/theme (zafu's sumi / washi tokens) and
+// nowhere else. A raw Color(0x...) at a call site skips light/dark and drifts
+// from zafu, so the build refuses it. Color.White stays allowed: QR codes
+// must be black on white to scan.
+tasks.register("checkPalette") {
+	def src = fileTree("src/main/java") { include "**/*.kt"; exclude "**/ui/theme/**" }
+	inputs.files(src)
+	doLast {
+		def hits = src.files.findAll { it.text =~ /Color\(0x[0-9A-Fa-f]{6,8}\)/ }
+		if (!hits.isEmpty()) {
+			throw new GradleException("Raw colour literals outside ui/theme: " +
+				hits.collect { it.name } + ". Add or reuse a token in ui/theme/Color.kt.")
+		}
+	}
+}
+
+preBuild.dependsOn "cargoBuild","buildDB","checkPalette"

@@ -91,8 +91,8 @@ private fun PreviewErrorStateScreen() {
 	Box(modifier = Modifier.size(width = 250.dp, height = 450.dp)) {
 		SignerNewTheme() {
 			ErrorStateScreen(
-				header = "navigation failed to open signer",
-				description = "cound't sign specs 0 unknown state recieved",
+				header = "Navigation failed to open signer",
+				description = "Cound't sign specs 0 unknown state recieved",
 				verbose = "alertData=ErrorData(f=Could not decode AddressKey::multisigner:\n" +
 					"Could not decode MultiSigner, variant doesn't exist\n" +
 					")))",

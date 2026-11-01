@@ -18,6 +18,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import net.rotko.zigner.ui.theme.SignerNewTheme
+import net.rotko.zigner.ui.theme.onGold
 import net.rotko.zigner.ui.theme.SignerTypeface
 import net.rotko.zigner.ui.theme.pink500
 import net.rotko.zigner.ui.theme.textTertiary
@@ -60,7 +61,7 @@ fun CheckboxIcon(
 	checked: Boolean,
 	checkedColor: Color = MaterialTheme.colors.pink500,
 	uncheckedColor: Color = MaterialTheme.colors.textTertiary,
-	checkmarkColor: Color = Color.White,
+	checkmarkColor: Color = MaterialTheme.colors.onGold,
 ) {
 	Checkbox(
 		checked = checked,
