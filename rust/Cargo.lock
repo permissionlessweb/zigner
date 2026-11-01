@@ -8740,6 +8740,7 @@ dependencies = [
  "penumbra-sdk-asset",
  "penumbra-sdk-keys",
  "penumbra-sdk-proto",
+ "penumbra-sdk-shielded-pool",
  "penumbra-sdk-transaction",
  "poseidon377",
  "pretty_assertions",

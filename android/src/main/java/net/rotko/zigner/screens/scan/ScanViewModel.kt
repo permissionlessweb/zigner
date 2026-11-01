@@ -564,16 +564,8 @@ class ScanViewModel : ViewModel() {
 						)
 					}
 					is RepoResult.Success -> {
-						val seedPhrase = seeds.result.values.firstOrNull()
-						if (seedPhrase == null) {
-							transactionError.value = LocalErrorSheetModel(
-								title = "No Seed Found",
-								subtitle = "No seed phrase available for signing"
-							)
-							return@launch
-						}
-
-						val signatureBytes = uniffiSignPenumbraTransaction(seedPhrase, request)
+						val signatureBytes = signPenumbraMatchingSeed(seeds.result, request)
+							?: return@launch
 						penumbraSignatureQr.value = signatureBytes.map { it.toByte() }.toByteArray()
 					}
 				}
@@ -726,20 +718,31 @@ class ScanViewModel : ViewModel() {
 
 		viewModelScope.launch {
 			try {
-				val seedPhrase = getSeedPhrase() ?: return@launch
-
 				when (req) {
 					is SignRequest.Penumbra -> {
-						val sigBytes = uniffiSignPenumbraTransaction(seedPhrase, req.request)
+						val seeds = when (val loaded = seedRepository.getAllSeeds()) {
+							is RepoResult.Failure -> {
+								transactionError.value = LocalErrorSheetModel(
+									title = "Signing Error",
+									subtitle = "Could not access seed phrases"
+								)
+								return@launch
+							}
+							is RepoResult.Success -> loaded.result
+						}
+						val sigBytes = signPenumbraMatchingSeed(seeds, req.request)
+							?: return@launch
 						val hex = sigBytes.joinToString("") { "%02x".format(it.toByte()) }
 						signatureResult.value = SignatureResult.HexQr(hex, req.networkName)
 					}
 					is SignRequest.Cosmos -> {
+						val seedPhrase = getSeedPhrase() ?: return@launch
 						val sigBytes = uniffiSignCosmosTransaction(seedPhrase, req.request)
 						val hex = sigBytes.joinToString("") { "%02x".format(it.toByte()) }
 						signatureResult.value = SignatureResult.HexQr(hex, req.networkName)
 					}
 					is SignRequest.ZcashPczt -> {
+						val seedPhrase = getSeedPhrase() ?: return@launch
 						val signedUrParts = withContext(Dispatchers.Default) {
 							signZcashPcztUr(seedPhrase, 0u, req.urParts, 200u)
 						}
@@ -762,6 +765,50 @@ class ScanViewModel : ViewModel() {
 	fun clearSignState() {
 		signRequest.value = null
 		signatureResult.value = null
+	}
+
+	/**
+	 * Sign with the first seed, in name order, that owns this request.
+	 *
+	 * Rust tries accounts 0..8 on the phrase it is given. A phrase that owns
+	 * none of them returns "No key on this device owns this request." and the
+	 * next seed is tried. Any other error stops the search.
+	 */
+	private fun signPenumbraMatchingSeed(
+		seeds: Map<String, String>,
+		request: PenumbraSignRequest,
+	): List<UByte>? {
+		if (seeds.isEmpty()) {
+			transactionError.value = LocalErrorSheetModel(
+				title = "No Seed Found",
+				subtitle = "No seed phrase available for signing"
+			)
+			return null
+		}
+		var missed = false
+		for (name in seeds.keys.sorted()) {
+			val phrase = seeds[name]
+			if (phrase.isNullOrEmpty()) continue
+			try {
+				return uniffiSignPenumbraTransaction(phrase, request)
+			} catch (e: Exception) {
+				val message = e.message.orEmpty()
+				if (message.contains("No key on this device owns this request")) {
+					missed = true
+					continue
+				}
+				throw e
+			}
+		}
+		transactionError.value = LocalErrorSheetModel(
+			title = "Signing Failed",
+			subtitle = if (missed) {
+				"No key on this device owns this request."
+			} else {
+				"No seed phrase available for signing"
+			}
+		)
+		return null
 	}
 
 	/**
