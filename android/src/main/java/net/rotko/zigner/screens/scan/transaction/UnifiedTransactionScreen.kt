@@ -219,7 +219,7 @@ private fun PenumbraSimpleContent(req: SignRequest.Penumbra, signingSeedName: St
 				line.isOwn -> "${line.counterparty}\n(this device's address)"
 				else -> line.counterparty
 			},
-			color = if (line.isOwn) Color(0xFF10B981) else MaterialTheme.colors.pink500,
+			color = if (line.isOwn) MaterialTheme.colors.accentGreen else MaterialTheme.colors.pink500,
 		)
 	}
 
