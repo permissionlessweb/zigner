@@ -91,6 +91,9 @@ class CameraViewModel() : ViewModel() {
 	private val seenFrameSets =
 		mutableMapOf<MutableStateFlow<List<String>>, MutableSet<String>>()
 
+	// Frame count at which each fountain flow next tries to decode.
+	private val nextFountainProbe = mutableMapOf<MutableStateFlow<List<String>>, Int>()
+
 	private fun seenFrames(flow: MutableStateFlow<List<String>>): MutableSet<String> =
 		seenFrameSets.getOrPut(flow) {
 			// Rebuild from whatever the flow already holds, so a set created
@@ -100,12 +103,127 @@ class CameraViewModel() : ViewModel() {
 
 	private fun forgetFrames(flow: MutableStateFlow<List<String>>) {
 		seenFrameSets.remove(flow)
+		nextFountainProbe.remove(flow)
 	}
 
 	private fun tooManyFrames(count: Int, what: String): Boolean {
 		if (count < MAX_ACCUMULATED_FRAMES) return false
 		Timber.w("[SCAN] $what exceeded $MAX_ACCUMULATED_FRAMES frames - discarding")
 		return true
+	}
+
+	// The `P<idx>/<total>/<type>/<base64>` transport zafu uses for FROST
+	// messages. Small by nature (a DKG round is a few kilobytes), so its
+	// bounds are far below the fountain cap.
+	private val MAX_P_FRAMES = 1_000
+	private val MAX_P_FRAME_CHARS = 512 * 1024
+
+	// org.json parses recursively; anything nested deeper than any FROST,
+	// auth or zid message is refused before it reaches the parser.
+	private val MAX_JSON_DEPTH = 16
+
+	/** Take one P-frame; the assembled UTF-8 text once every index arrived. */
+	private fun acceptPFrame(m: MatchResult): String? {
+		val idx = m.groupValues[1].toIntOrNull()
+		val total = m.groupValues[2].toIntOrNull()
+		val urType = m.groupValues[3]
+		val chunk = m.groupValues[4]
+		if (total == null || total !in 1..MAX_P_FRAMES || idx == null || idx !in 1..total) {
+			Timber.w("[FROST] P-frame with implausible index - discarding")
+			resetPFrames()
+			return null
+		}
+		if (pFrameTotal != total || pFrameType != urType) {
+			resetPFrames()
+			pFrameTotal = total
+			pFrameType = urType
+		}
+		val isNew = !pFrameChunks.containsKey(idx)
+		pFrameChunks[idx] = chunk
+		pFrameChars += if (isNew) chunk.length else 0
+		if (pFrameChars > MAX_P_FRAME_CHARS) {
+			Timber.w("[FROST] P-frame stream exceeds $MAX_P_FRAME_CHARS chars - discarding")
+			resetPFrames()
+			return null
+		}
+		// surface progress to the camera UI so the user sees a counter
+		_total.value = total
+		_captured.value = pFrameChunks.size
+		if (pFrameChunks.size < total) return null
+
+		// every index in 1..total is present: they are bounded above, so a
+		// full map means a full stream, never a gap filled with ""
+		val b64 = (1..total).joinToString("") { i -> pFrameChunks.getValue(i) }
+		resetPFrames()
+		_total.value = null
+		_captured.value = null
+		return try {
+			val decoded = String(android.util.Base64.decode(b64, android.util.Base64.NO_WRAP), Charsets.UTF_8)
+			if (decoded.trimStart().startsWith("{")) decoded else null
+		} catch (e: IllegalArgumentException) {
+			Timber.e(e, "[FROST] P-frame base64 invalid")
+			null
+		}
+	}
+
+	private fun resetPFrames() {
+		pFrameChunks.clear()
+		pFrameTotal = 0
+		pFrameType = ""
+		pFrameChars = 0
+	}
+
+	/** Max bracket nesting of [text] is at most [limit] (strings respected). */
+	private fun jsonNestingWithin(text: String, limit: Int): Boolean {
+		var depth = 0
+		var inString = false
+		var escaped = false
+		for (c in text) {
+			when {
+				escaped -> escaped = false
+				inString && c == '\\' -> escaped = true
+				c == '"' -> inString = !inString
+				inString -> {}
+				c == '{' || c == '[' -> if (++depth > limit) return false
+				c == '}' || c == ']' -> depth--
+			}
+		}
+		return true
+	}
+
+	// Frames of the binary transport (legacy multi-frame, RaptorQ, banana
+	// split). The total belongs to this stream only; other transports have
+	// their own counters, so a P-frame or UR frame can no longer make a
+	// single-frame request wait for "frame 2 of 5".
+	private var hexTotal: Int? = null
+
+	private fun acceptHexFrame(payload: String) {
+		val declared = try {
+			qrparserGetPacketsTotal(payload, true).toLong()
+		} catch (e: Exception) {
+			Timber.d(e, "getPacketsTotal failed")
+			return
+		}
+		if (declared !in 1..MAX_ACCUMULATED_FRAMES.toLong()) {
+			Timber.w("[SCAN] frame declares $declared parts - discarding")
+			resetScanValues()
+			return
+		}
+		if (declared == 1L) {
+			decode(listOf(payload))
+			return
+		}
+		if (hexTotal != declared.toInt()) {
+			// a different stream: start over rather than mix frames
+			currentMultiQrTransaction = mutableSetOf()
+			hexTotal = declared.toInt()
+		}
+		currentMultiQrTransaction += payload
+		_total.value = hexTotal
+		_captured.value = currentMultiQrTransaction.size
+		if (currentMultiQrTransaction.size >= declared) {
+			decode(currentMultiQrTransaction.toList())
+		}
 	}
 
 	private fun allow(cap: ScanCapability): Boolean {
@@ -136,11 +254,6 @@ class CameraViewModel() : ViewModel() {
 	private val _cosmosSignRequestPayload = MutableStateFlow<String?>(null)
 	val cosmosSignRequestPayload: StateFlow<String?> =
 		_cosmosSignRequestPayload.asStateFlow()
-
-	// Zcash simple sign request payload (detected by 530402 prefix)
-	private val _zcashSimpleSignPayload = MutableStateFlow<String?>(null)
-	val zcashSimpleSignPayload: StateFlow<String?> =
-		_zcashSimpleSignPayload.asStateFlow()
 
 	// Zcash PCZT protocol-module request payload (530403 single / 530404 batch),
 	// routed to the wasm protocol module instead of the built-in parsers.
@@ -205,6 +318,7 @@ class CameraViewModel() : ViewModel() {
 	private val pFrameChunks = mutableMapOf<Int, String>()
 	private var pFrameTotal = 0
 	private var pFrameType = ""
+	private var pFrameChars = 0
 
 	/**
 	 * Barcode detecting function.
@@ -258,41 +372,7 @@ class CameraViewModel() : ViewModel() {
 						Regex("""^P(\d+)/(\d+)/([^/]+)/(.+)$""").matchEntire(it)
 					}
 					val jsonText: String? = if (pFrameMatch != null) {
-						val idx = pFrameMatch.groupValues[1].toInt()
-						val total = pFrameMatch.groupValues[2].toInt()
-						val urType = pFrameMatch.groupValues[3]
-						val chunk = pFrameMatch.groupValues[4]
-						if (pFrameTotal != total || pFrameType != urType) {
-							pFrameChunks.clear()
-							pFrameTotal = total
-							pFrameType = urType
-						}
-						val isNew = !pFrameChunks.containsKey(idx)
-						pFrameChunks[idx] = chunk
-						// surface progress to the camera UI via the same state flows
-						// the substrate multi-QR scanner uses, so the user sees a
-						// scanned/total counter while frames are still arriving.
-						_total.value = total
-						_captured.value = pFrameChunks.size
-						if (isNew) {
-							Timber.d("[FROST] P-frame received: $idx/$total type=$urType have=${pFrameChunks.size}")
-						}
-						if (pFrameChunks.size >= total) {
-							try {
-								val b64 = (1..total).joinToString("") { i -> pFrameChunks[i] ?: "" }
-								val bytes = android.util.Base64.decode(b64, android.util.Base64.NO_WRAP)
-								val decoded = String(bytes, Charsets.UTF_8)
-								Timber.d("[FROST] P-frame assembled: ${bytes.size}B type=$urType head=${decoded.take(60)}")
-								pFrameChunks.clear(); pFrameTotal = 0; pFrameType = ""
-								_total.value = null; _captured.value = null
-								if (decoded.trimStart().startsWith("{")) decoded else null
-							} catch (e: Exception) {
-								Timber.e(e, "[FROST] P-frame assembly failed")
-								pFrameChunks.clear(); pFrameTotal = 0; pFrameType = ""
-								_total.value = null; _captured.value = null
-								null
-							}
-						} else null
+						acceptPFrame(pFrameMatch)
 					} else run {
 						if (textValue != null && textValue.trimStart().startsWith("{")) {
 							Timber.d("[FROST] JSON via rawValue: ${textValue.take(80)}")
@@ -304,7 +384,7 @@ class CameraViewModel() : ViewModel() {
 						Timber.d("[FROST] rawBytes decoded head: ${trimmed.take(80)}")
 						if (trimmed.startsWith("{")) decoded else null
 					}
-					if (jsonText != null) {
+					if (jsonText != null && jsonNestingWithin(jsonText, MAX_JSON_DEPTH)) {
 						try {
 							val json = JSONObject(jsonText)
 							Timber.d("[FROST] JSON parsed; keys=${json.keys().asSequence().toList()}")
@@ -380,31 +460,7 @@ class CameraViewModel() : ViewModel() {
 					}
 
 					if (!currentMultiQrTransaction.contains(payloadString) && !payloadString.isNullOrEmpty()) {
-						val knownTotal = total.value
-
-						if (knownTotal == null) {
-							try {
-								val proposeTotal =
-									qrparserGetPacketsTotal(payloadString, true).toInt()
-								if (proposeTotal == 1) {
-									decode(listOf(payloadString))
-								} else {
-									currentMultiQrTransaction += payloadString
-									_captured.value = currentMultiQrTransaction.size
-									_total.value = proposeTotal
-								}
-							} catch (e: java.lang.Exception) {
-								Timber.d(e, "getPacketsTotal failed")
-							}
-						} else {
-							currentMultiQrTransaction += payloadString
-
-							if (currentMultiQrTransaction.size >= knownTotal) {
-								decode(currentMultiQrTransaction.toList())
-							} else {
-								_captured.value = currentMultiQrTransaction.size
-							}
-						}
+						acceptHexFrame(payloadString)
 					}
 				}
 				Trace.endSection()
@@ -433,13 +489,6 @@ class CameraViewModel() : ViewModel() {
 				if (!allow(ScanCapability.COSMOS)) return
 				resetScanValues()
 				_cosmosSignRequestPayload.value = firstPayload
-				return
-			}
-
-			if (isZcashSimpleSignRequest(firstPayload)) {
-				if (!allow(ScanCapability.ZCASH)) return
-				resetScanValues()
-				_zcashSimpleSignPayload.value = firstPayload
 				return
 			}
 
@@ -561,13 +610,6 @@ class CameraViewModel() : ViewModel() {
 	}
 
 	/**
-	 * Check if hex payload is a Zcash simple sign request (prefix 530402)
-	 */
-	private fun isZcashSimpleSignRequest(hexPayload: String): Boolean {
-		return hexPayload.length >= 6 && hexPayload.substring(0, 6).equals("530402", ignoreCase = true)
-	}
-
-	/**
 	 * Check if hex payload is a Zcash PCZT protocol-module request:
 	 * prelude [0x53][crypto=0x04][tx_type], 0x03 single / 0x04 batch,
 	 * 0x05 single-compact / 0x06 batch-compact (signatures-only response -
@@ -589,10 +631,6 @@ class CameraViewModel() : ViewModel() {
 	private fun isZcashModulePcztRequest(hexPayload: String): Boolean {
 		if (hexPayload.length < 6) return false
 		return hexPayload.substring(0, 4).lowercase() == "5304"
-	}
-
-	fun resetZcashSimpleSign() {
-		_zcashSimpleSignPayload.value = null
 	}
 
 	fun resetZcashModulePczt() {
@@ -638,7 +676,10 @@ class CameraViewModel() : ViewModel() {
 				// Carries both module packages and Zcash PCZT requests, so it
 				// needs either capability to be worth decoding at all; the
 				// inner dispatch gates each on its own below.
-				if (!allow(ScanCapability.MODULE) && !allow(ScanCapability.ZCASH)) return
+				if (ScanCapability.MODULE !in allowed && ScanCapability.ZCASH !in allowed) {
+					allow(ScanCapability.MODULE)
+					return
+				}
 				processUrFountainFrame(urString, normalizedUr, "ur:zigner-module", _zignerModuleFrames,
 					tryDecode = { frames ->
 						try { decodeUrModuleRequest(frames); true } catch (_: Exception) { false }
@@ -693,22 +734,34 @@ class CameraViewModel() : ViewModel() {
 	// completeness probe rather than parsing zoda's wire layout here.
 	private fun processZtFrame(ztString: String) {
 		val normalized = ztString.lowercase()
-		if (!allow(ScanCapability.ZCASH)) return
 		if (!normalized.startsWith("zt:zcash-notes/")) {
 			Timber.d("Ignoring unknown zt type: ${normalized.take(24)}")
 			return
 		}
+		if (!allow(ScanCapability.ZCASH)) return
 		val current = _zcashNotesFrames.value
-		if (current.any { it.lowercase() == normalized }) return
+		if (normalized in seenFrames(_zcashNotesFrames)) return
+		if (tooManyFrames(current.size, "zt frames")) {
+			_zcashNotesFrames.value = emptyList()
+			forgetFrames(_zcashNotesFrames)
+			resetScanValues()
+			return
+		}
 
 		val updated = current + ztString
 		_zcashNotesFrames.value = updated
+		seenFrames(_zcashNotesFrames).add(normalized)
 		// captured = frames scanned so far (keeps the counter moving). total
 		// (`needed`) comes from the zoda frame-0 metadata via the probe.
 		_captured.value = updated.size
 
-		// poll the pure Rust probe (cheap — receive loop, no reconstruct until
-		// enough shards) for the threshold and completion signal.
+		// poll the Rust probe for the threshold and completion signal. It
+		// re-feeds every frame, so probes are spaced by a growing step: per
+		// frame early on, then about every tenth of the stream, which keeps a
+		// long hostile stream linear instead of quadratic.
+		val nextProbe = nextFountainProbe.getOrElse(_zcashNotesFrames) { 1 }
+		if (updated.size < nextProbe) return
+		nextFountainProbe[_zcashNotesFrames] = updated.size + maxOf(1, updated.size / 10)
 		val progress = zcashNotesScanProgress(updated)
 		if (progress.needed > 0) _total.value = progress.needed
 		if (progress.complete) {
@@ -762,11 +815,19 @@ class CameraViewModel() : ViewModel() {
 		// leave _total null here and let ScanProgressBar render "N / … complete".
 		_captured.value = updatedFrames.size
 
-		val framesPastThreshold = updatedFrames.size - seqLen
-		val probeNow = framesPastThreshold >= 0 && framesPastThreshold % PROBE_EVERY_N == 0
-		if (probeNow && tryDecode(updatedFrames)) {
-			resetScanValues()
-			onComplete(updatedFrames)
+		// Each probe re-decodes every frame so far. Probing every few frames
+		// made a long hostile stream cost O(n^2) on the main thread; spacing
+		// probes by a growing step keeps the total work linear while a real
+		// scan, which converges at 1.05-1.20x seqLen, still finishes within
+		// a few frames of being decodable.
+		val size = updatedFrames.size
+		val nextProbe = nextFountainProbe.getOrElse(framesFlow) { seqLen }
+		if (size >= nextProbe) {
+			nextFountainProbe[framesFlow] = size + maxOf(PROBE_EVERY_N, size / 10)
+			if (tryDecode(updatedFrames)) {
+				resetScanValues()
+				onComplete(updatedFrames)
+			}
 		}
 	}
 
@@ -778,17 +839,22 @@ class CameraViewModel() : ViewModel() {
 		onComplete: (List<String>) -> Unit,
 	) {
 		val currentFrames = framesFlow.value
-		if (currentFrames.any { it.lowercase() == normalizedUr }) {
+		if (normalizedUr in seenFrames(framesFlow)) return
+		if (tooManyFrames(currentFrames.size, "UR frames")) {
+			framesFlow.value = emptyList()
+			forgetFrames(framesFlow)
+			resetScanValues()
 			return
 		}
 
 		val updatedFrames = currentFrames + urString
 		framesFlow.value = updatedFrames
+		seenFrames(framesFlow).add(normalizedUr)
 
 		val sequenceMatch = Regex("$urPrefix/(\\d+)-(\\d+)/").find(normalizedUr)
 		if (sequenceMatch != null) {
 			val (_, totalStr) = sequenceMatch.destructured
-			val totalFrames = totalStr.toIntOrNull() ?: 1
+			val totalFrames = totalStr.toIntOrNull()?.coerceIn(1, MAX_ACCUMULATED_FRAMES) ?: 1
 			_total.value = totalFrames
 			_captured.value = updatedFrames.size
 
@@ -811,6 +877,7 @@ class CameraViewModel() : ViewModel() {
 	 */
 	fun resetScanValues() {
 		currentMultiQrTransaction = mutableSetOf()
+		hexTotal = null
 		_captured.value = null
 		_total.value = null
 	}
@@ -820,7 +887,6 @@ class CameraViewModel() : ViewModel() {
 		_bananaSplitPayload.value = null
 		_penumbraSignRequestPayload.value = null
 		_cosmosSignRequestPayload.value = null
-		_zcashSimpleSignPayload.value = null
 		_zcashModulePcztPayload.value = null
 		_urBackupFrames.value = emptyList()
 		forgetFrames(_urBackupFrames)

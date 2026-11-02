@@ -346,7 +346,7 @@ fn cbor_skip_depth(data: &[u8], offset: usize, depth: u8) -> Result<usize, Strin
 }
 
 /// Fill buffer with cryptographically secure random bytes.
-fn getrandom(buf: &mut [u8]) -> Result<(), String> {
+pub(crate) fn getrandom(buf: &mut [u8]) -> Result<(), String> {
     use std::io::Read;
     // /dev/urandom is the standard CSPRNG on Linux/Android.
     // We read it directly rather than pulling in the getrandom crate

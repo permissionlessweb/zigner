@@ -1,8 +1,8 @@
 //! QR envelope for PCZT signing requests and responses.
 //!
 //! Zigner QR payloads open with the prelude `[0x53][crypto_type][tx_type]`.
-//! Zcash is crypto_type 0x04; tx_type 0x02 is the legacy digest-signing
-//! request. This module adds:
+//! Zcash is crypto_type 0x04. tx_type 0x02 was a legacy request that carried
+//! a bare digest to sign; it is refused as an unknown type. This module adds:
 //!
 //!   0x03  single redacted PCZT         -> single signed PCZT back
 //!   0x04  batch envelope, 1..=40 PCZTs -> batch of signed PCZTs back

@@ -14,6 +14,7 @@ import io.parity.signer.uniffi.frostDkgPart1
 import io.parity.signer.uniffi.frostDkgPart2
 import io.parity.signer.uniffi.frostDkgPart3
 import io.parity.signer.uniffi.frostStoreWallet
+import net.rotko.zigner.domain.frost.FrostSeeds
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -100,11 +101,15 @@ fun FrostDkgScreen(
 							}
 						}
 
+						// The share is sealed under a seed, so storing it asks for
+						// the unlock. Cancelling leaves no share on this device.
+						val seeds = FrostSeeds.unlockAll()
+							?: throw IllegalStateException("Unlock cancelled - this device's FROST share was not stored")
 						val wid = withContext(Dispatchers.Default) {
 							frostStoreWallet(
 								json.getString("key_package"), pkg, json.getString("ephemeral_seed"),
 								label, minSigners, maxSigners, mainnet,
-								ufvk, addr, relayUrl,
+								ufvk, addr, relayUrl, seeds,
 							)
 						}
 						walletId = wid

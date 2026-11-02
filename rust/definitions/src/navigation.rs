@@ -775,51 +775,6 @@ pub struct MKeysInfoExport {
     pub frames: Vec<QrData>,
 }
 
-// penumbra transaction types
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct PenumbraSpendAction {
-    pub note_value: String,
-    pub note_asset: String,
-    pub note_address: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct PenumbraOutputAction {
-    pub value: String,
-    pub asset: String,
-    pub dest_address: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct PenumbraSwapAction {
-    pub input_value: String,
-    pub input_asset: String,
-    pub output_asset: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct PenumbraDelegateAction {
-    pub amount: String,
-    pub validator: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct PenumbraVoteAction {
-    pub proposal_id: u64,
-    pub vote: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct PenumbraTransactionSummary {
-    pub chain_id: String,
-    pub expiry_height: Option<u64>,
-    pub fee: String,
-    pub fee_asset: String,
-    pub spend_count: u64,
-    pub output_count: u64,
-    pub effect_hash: String,
-}
-
 /// Penumbra Full Viewing Key export data for watch-only wallet import
 ///
 /// Provides multiple formats for compatibility:
@@ -871,6 +826,14 @@ pub struct PenumbraFvkExport {
     pub receive_address: String,
     /// `penumbra:<address>:0x<genesis>`, the text of the receive QR
     pub receive_qr_text: String,
+}
+
+/// A Penumbra receive address and its QR text
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PenumbraReceive {
+    pub address: String,
+    /// `penumbra:<address>:0x<genesis>`, same as [`PenumbraFvkExport::receive_qr_text`]
+    pub qr_text: String,
 }
 
 /// Cosmos account export data for Zafu wallet import
@@ -944,31 +907,6 @@ pub struct StringPair {
     pub second: String,
 }
 
-/// Generic Penumbra action parsed via schema
-/// Used for displaying any action type without hardcoding
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct PenumbraGenericAction {
-    /// Action type name (e.g., "Create Token")
-    pub action_name: String,
-    /// Action description
-    pub description: String,
-    /// Parsed fields as (label, value) pairs
-    pub fields: Vec<StringPair>,
-    /// Whether this action was recognized by the schema
-    pub recognized: bool,
-    /// Protobuf field number (for debugging)
-    pub field_number: u32,
-}
-
-/// Schema update info for display
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct PenumbraSchemaInfo {
-    pub chain_id: String,
-    pub protocol_version: String,
-    pub action_count: u32,
-    pub schema_version: u32,
-}
-
 // ============================================================================
 // Zcash types
 // ============================================================================
@@ -995,17 +933,6 @@ pub struct ZcashOrchardOutput {
     pub value: String,
     pub recipient: String,
     pub is_change: bool,
-}
-
-/// Zcash simple sign request (parsed from QR, exposed via uniffi)
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ZcashSimpleSignRequest {
-    pub account_index: u32,
-    pub sighash_hex: String,
-    pub action_count: u32,
-    pub summary: String,
-    pub mainnet: bool,
-    pub raw_qr_hex: String,
 }
 
 /// Zcash Full Viewing Key export data for watch-only wallet import
@@ -1048,12 +975,27 @@ pub struct ZcashFvkExport {
 /// Penumbra sign request parsed from QR
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PenumbraSignRequest {
+    /// From the plan's transaction parameters, not the QR header.
     pub chain_id: String,
     pub effect_hash_hex: String,
     pub spend_count: u32,
     pub vote_count: u32,
     pub lqt_vote_count: u32,
     pub raw_qr_hex: String,
+    pub expiry_height: u64,
+    pub fee: String,
+    /// Empty when the plan has no memo text.
+    pub memo: String,
+    pub lines: Vec<PenumbraReviewLine>,
+}
+
+/// One action of a Penumbra transaction, decoded from the plan for review.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PenumbraReviewLine {
+    pub kind: String,
+    pub amount: String,
+    pub counterparty: String,
+    pub is_own: bool,
 }
 
 /// Result of signing a Penumbra request with the key found by searching all
@@ -1203,142 +1145,43 @@ pub struct ZcashSyncInfo {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Card {
-    AuthorCard {
-        f: MAddressCard,
-    },
-    AuthorPlainCard {
-        f: MSCId,
-    },
-    AuthorPublicKeyCard {
-        f: MVerifierDetails,
-    },
-    BalanceCard {
-        f: MSCCurrency,
-    },
-    BitVecCard {
-        f: String,
-    },
-    BlockHashCard {
-        f: String,
-    },
-    CallCard {
-        f: MSCCall,
-    },
-    DefaultCard {
-        f: String,
-    },
-    DerivationsCard {
-        f: Vec<SeedKeysPreview>,
-    },
-    EnumVariantNameCard {
-        f: MSCEnumVariantName,
-    },
+    AuthorCard { f: MAddressCard },
+    AuthorPlainCard { f: MSCId },
+    AuthorPublicKeyCard { f: MVerifierDetails },
+    BalanceCard { f: MSCCurrency },
+    BitVecCard { f: String },
+    BlockHashCard { f: String },
+    CallCard { f: MSCCall },
+    DefaultCard { f: String },
+    DerivationsCard { f: Vec<SeedKeysPreview> },
+    EnumVariantNameCard { f: MSCEnumVariantName },
     EraImmortalCard,
-    EraMortalCard {
-        f: MSCEraMortal,
-    },
-    ErrorCard {
-        f: String,
-    },
-    FieldNameCard {
-        f: MSCFieldName,
-    },
-    FieldNumberCard {
-        f: MSCFieldNumber,
-    },
-    IdCard {
-        f: MSCId,
-    },
-    IdentityFieldCard {
-        f: String,
-    },
-    MetaCard {
-        f: MMetadataRecord,
-    },
-    NameVersionCard {
-        f: MSCNameVersion,
-    },
-    NetworkGenesisHashCard {
-        f: String,
-    },
-    NetworkNameCard {
-        f: String,
-    },
-    NetworkInfoCard {
-        f: MSCNetworkInfo,
-    },
-    NewSpecsCard {
-        f: NetworkSpecs,
-    },
-    NonceCard {
-        f: String,
-    },
+    EraMortalCard { f: MSCEraMortal },
+    ErrorCard { f: String },
+    FieldNameCard { f: MSCFieldName },
+    FieldNumberCard { f: MSCFieldNumber },
+    IdCard { f: MSCId },
+    IdentityFieldCard { f: String },
+    MetaCard { f: MMetadataRecord },
+    NameVersionCard { f: MSCNameVersion },
+    NetworkGenesisHashCard { f: String },
+    NetworkNameCard { f: String },
+    NetworkInfoCard { f: MSCNetworkInfo },
+    NewSpecsCard { f: NetworkSpecs },
+    NonceCard { f: String },
     NoneCard,
-    PalletCard {
-        f: String,
-    },
-    TextCard {
-        f: String,
-    },
-    TipCard {
-        f: MSCCurrency,
-    },
-    TipPlainCard {
-        f: String,
-    },
-    TxSpecCard {
-        f: String,
-    },
-    TxSpecPlainCard {
-        f: MSCTxSpecPlain,
-    },
-    TypesInfoCard {
-        f: MTypesInfo,
-    },
-    VarNameCard {
-        f: String,
-    },
-    VerifierCard {
-        f: MVerifierDetails,
-    },
-    WarningCard {
-        f: String,
-    },
-    // penumbra cards
-    PenumbraSummaryCard {
-        f: PenumbraTransactionSummary,
-    },
-    PenumbraSpendCard {
-        f: PenumbraSpendAction,
-    },
-    PenumbraOutputCard {
-        f: PenumbraOutputAction,
-    },
-    PenumbraSwapCard {
-        f: PenumbraSwapAction,
-    },
-    PenumbraDelegateCard {
-        f: PenumbraDelegateAction,
-    },
-    PenumbraVoteCard {
-        f: PenumbraVoteAction,
-    },
-    /// Generic action card - displays any action parsed via schema
-    PenumbraGenericActionCard {
-        f: PenumbraGenericAction,
-    },
-    /// Schema update info card
-    PenumbraSchemaCard {
-        f: PenumbraSchemaInfo,
-    },
+    PalletCard { f: String },
+    TextCard { f: String },
+    TipCard { f: MSCCurrency },
+    TipPlainCard { f: String },
+    TxSpecCard { f: String },
+    TxSpecPlainCard { f: MSCTxSpecPlain },
+    TypesInfoCard { f: MTypesInfo },
+    VarNameCard { f: String },
+    VerifierCard { f: MVerifierDetails },
+    WarningCard { f: String },
     // zcash cards
-    ZcashSummaryCard {
-        f: ZcashTransactionSummary,
-    },
-    ZcashOrchardSpendCard {
-        f: ZcashOrchardSpend,
-    },
-    ZcashOrchardOutputCard {
-        f: ZcashOrchardOutput,
-    },
+    ZcashSummaryCard { f: ZcashTransactionSummary },
+    ZcashOrchardSpendCard { f: ZcashOrchardSpend },
+    ZcashOrchardOutputCard { f: ZcashOrchardOutput },
 }

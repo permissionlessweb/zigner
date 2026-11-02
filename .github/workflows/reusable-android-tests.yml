@@ -14,7 +14,7 @@ jobs:
         password: ${{ github.token }}
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Install System Dependencies (Linux)
         run: |
@@ -22,10 +22,12 @@ jobs:
           sudo apt-get install -y clang libclang-dev
 
       - name: Install Rust stable toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch
+        with:
+          toolchain: 1.99.1
 
       - name: Install uniffi_bindgen
-        uses: actions-rs/install@v0.1
+        uses: actions-rs/install@9da1d2adcfe5e7c16992e8242ca33a56b6d9b101 # v0.1
         with:
           crate: uniffi_bindgen
           version: 0.22.0 # Must be in sync with version in Cargo.toml
@@ -43,7 +45,7 @@ jobs:
           workspaces: rust -> rust/target
 
       - name: Gradle Cache
-        uses: actions/cache@v3
+        uses: actions/cache@6f8efc29b200d32929f49075959781ed54ec270c # v3
         with:
           path: |
             ~/.gradle/caches

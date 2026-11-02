@@ -5,10 +5,12 @@ import io.parity.signer.uniffi.frostExportAllBackupAge
 import io.parity.signer.uniffi.frostExportAllBackupEnvelope
 import io.parity.signer.uniffi.frostExportBackupEnvelope
 import io.parity.signer.uniffi.frostImportAllBackupAge
+import io.parity.signer.uniffi.frostImportAllBackupEnvelope
+import io.parity.signer.uniffi.frostImportBackupEnvelope
+import net.rotko.zigner.domain.frost.FrostSeeds
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import net.rotko.zigner.dependencygraph.ServiceLocator
-import net.rotko.zigner.domain.AuthResult
 import net.rotko.zigner.domain.storage.mapError
 
 /**
@@ -25,43 +27,48 @@ import net.rotko.zigner.domain.storage.mapError
  * treat null as "aborted, do nothing" (the auth layer already surfaces its own
  * failure toast). A thrown exception still means a genuine export failure.
  *
- * The age helpers below gate on the seed read rather than on `authenticated()`.
- * That is not a weaker gate - reading a seed force-auths - but it is a
- * different one, and it must stay that way: doing both would prompt twice for
- * a single user action, and a second prompt is the kind of thing people learn
- * to dismiss without reading.
+ * Every helper's gate is the seed read in [FrostSeeds]: shares are sealed under
+ * a seed, so they cannot be read or stored without it, and reading it is the
+ * fresh unlock. One prompt per user action; a second prompt is the kind of
+ * thing people learn to dismiss without reading.
  */
 object FrostExportUseCase {
 
-	/** True only after a fresh, successful device authentication. */
-	private suspend fun authenticated(): Boolean {
-		val activity = ServiceLocator.activityScope?.activity ?: return false
-		return ServiceLocator.authentication.authenticate(activity) == AuthResult.AuthSuccess
-	}
-
-	/** Export one wallet's encrypted backup envelope, gated on fresh auth. */
+	/** Export one wallet's encrypted backup envelope. The shares are sealed
+	 *  under a seed, so reading them is the fresh unlock. */
 	suspend fun exportSingle(walletId: String, passphrase: String): String? {
-		if (!authenticated()) return null
+		val seeds = FrostSeeds.unlockAll() ?: return null
 		return withContext(Dispatchers.Default) {
-			frostExportBackupEnvelope(walletId, passphrase)
+			frostExportBackupEnvelope(walletId, passphrase, seeds)
 		}
 	}
 
-	/** Export every wallet into one encrypted envelope, gated on fresh auth. */
+	/** Export every wallet into one encrypted envelope, behind one unlock. */
 	suspend fun exportAll(passphrase: String): String? {
-		if (!authenticated()) return null
+		val seeds = FrostSeeds.unlockAll() ?: return null
 		return withContext(Dispatchers.Default) {
-			frostExportAllBackupEnvelope(passphrase)
+			frostExportAllBackupEnvelope(passphrase, seeds)
+		}
+	}
+
+	/** Import one passphrase envelope; the share is sealed under the first seed. */
+	suspend fun importSingle(json: String, passphrase: String): String? {
+		val seeds = FrostSeeds.unlockAll() ?: return null
+		return withContext(Dispatchers.Default) {
+			frostImportBackupEnvelope(json, passphrase, seeds)
+		}
+	}
+
+	/** Import a passphrase batch envelope; shares are sealed under the first seed. */
+	suspend fun importAll(json: String, passphrase: String): String? {
+		val seeds = FrostSeeds.unlockAll() ?: return null
+		return withContext(Dispatchers.Default) {
+			frostImportAllBackupEnvelope(json, passphrase, seeds)
 		}
 	}
 
 	/**
 	 * Export every wallet encrypted to public keys instead of a passphrase.
-	 *
-	 * The auth gate here is `getSeedPhraseForceAuth`, which is the same fresh
-	 * device-credential check the two above make - reading the seed cannot
-	 * happen without it. Calling `authenticated()` as well would only prompt
-	 * the user twice for one action.
 	 *
 	 * `extraRecipients` are the co-signers. This device is always a recipient
 	 * regardless, added in Rust so a UI mistake cannot produce a backup this
@@ -73,10 +80,9 @@ object FrostExportUseCase {
 		seedName: String,
 		extraRecipients: List<String>,
 	): String? {
-		val repository = ServiceLocator.activityScope?.seedRepository ?: return null
-		val phrase = repository.getSeedPhraseForceAuth(seedName).mapError() ?: return null
+		val (phrase, seeds) = FrostSeeds.unlockWith(seedName) ?: return null
 		return withContext(Dispatchers.Default) {
-			frostExportAllBackupAge(phrase, extraRecipients)
+			frostExportAllBackupAge(phrase, extraRecipients, seeds)
 		}
 	}
 

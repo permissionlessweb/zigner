@@ -76,6 +76,22 @@ class SeedRepository(
 	}
 
 	/**
+	 * Ask for authentication, then read the phrases. For signing: unlike
+	 * [getSeedPhrases], it never reuses an earlier unlock.
+	 */
+	suspend fun getSeedPhrasesForceAuth(seedNames: List<String>): RepoResult<String> {
+		return when (val authResult = authentication.authenticate(activity)) {
+			AuthResult.AuthSuccess -> getSeedPhrasesDangerous(seedNames)
+
+			AuthResult.AuthError,
+			AuthResult.AuthFailed,
+			AuthResult.AuthUnavailable -> {
+				RepoResult.Failure(RuntimeException("auth error - $authResult"))
+			}
+		}
+	}
+
+	/**
 	 * Force ask for authentication and get seed phrase
 	 * This does not work with runBlocking() !
 	 */

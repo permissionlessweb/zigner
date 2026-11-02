@@ -16,7 +16,7 @@ static int computeVersionCode(String name) {
 	return major * 1_000_000 + minor * 1_000 + patch
 }
 
-def appVersionName = "0.13.0"
+def appVersionName = "0.14.0"
 
 android {
 	defaultConfig {

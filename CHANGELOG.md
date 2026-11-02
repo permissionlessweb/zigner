@@ -2,10 +2,96 @@
 
 All notable changes to zigner are documented in this file.
 
-## Unreleased
+## 0.14.0 - 2026-10-31
+
+Minor. Security release from a full review of the signer. **Penumbra users:
+liquidity positions, Dutch auctions and votes are refused until each has a
+review screen.** iOS FROST signing is turned off.
 
 ### Security
 
+- **FROST key shares are encrypted at rest.** A share has no seed phrase
+  behind it and used to sit in the database as plaintext JSON, readable from
+  a forensic image without any unlock. It is now sealed with
+  XChaCha20-Poly1305 under a key derived from one of the device's seeds,
+  with the wallet id bound in, so the seed you already back up is the only
+  thing that opens it.
+  - Storing, signing with, exporting or importing a share asks for the
+    unlock at that moment; the wallet list and details stay readable
+    without it.
+  - Existing wallets are sealed the first time they are used with a seed
+    unlocked, and only after the sealed copy reads back correctly.
+  - **Creating a FROST wallet now needs a key set on the device**, since
+    the share is sealed under that seed.
+  - iOS FROST wallet creation is turned off with signing until iOS has the
+    unlock flow.
+- **Zigner no longer signs a hash handed to it by the wallet.** The legacy
+  Zcash request (`530402`) carried a bare sighash plus a free-text summary,
+  and the review screen showed the amount and recipient parsed from that
+  summary - text the wallet wrote, not what was signed. The request is now
+  refused as an unknown type. Zcash is signed only from a PCZT, whose
+  sighash Zigner computes itself. Zafu has not sent this request since
+  29.4.0. The unused code that signed supplied sighashes (`sign_pczt`,
+  `ZcashAuthorizationData`) and an unused FROST attestation verifier are
+  deleted with it.
+- **A hostile QR code can no longer crash or exhaust the phone through the
+  camera.**
+  - Every multi-frame transport now has a frame cap. Before, only one of
+    them did, and declared totals were trusted, so a crafted stream could
+    grow memory without bound or wrap a frame count negative.
+  - Animated UR frames are checked against the app's limits before the
+    fountain decoder sees them. One frame declaring hundreds of millions of
+    fragments made that decoder ask for gigabytes, on any device, since
+    module updates are always readable. A lone `1-1` frame now has its
+    checksum checked too.
+  - The note-import CBOR decoder no longer recurses into an unknown key, so
+    deep nesting cannot overflow the native stack. It also refuses trailing
+    bytes, strings that run past the end, and heights over 32 bits.
+  - FROST `P…` frames are parsed with bounds: a malformed index used to
+    crash the app, and a stream with gaps was assembled anyway. JSON
+    nested deeper than any real message is refused before parsing.
+  - The binary transport keeps its own frame total, so another transport's
+    frame can no longer make a single-frame request wait for more frames.
+  - The fountain and note-import decoders are retried at growing intervals
+    instead of every few frames, which kept a long hostile stream quadratic
+    on the main thread.
+- **Smaller leaks closed.**
+  - Rust logs go to logcat only in debug builds; release builds have no
+    Rust logger at all.
+  - A debug build no longer logs a FROST wallet's key package when its
+    detail screen fails to parse it.
+  - A FROST wallet whose 64-bit id collides with an existing one is
+    refused instead of overwriting that wallet's key share.
+  - Every signing path asks for an unlock at the moment of signing.
+- **Penumbra signing shows what it signs.** The approve screen showed only
+  the chain, a spend count and part of a hash - never a recipient, amount
+  or fee - so a hostile wallet could pay any address. It now decodes the
+  transaction plan with the Penumbra SDK, from the same bytes Zigner
+  checks against the effect hash, and shows each action's amount and full
+  address, the fee, expiry and memo, and the key that signs. The chain is
+  the plan's own, not the QR header's (the header defaulted to
+  `penumbra-1` when missing).
+  - Sends, swaps, swap claims, delegation, undelegation and claims, and IBC
+    withdrawals are shown and signed. Liquidity positions, Dutch auctions,
+    votes and governance actions are refused until each has a screen.
+  - An output is marked as this device's own only when it pays a receive
+    address stored on the device.
+  - The QR's spend randomizers must match the plan's, and the review runs
+    again at signing time, so nothing it cannot show is ever signed.
+  - The old card display, its hand-written protobuf decoder, and the
+    unauthenticated schema-update QR that rewrote it are deleted.
+- **FROST review can no longer hide a payment or call it change.** The
+  on-device check listed only the outputs it could decrypt with the group's
+  keys and silently dropped the rest, and it labelled an output "change"
+  by which key decrypted it - a coordinator could encrypt a payment to
+  itself that way. It now lists every output from the transaction's own
+  fields, each proven against its note commitment, refuses any output it
+  cannot prove and any transparent or Sapling part, calls an output change
+  only when its address belongs to the group, and shows the fee.
+- **iOS FROST signing is turned off.** Round 2 signed every action of a
+  transaction with one nonce, which lets anyone who sees the signature
+  shares recover this device's key share. The function that did it is
+  deleted; Android takes one nonce per action and is unaffected.
 - **The camera parses a network's codes only when the device holds a key
   for it.** A Zcash-only device refuses Penumbra codes, and a Penumbra-only
   device refuses Zcash codes, before their content parsers run. Zcash also opens

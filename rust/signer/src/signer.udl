@@ -848,6 +848,10 @@ namespace signer {
     [Throws=ErrorDisplayed]
     PenumbraFvkExport export_penumbra_fvk([ByRef] string seed_phrase, u32 account_index, [ByRef] string label);
 
+    // Opt-in fresh Penumbra receive address, new on every call (same as Zafu's)
+    [Throws=ErrorDisplayed]
+    PenumbraReceive get_penumbra_fresh_receive_address([ByRef] string seed_phrase, u32 account_index);
+
     // Cosmos accounts export - generate addresses QR for Zafu import
     // network_name filters to a single chain (e.g. "noble"), empty string exports all
     [Throws=ErrorDisplayed]
@@ -899,14 +903,6 @@ namespace signer {
     // ========================================================================
     // Zcash simple sign request (from Zafu wallet)
     // ========================================================================
-
-    // Parse Zcash simple sign request from QR hex data
-    [Throws=ErrorDisplayed]
-    ZcashSimpleSignRequest parse_zcash_sign_request([ByRef] string qr_hex);
-
-    // Sign Zcash simple sign request and return signature QR hex string
-    [Throws=ErrorDisplayed]
-    string sign_zcash_simple([ByRef] string seed_phrase, ZcashSimpleSignRequest request);
 
     // ========================================================================
     // Zcash cold signing functions
@@ -1113,18 +1109,14 @@ namespace signer {
     [Throws=ErrorDisplayed]
     string frost_spend_sign_round2_signed([ByRef] string ephemeral_seed_hex, [ByRef] string key_package_hex, [ByRef] string nonces_hex, [ByRef] string sighash_hex, [ByRef] string alpha_hex, [ByRef] string commitments_json);
 
-    // Sign multiple actions at once (one share per alpha)
-    // Returns JSON: { "shares": [hex, ...] }
-    [Throws=ErrorDisplayed]
-    string frost_spend_sign_actions([ByRef] string key_package_hex, [ByRef] string nonces_hex, [ByRef] string sighash_hex, [ByRef] string alphas_json, [ByRef] string commitments_json);
-
     // Derive raw Orchard address from FROST group key (hex-encoded 43 bytes)
     [Throws=ErrorDisplayed]
     string frost_derive_address_raw([ByRef] string public_key_package_hex, u32 diversifier_index);
 
     // gh #17: verify a FROST payout PCZT before signing — recompute the sighash
-    // and OVK-decode outputs with the group UFVK. Returns JSON; caller blocks the
-    // signature on sighash/recipient/amount mismatch. See frost_multisig::frost_verify_pczt.
+    // and list every output from the PCZT's own proven fields; change only when
+    // the group's key owns the address. Throws on anything it cannot prove.
+    // See frost_multisig::frost_verify_pczt.
     [Throws=ErrorDisplayed]
     string frost_verify_pczt([ByRef] string pczt_hex, [ByRef] string claimed_sighash_hex, [ByRef] string orchard_fvk_uview);
 
@@ -1148,17 +1140,23 @@ namespace signer {
         boolean mainnet,
         [ByRef] string orchard_fvk_uview,
         [ByRef] string address,
-        [ByRef] string relay_url
+        [ByRef] string relay_url,
+        sequence<string> seed_phrases
     );
 
     // List all stored FROST wallets (summaries, no secrets)
     [Throws=ErrorDisplayed]
     sequence<FrostWalletSummaryFFI> frost_list_wallets();
 
-    // Load FROST wallet secrets for signing (key_package + ephemeral_seed)
+    // Load a FROST wallet's public fields (no secrets)
     // Returns JSON: { "key_package": hex, "ephemeral_seed": hex, "public_key_package": hex }
     [Throws=ErrorDisplayed]
     string frost_load_wallet([ByRef] string wallet_id);
+
+    // Key package and ephemeral seed of a FROST wallet, opened with the seed
+    // its share is sealed under. Returns JSON {key_package, ephemeral_seed}.
+    [Throws=ErrorDisplayed]
+    string frost_load_wallet_secrets([ByRef] string wallet_id, sequence<string> seed_phrases);
 
     // Delete a FROST wallet
     [Throws=ErrorDisplayed]
@@ -1200,7 +1198,8 @@ namespace signer {
     [Throws=ErrorDisplayed]
     string frost_export_backup_envelope(
         [ByRef] string wallet_id,
-        [ByRef] string passphrase
+        [ByRef] string passphrase,
+        sequence<string> seed_phrases
     );
 
     // FROST backup restore: decrypt an envelope JSON, store the wallet,
@@ -1208,13 +1207,14 @@ namespace signer {
     [Throws=ErrorDisplayed]
     string frost_import_backup_envelope(
         [ByRef] string envelope_json,
-        [ByRef] string passphrase
+        [ByRef] string passphrase,
+        sequence<string> seed_phrases
     );
 
     // Encrypt every FROST wallet on this device into a single batch envelope.
     // Caller writes the returned JSON to a `.json` file.
     [Throws=ErrorDisplayed]
-    string frost_export_all_backup_envelope([ByRef] string passphrase);
+    string frost_export_all_backup_envelope([ByRef] string passphrase, sequence<string> seed_phrases);
 
     // Decrypt a batch envelope and import every share inside.
     // Skips wallets whose publicKeyPackage already exists.
@@ -1222,7 +1222,8 @@ namespace signer {
     [Throws=ErrorDisplayed]
     string frost_import_all_backup_envelope(
         [ByRef] string envelope_json,
-        [ByRef] string passphrase
+        [ByRef] string passphrase,
+        sequence<string> seed_phrases
     );
 
     // This device's backup recipient, as an `ssh-ed25519 AAAA...` line.
@@ -1249,7 +1250,8 @@ namespace signer {
     [Throws=ErrorDisplayed]
     string frost_export_all_backup_age(
         [ByRef] string seed_phrase,
-        sequence<string> extra_recipients
+        sequence<string> extra_recipients,
+        sequence<string> seed_phrases
     );
 
     // Import an age-encrypted batch backup addressed to this device.
@@ -1515,45 +1517,6 @@ dictionary MSCTxSpecPlain {
     string tx_version;
 };
 
-// penumbra transaction types
-dictionary PenumbraSpendAction {
-    string note_value;
-    string note_asset;
-    string note_address;
-};
-
-dictionary PenumbraOutputAction {
-    string value;
-    string asset;
-    string dest_address;
-};
-
-dictionary PenumbraSwapAction {
-    string input_value;
-    string input_asset;
-    string output_asset;
-};
-
-dictionary PenumbraDelegateAction {
-    string amount;
-    string validator;
-};
-
-dictionary PenumbraVoteAction {
-    u64 proposal_id;
-    string vote;
-};
-
-dictionary PenumbraTransactionSummary {
-    string chain_id;
-    u64? expiry_height;
-    string fee;
-    string fee_asset;
-    u64 spend_count;
-    u64 output_count;
-    string effect_hash;
-};
-
 // Penumbra FVK export for watch-only wallet import
 // Includes UR-encoded string for hardware wallet QR compatibility
 // UR type: penumbra-accounts (CBOR tag 49301)
@@ -1569,6 +1532,13 @@ dictionary PenumbraFvkExport {
     string receive_address;
     // `penumbra:<address>:0x<genesis>` for the receive QR
     string receive_qr_text;
+};
+
+// A Penumbra receive address and its QR text
+dictionary PenumbraReceive {
+    string address;
+    // `penumbra:<address>:0x<genesis>`, same as PenumbraFvkExport
+    string qr_text;
 };
 
 // Cosmos account export for Zafu wallet import
@@ -1618,6 +1588,10 @@ dictionary PenumbraSignRequest {
     u32 vote_count;
     u32 lqt_vote_count;
     string raw_qr_hex;
+    u64 expiry_height;
+    string fee;
+    string memo;
+    sequence<PenumbraReviewLine> lines;
 };
 
 // Result of sign_penumbra_transaction_any: signature QR bytes plus which seed
@@ -1629,27 +1603,18 @@ dictionary PenumbraSignResult {
     u32 account;
 };
 
-// Penumbra generic action (for unrecognized action types)
-dictionary PenumbraGenericAction {
-    string action_name;
-    string description;
-    sequence<StringPair> fields;
-    boolean recognized;
-    u32 field_number;
+// One action of a Penumbra transaction, decoded from the plan for review
+dictionary PenumbraReviewLine {
+    string kind;
+    string amount;
+    string counterparty;
+    boolean is_own;
 };
 
 // String pair for generic action fields
 dictionary StringPair {
     string first;
     string second;
-};
-
-// Penumbra schema info
-dictionary PenumbraSchemaInfo {
-    string chain_id;
-    string protocol_version;
-    u32 action_count;
-    u32 schema_version;
 };
 
 // ============================================================================
@@ -1671,16 +1636,6 @@ dictionary AuthSignResult {
     string pubkey_hex;
     string signature_hex;
     string domain;
-};
-
-// Zcash simple sign request (parsed from QR)
-dictionary ZcashSimpleSignRequest {
-    u32 account_index;
-    string sighash_hex;
-    u32 action_count;
-    string summary;
-    boolean mainnet;
-    string raw_qr_hex;
 };
 
 // Signing context: what the signer knows about its balance
@@ -1868,14 +1823,6 @@ interface Card {
     VarNameCard(string f);
     VerifierCard(MVerifierDetails f);
     WarningCard(string f);
-    PenumbraSummaryCard(PenumbraTransactionSummary f);
-    PenumbraSpendCard(PenumbraSpendAction f);
-    PenumbraOutputCard(PenumbraOutputAction f);
-    PenumbraSwapCard(PenumbraSwapAction f);
-    PenumbraDelegateCard(PenumbraDelegateAction f);
-    PenumbraVoteCard(PenumbraVoteAction f);
-    PenumbraGenericActionCard(PenumbraGenericAction f);
-    PenumbraSchemaCard(PenumbraSchemaInfo f);
     ZcashSummaryCard(ZcashTransactionSummary f);
     ZcashOrchardSpendCard(ZcashOrchardSpend f);
     ZcashOrchardOutputCard(ZcashOrchardOutput f);

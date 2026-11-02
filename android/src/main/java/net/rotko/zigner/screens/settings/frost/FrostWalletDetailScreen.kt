@@ -146,7 +146,8 @@ fun FrostWalletDetailScreen(
 				data = try {
 					FrostWalletDetailData.fromJson(walletId, raw)
 				} catch (e: Exception) {
-					Timber.e(e, "[frost-detail] parse failed. raw: $raw")
+					// keep `raw` out of logs: it names the group and its address
+					Timber.e(e, "[frost-detail] parse failed")
 					throw Exception("Failed to parse wallet data: ${e.message}")
 				}
 				error = null

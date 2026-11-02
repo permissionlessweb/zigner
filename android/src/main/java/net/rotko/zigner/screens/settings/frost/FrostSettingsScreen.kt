@@ -20,8 +20,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import io.parity.signer.uniffi.frostImportAllBackupEnvelope
-import io.parity.signer.uniffi.frostImportBackupEnvelope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -165,9 +163,8 @@ fun FrostSettingsScreen(
 					try {
 						val envelopeType = org.json.JSONObject(json).optString("type", "")
 						if (envelopeType == "frost-share-batch-backup") {
-							val resultJson = withContext(Dispatchers.Default) {
-								frostImportAllBackupEnvelope(json, passphrase)
-							}
+							val resultJson = FrostExportUseCase.importAll(json, passphrase)
+								?: return@launch
 							val result = org.json.JSONObject(resultJson)
 							val imported = result.optInt("imported", 0)
 							val skipped = result.optInt("skipped", 0)
@@ -176,9 +173,8 @@ fun FrostSettingsScreen(
 								if (skipped > 0) append(" ($skipped already present)")
 							}
 						} else {
-							withContext(Dispatchers.Default) {
-								frostImportBackupEnvelope(json, passphrase)
-							}
+							FrostExportUseCase.importSingle(json, passphrase)
+								?: return@launch
 							toast = "Wallet restored"
 						}
 						error = null

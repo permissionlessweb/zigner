@@ -40,6 +40,7 @@ pub mod backup;
 mod ffi_types;
 pub mod frost_backup;
 pub mod frost_multisig;
+pub mod frost_storage;
 pub mod release_signing;
 pub use release_signing::ReleaseSigningRequest;
 pub mod ssh;
@@ -49,7 +50,6 @@ use crate::ffi_types::*;
 use db_handling::identities::{import_all_addrs, inject_derivations_has_pwd};
 use db_handling::{Error as DbHandlingError, Error};
 use definitions::keyring::AddressKey;
-use definitions::navigation::ZcashSimpleSignRequest;
 use lazy_static::lazy_static;
 use navigator::Error as NavigatorError;
 use sled::Db;
@@ -891,50 +891,109 @@ fn export_backup_ur(
     }
 }
 
-/// Decode UR-encoded backup and return JSON string
-fn decode_backup_ur(ur_parts: Vec<String>) -> Result<String, ErrorDisplayed> {
-    if ur_parts.is_empty() {
-        return Err(ErrorDisplayed::Str {
-            s: "No UR parts provided".to_string(),
-        });
-    }
+/// Largest legitimate animated scan, in fountain fragments: a 2.7 MB module
+/// is about 6,000 fragments. Matches the camera's frame cap.
+const UR_MAX_SEQUENCE_COUNT: u64 = 20_000;
+/// Largest legitimate UR message (the module is 2.7 MB).
+const UR_MAX_MESSAGE_LEN: u64 = 8 * 1024 * 1024;
 
-    // Try single-part decode first
+fn ur_err(what: &str, e: impl core::fmt::Debug) -> ErrorDisplayed {
+    ErrorDisplayed::Str {
+        s: format!("{what}: {e:?}"),
+    }
+}
+
+/// One CBOR unsigned integer (major type 0) at `data[*at..]`.
+fn ur_header_uint(data: &[u8], at: &mut usize) -> Option<u64> {
+    let first = *data.get(*at)?;
+    *at += 1;
+    if first >> 5 != 0 {
+        return None;
+    }
+    let width = match first & 0x1f {
+        n @ 0..=23 => return Some(n as u64),
+        24 => 1,
+        25 => 2,
+        26 => 4,
+        27 => 8,
+        _ => return None,
+    };
+    let bytes = data.get(*at..*at + width)?;
+    *at += width;
+    Some(bytes.iter().fold(0u64, |v, b| (v << 8) | *b as u64))
+}
+
+/// A fountain part is CBOR `[seq, seq_count, message_len, checksum, data]`.
+/// The decoder sizes its allocations from `seq_count` and `message_len`, so
+/// both are bounded here, before the part reaches it.
+fn ur_check_part_header(cbor: &[u8]) -> Result<(), ErrorDisplayed> {
+    let mut at = 1;
+    let fields = (cbor.first() == Some(&0x85))
+        .then(|| {
+            let seq = ur_header_uint(cbor, &mut at)?;
+            let count = ur_header_uint(cbor, &mut at)?;
+            let len = ur_header_uint(cbor, &mut at)?;
+            Some((seq, count, len))
+        })
+        .flatten();
+    match fields {
+        Some((_, count, len))
+            if (1..=UR_MAX_SEQUENCE_COUNT).contains(&count)
+                && (1..=UR_MAX_MESSAGE_LEN).contains(&len) =>
+        {
+            Ok(())
+        }
+        _ => Err(ErrorDisplayed::Str {
+            s: "UR part declares an implausible size".to_string(),
+        }),
+    }
+}
+
+/// Reassemble a UR message from the scanned parts.
+///
+/// A lone single-part UR is returned as is. Anything multi-part, including
+/// a lone `1-1` part, goes through the fountain decoder so its checksum is
+/// checked, and every part's declared size is bounded first.
+fn ur_message(ur_parts: &[String]) -> Result<Vec<u8>, ErrorDisplayed> {
+    let first = ur_parts.first().ok_or_else(|| ErrorDisplayed::Str {
+        s: "No UR parts provided".to_string(),
+    })?;
     if ur_parts.len() == 1 {
-        let (_, cbor_data) = ur::ur::decode(&ur_parts[0]).map_err(|e| ErrorDisplayed::Str {
-            s: format!("UR decode error: {:?}", e),
-        })?;
-        return extract_backup_json_from_cbor(&cbor_data);
-    }
-
-    // Multi-part decode using fountain codes
-    let mut decoder = ur::ur::Decoder::default();
-
-    for part in &ur_parts {
-        decoder.receive(part).map_err(|e| ErrorDisplayed::Str {
-            s: format!("UR receive error: {:?}", e),
-        })?;
-
-        if decoder.complete() {
-            match decoder.message() {
-                Ok(Some(cbor_data)) => return extract_backup_json_from_cbor(&cbor_data),
-                Ok(None) => {
-                    return Err(ErrorDisplayed::Str {
-                        s: "UR decoder complete but no message".to_string(),
-                    })
-                }
-                Err(e) => {
-                    return Err(ErrorDisplayed::Str {
-                        s: format!("UR message error: {:?}", e),
-                    })
-                }
-            }
+        let (kind, data) = ur::ur::decode(first).map_err(|e| ur_err("UR decode", e))?;
+        if kind == ur::ur::Kind::SinglePart {
+            return Ok(data);
         }
     }
-
+    let mut decoder = ur::ur::Decoder::default();
+    for part in ur_parts {
+        let (kind, cbor) = ur::ur::decode(part).map_err(|e| ur_err("UR decode", e))?;
+        if kind != ur::ur::Kind::MultiPart {
+            return Err(ErrorDisplayed::Str {
+                s: "single-part UR inside an animated sequence".to_string(),
+            });
+        }
+        ur_check_part_header(&cbor)?;
+        decoder.receive(part).map_err(|e| ur_err("UR receive", e))?;
+        if decoder.complete() {
+            return decoder
+                .message()
+                .map_err(|e| ur_err("UR message", e))?
+                .ok_or_else(|| ErrorDisplayed::Str {
+                    s: "UR decoder complete but no message".to_string(),
+                });
+        }
+    }
     Err(ErrorDisplayed::Str {
-        s: "Incomplete UR data - need more frames".to_string(),
+        s: format!(
+            "Incomplete UR sequence: received {} parts but not complete",
+            ur_parts.len()
+        ),
     })
+}
+
+/// Decode UR-encoded backup and return JSON string
+fn decode_backup_ur(ur_parts: Vec<String>) -> Result<String, ErrorDisplayed> {
+    extract_backup_json_from_cbor(&ur_message(&ur_parts)?)
 }
 
 fn extract_backup_json_from_cbor(cbor_data: &[u8]) -> Result<String, ErrorDisplayed> {
@@ -1193,6 +1252,20 @@ fn export_penumbra_fvk(
         receive_address,
         receive_qr_text,
     })
+}
+
+/// A fresh receive address for the Penumbra account, unlinkable to the
+/// default one but viewed by the same FVK (Zafu's `getEphemeralByIndex`).
+fn get_penumbra_fresh_receive_address(
+    seed_phrase: &str,
+    account_index: u32,
+) -> Result<PenumbraReceive, ErrorDisplayed> {
+    let address = db_handling::penumbra::fresh_receive_address(seed_phrase, account_index)
+        .map_err(|e| ErrorDisplayed::Str {
+            s: format!("Failed to derive receive address: {e}"),
+        })?;
+    let qr_text = format!("penumbra:{address}:0x{PENUMBRA_SPECS_GENESIS}");
+    Ok(PenumbraReceive { address, qr_text })
 }
 
 // ============================================================================
@@ -1741,20 +1814,63 @@ fn encode_cworch_signature(
 fn parse_penumbra_sign_request(qr_hex: &str) -> Result<PenumbraSignRequest, ErrorDisplayed> {
     use transaction_parsing::penumbra::parse_penumbra_transaction;
 
-    let plan = parse_penumbra_transaction(qr_hex).map_err(|e| ErrorDisplayed::Str {
+    let qr = parse_penumbra_transaction(qr_hex).map_err(|e| ErrorDisplayed::Str {
         s: format!("Failed to parse Penumbra QR: {e}"),
     })?;
-
-    let effect_hash_hex = plan.effect_hash.map(hex::encode).unwrap_or_default();
+    let own = db_handling::penumbra::receive_addresses(&get_db()?)
+        .map_err(|e| ErrorDisplayed::from(e.to_string()))?;
+    let review = review_penumbra_qr(&qr, &own)?;
 
     Ok(PenumbraSignRequest {
-        chain_id: plan.chain_id.unwrap_or_default(),
-        effect_hash_hex,
-        spend_count: plan.spend_randomizers.len() as u32,
-        vote_count: plan.delegator_vote_randomizers.len() as u32,
-        lqt_vote_count: plan.lqt_vote_randomizers.len() as u32,
+        chain_id: review.chain_id,
+        effect_hash_hex: qr.effect_hash.map(hex::encode).unwrap_or_default(),
+        spend_count: qr.spend_randomizers.len() as u32,
+        vote_count: 0,
+        lqt_vote_count: 0,
         raw_qr_hex: qr_hex.to_string(),
+        expiry_height: review.expiry_height,
+        fee: review.fee,
+        memo: review.memo.unwrap_or_default(),
+        lines: review
+            .lines
+            .into_iter()
+            .map(|l| PenumbraReviewLine {
+                kind: l.kind,
+                amount: l.amount,
+                counterparty: l.counterparty,
+                is_own: l.is_own,
+            })
+            .collect(),
     })
+}
+
+/// Describe the plan in a Penumbra QR, refusing anything the review screen
+/// cannot show and any QR whose own fields disagree with the plan.
+fn review_penumbra_qr(
+    qr: &transaction_parsing::penumbra::PenumbraTransactionPlan,
+    own_addresses: &[String],
+) -> Result<transaction_signing::penumbra_review::PlanReview, ErrorDisplayed> {
+    let review = transaction_signing::penumbra_review::review_plan(&qr.plan_bytes, own_addresses)
+        .map_err(|e| ErrorDisplayed::Str { s: e.to_string() })?;
+    let refuse = |s: &str| {
+        Err(ErrorDisplayed::Str {
+            s: format!("Penumbra QR disagrees with its plan: {s} - refusing to sign it"),
+        })
+    };
+    if let Some(header) = &qr.chain_id {
+        if *header != review.chain_id {
+            return refuse("chain");
+        }
+    }
+    // Votes are refused by the review, so a QR may carry no vote randomizers;
+    // the spend randomizers must be exactly the plan's.
+    if !qr.delegator_vote_randomizers.is_empty() || !qr.lqt_vote_randomizers.is_empty() {
+        return refuse("vote randomizers");
+    }
+    if qr.spend_randomizers != review.spend_randomizers {
+        return refuse("spend randomizers");
+    }
+    Ok(review)
 }
 
 /// Sign a Penumbra transaction and return encoded signature QR bytes
@@ -1867,6 +1983,9 @@ fn penumbra_plan_and_hash(
     let effect_hash = plan.effect_hash.ok_or_else(|| ErrorDisplayed::Str {
         s: "No effect hash in QR".to_string(),
     })?;
+    // Only a plan the review screen can show is ever signed (every signing
+    // path, single-seed or owning-key search, goes through here).
+    review_penumbra_qr(&plan, &[])?;
     Ok((plan, effect_hash))
 }
 
@@ -1953,46 +2072,6 @@ fn penumbra_sign_with(
 /// - 0xa0-0xb7: map, length 0-23 in low 5 bits (pairs count)
 /// - 0xd8: tag, 1-byte tag number follows
 /// - 0xd9: tag, 2-byte tag number follows (big-endian)
-///
-/// Parse a Zcash simple sign request from QR hex data.
-/// This is the non-PCZT signing flow used by Zafu wallet.
-fn parse_zcash_sign_request(qr_hex: &str) -> Result<ZcashSimpleSignRequest, ErrorDisplayed> {
-    let request = transaction_signing::ZcashSignRequest::from_qr_hex(qr_hex).map_err(|e| {
-        ErrorDisplayed::Str {
-            s: format!("Failed to parse Zcash sign request: {e}"),
-        }
-    })?;
-
-    Ok(ZcashSimpleSignRequest {
-        account_index: request.account_index,
-        sighash_hex: hex::encode(request.sighash),
-        action_count: request.orchard_alphas.len() as u32,
-        summary: request.summary,
-        mainnet: request.mainnet,
-        raw_qr_hex: qr_hex.to_string(),
-    })
-}
-
-/// Sign a Zcash simple sign request and return the signature QR hex string.
-fn sign_zcash_simple(
-    seed_phrase: &str,
-    request: ZcashSimpleSignRequest,
-) -> Result<String, ErrorDisplayed> {
-    // Re-parse the original QR to get the full data (including alphas)
-    let sign_data = transaction_signing::ZcashSignRequest::from_qr_hex(&request.raw_qr_hex)
-        .map_err(|e| ErrorDisplayed::Str {
-            s: format!("Failed to parse Zcash sign request for signing: {e}"),
-        })?;
-
-    let response = sign_data
-        .sign(seed_phrase)
-        .map_err(|e| ErrorDisplayed::Str {
-            s: format!("Zcash signing failed: {e}"),
-        })?;
-
-    Ok(response.to_qr_hex())
-}
-
 // hand-rolls ZcashAccounts CBOR with per-byte annotated pushes (clearer than a
 // dense vec![...] literal); silence the resulting vec-init-then-push lint.
 #[allow(clippy::vec_init_then_push)]
@@ -2255,76 +2334,20 @@ fn get_zcash_transparent_address(
 /// Decode UR string to get PCZT bytes
 /// Handles both single QR and animated QR sequences
 fn decode_ur_zcash_pczt(ur_parts: Vec<String>) -> Result<Vec<u8>, ErrorDisplayed> {
-    use ur::ur::decode;
-
-    if ur_parts.is_empty() {
-        return Err(ErrorDisplayed::Str {
-            s: "No UR parts provided".to_string(),
-        });
-    }
-
-    // Verify UR type from the URI string (format: ur:type/data)
-    fn verify_ur_type(ur_string: &str) -> Result<(), ErrorDisplayed> {
-        let lower = ur_string.to_lowercase();
-        if !lower.starts_with("ur:zcash-pczt/") {
+    // Every part must be ur:zcash-pczt/... so a stray QR mid-stream can
+    // never reach the fountain decoder.
+    for part in &ur_parts {
+        if !part.to_lowercase().starts_with("ur:zcash-pczt/") {
             return Err(ErrorDisplayed::Str {
                 s: format!(
                     "Expected ur:zcash-pczt/... got: {}",
-                    ur_string.chars().take(30).collect::<String>()
+                    part.chars().take(30).collect::<String>()
                 ),
             });
         }
-        Ok(())
     }
-
-    // For single-part UR, decode directly
-    if ur_parts.len() == 1 {
-        verify_ur_type(&ur_parts[0])?;
-
-        let (_kind, cbor_data) = decode(&ur_parts[0]).map_err(|e| ErrorDisplayed::Str {
-            s: format!("Failed to decode UR: {:?}", e),
-        })?;
-
-        // Extract PCZT bytes from CBOR
-        // CBOR structure: { 1: bytes } (map with key 1 containing the PCZT bytes)
-        extract_pczt_from_cbor(&cbor_data)
-    } else {
-        // For multi-part (animated) UR, use fountain decoder
-        let mut decoder = ur::ur::Decoder::default();
-
-        // Verify type from first part
-        verify_ur_type(&ur_parts[0])?;
-
-        for part in &ur_parts {
-            decoder.receive(part).map_err(|e| ErrorDisplayed::Str {
-                s: format!("Failed to receive UR part: {:?}", e),
-            })?;
-
-            if decoder.complete() {
-                break;
-            }
-        }
-
-        if !decoder.complete() {
-            return Err(ErrorDisplayed::Str {
-                s: format!(
-                    "Incomplete UR sequence: received {} parts but not complete",
-                    ur_parts.len()
-                ),
-            });
-        }
-
-        let cbor_data = decoder
-            .message()
-            .map_err(|e| ErrorDisplayed::Str {
-                s: format!("Failed to get UR message: {:?}", e),
-            })?
-            .ok_or_else(|| ErrorDisplayed::Str {
-                s: "UR decoder returned None despite being complete".to_string(),
-            })?;
-
-        extract_pczt_from_cbor(&cbor_data)
-    }
+    // CBOR structure: { 1: bytes } (map with key 1 containing the PCZT bytes)
+    extract_pczt_from_cbor(&ur_message(&ur_parts)?)
 }
 
 /// Extract PCZT bytes from CBOR wrapper
@@ -3585,56 +3608,19 @@ fn decode_zt_payload(parts: &[String], expected_type: &str) -> Result<Vec<u8>, E
 }
 
 fn decode_ur_payload(ur_parts: &[String], expected_type: &str) -> Result<Vec<u8>, ErrorDisplayed> {
-    use ur::ur::decode;
-
     let expected_prefix = format!("ur:{}/", expected_type);
-
-    // Verify UR type
-    let lower = ur_parts[0].to_lowercase();
-    if !lower.starts_with(&expected_prefix) {
-        return Err(ErrorDisplayed::Str {
-            s: format!(
-                "Expected ur:{}/... got: {}",
-                expected_type,
-                ur_parts[0].chars().take(40).collect::<String>()
-            ),
-        });
-    }
-
-    if ur_parts.len() == 1 {
-        let (_kind, data) = decode(&ur_parts[0]).map_err(|e| ErrorDisplayed::Str {
-            s: format!("Failed to decode UR: {:?}", e),
-        })?;
-        Ok(data)
-    } else {
-        let mut decoder = ur::ur::Decoder::default();
-        for part in ur_parts {
-            decoder.receive(part).map_err(|e| ErrorDisplayed::Str {
-                s: format!("Failed to receive UR part: {:?}", e),
-            })?;
-            if decoder.complete() {
-                break;
-            }
-        }
-
-        if !decoder.complete() {
+    for part in ur_parts {
+        if !part.to_lowercase().starts_with(&expected_prefix) {
             return Err(ErrorDisplayed::Str {
                 s: format!(
-                    "Incomplete UR sequence: received {} parts but not complete",
-                    ur_parts.len()
+                    "Expected ur:{}/... got: {}",
+                    expected_type,
+                    part.chars().take(40).collect::<String>()
                 ),
             });
         }
-
-        decoder
-            .message()
-            .map_err(|e| ErrorDisplayed::Str {
-                s: format!("Failed to get UR message: {:?}", e),
-            })?
-            .ok_or_else(|| ErrorDisplayed::Str {
-                s: "UR decoder returned None despite being complete".to_string(),
-            })
     }
+    ur_message(ur_parts)
 }
 
 /// High-level function to sign a PCZT from UR-encoded QR data
@@ -4129,43 +4115,11 @@ fn ur_encode_cbor(
 }
 
 fn ur_decode_parts(ur_parts: &[String]) -> Result<Vec<u8>, ErrorDisplayed> {
-    if ur_parts.is_empty() {
-        return Err(ErrorDisplayed::Str {
-            s: "no UR parts".to_string(),
-        });
-    }
-    if ur_parts.len() == 1 {
-        let (_, cbor) = ur::ur::decode(&ur_parts[0]).map_err(|e| ErrorDisplayed::Str {
-            s: format!("UR decode: {e:?}"),
-        })?;
-        let (bytes, _) = parse_cbor_bytes(&cbor).map_err(|e| ErrorDisplayed::Str {
-            s: format!("CBOR: {e}"),
-        })?;
-        return Ok(bytes);
-    }
-    let mut decoder = ur::ur::Decoder::default();
-    for part in ur_parts {
-        decoder.receive(part).map_err(|e| ErrorDisplayed::Str {
-            s: format!("UR receive: {e:?}"),
-        })?;
-        if decoder.complete() {
-            let cbor = decoder
-                .message()
-                .map_err(|e| ErrorDisplayed::Str {
-                    s: format!("UR message: {e:?}"),
-                })?
-                .ok_or_else(|| ErrorDisplayed::Str {
-                    s: "UR complete but no message".to_string(),
-                })?;
-            let (bytes, _) = parse_cbor_bytes(&cbor).map_err(|e| ErrorDisplayed::Str {
-                s: format!("CBOR: {e}"),
-            })?;
-            return Ok(bytes);
-        }
-    }
-    Err(ErrorDisplayed::Str {
-        s: "incomplete UR".to_string(),
-    })
+    let cbor = ur_message(ur_parts)?;
+    let (bytes, _) = parse_cbor_bytes(&cbor).map_err(|e| ErrorDisplayed::Str {
+        s: format!("CBOR: {e}"),
+    })?;
+    Ok(bytes)
 }
 
 fn cbor_tstr_into(buf: &mut Vec<u8>, s: &[u8]) {
@@ -4401,23 +4355,6 @@ fn frost_spend_sign_round2_signed(
     .map_err(|e| ErrorDisplayed::Str { s: e })
 }
 
-fn frost_spend_sign_actions(
-    key_package_hex: &str,
-    nonces_hex: &str,
-    sighash_hex: &str,
-    alphas_json: &str,
-    commitments_json: &str,
-) -> Result<String, ErrorDisplayed> {
-    frost_multisig::frost_spend_sign_actions(
-        key_package_hex,
-        nonces_hex,
-        sighash_hex,
-        alphas_json,
-        commitments_json,
-    )
-    .map_err(|e| ErrorDisplayed::Str { s: e })
-}
-
 fn frost_derive_address_raw(
     public_key_package_hex: &str,
     diversifier_index: u32,
@@ -4450,9 +4387,13 @@ fn frost_store_wallet(
     orchard_fvk_uview: &str,
     address: &str,
     relay_url: &str,
+    seed_phrases: Vec<String>,
 ) -> Result<String, ErrorDisplayed> {
     let db_guard = DB.read().map_err(|_| ErrorDisplayed::MutexPoisoned)?;
     let database = db_guard.as_ref().ok_or(ErrorDisplayed::DbNotInitialized)?;
+    let sealing_seed = seed_phrases.first().ok_or_else(|| ErrorDisplayed::Str {
+        s: "FROST needs a key set on this device: its share is sealed under that seed".into(),
+    })?;
 
     // Empty strings → None, so older callers that pass "" don't poison the
     // optional fields with empty data.
@@ -4479,7 +4420,11 @@ fn frost_store_wallet(
         orchard_fvk_uview: none_if_empty(orchard_fvk_uview),
         address: none_if_empty(address),
         relay_url: none_if_empty(relay_url),
+        sealed: None,
+        seed_id: None,
     };
+    let mut data = data;
+    frost_storage::seal_wallet(&mut data, sealing_seed).map_err(|s| ErrorDisplayed::Str { s })?;
 
     db_handling::frost::store_frost_wallet(database, &data).map_err(|e| ErrorDisplayed::Str {
         s: format!("Failed to store FROST wallet: {e}"),
@@ -4520,11 +4465,9 @@ fn frost_load_wallet(wallet_id: &str) -> Result<String, ErrorDisplayed> {
             s: format!("FROST wallet not found: {wallet_id}"),
         })?;
 
-    // Include the optional public-derived metadata fields so callers building
-    // backup payloads or "send to zafu" QRs don't need a separate FFI.
+    // Public fields only: the key package and ephemeral seed come from
+    // `frost_load_wallet_secrets`, which needs the seed they are sealed under.
     serde_json::to_string(&serde_json::json!({
-        "key_package": data.key_package_hex,
-        "ephemeral_seed": data.ephemeral_seed_hex,
         "public_key_package": data.public_key_package_hex,
         "label": data.label,
         "min_signers": data.min_signers,
@@ -4538,6 +4481,40 @@ fn frost_load_wallet(wallet_id: &str) -> Result<String, ErrorDisplayed> {
     .map_err(|e| ErrorDisplayed::Str {
         s: format!("Serialize: {e}"),
     })
+}
+
+/// A wallet's key package and ephemeral seed, for signing. Opens the sealed
+/// share with whichever of `seed_phrases` it is under; a wallet stored before
+/// sealing is sealed on this read. Returns `{key_package, ephemeral_seed}`.
+fn frost_load_wallet_secrets(
+    wallet_id: &str,
+    seed_phrases: Vec<String>,
+) -> Result<String, ErrorDisplayed> {
+    let db_guard = DB.read().map_err(|_| ErrorDisplayed::MutexPoisoned)?;
+    let database = db_guard.as_ref().ok_or(ErrorDisplayed::DbNotInitialized)?;
+    let data = load_frost_wallet_data(database, wallet_id)?;
+    let secrets = frost_storage::wallet_secrets(database, &data, &seed_phrases)
+        .map_err(|s| ErrorDisplayed::Str { s })?;
+    serde_json::to_string(&serde_json::json!({
+        "key_package": secrets.key_package_hex.as_str(),
+        "ephemeral_seed": secrets.ephemeral_seed_hex.as_str(),
+    }))
+    .map_err(|e| ErrorDisplayed::Str {
+        s: format!("Serialize: {e}"),
+    })
+}
+
+fn load_frost_wallet_data(
+    database: &sled::Db,
+    wallet_id: &str,
+) -> Result<db_handling::frost::FrostWalletData, ErrorDisplayed> {
+    db_handling::frost::get_frost_wallet(database, wallet_id)
+        .map_err(|e| ErrorDisplayed::Str {
+            s: format!("load FROST wallet: {e}"),
+        })?
+        .ok_or_else(|| ErrorDisplayed::Str {
+            s: format!("FROST wallet not found: {wallet_id}"),
+        })
 }
 
 fn frost_delete_wallet(wallet_id: &str) -> Result<(), ErrorDisplayed> {
@@ -4610,25 +4587,22 @@ fn frost_set_wallet_metadata(
 fn frost_export_backup_envelope(
     wallet_id: &str,
     passphrase: &str,
+    seed_phrases: Vec<String>,
 ) -> Result<String, ErrorDisplayed> {
     let db_guard = DB.read().map_err(|_| ErrorDisplayed::MutexPoisoned)?;
     let database = db_guard.as_ref().ok_or(ErrorDisplayed::DbNotInitialized)?;
 
-    let data = db_handling::frost::get_frost_wallet(database, wallet_id)
-        .map_err(|e| ErrorDisplayed::Str {
-            s: format!("load FROST wallet: {e}"),
-        })?
-        .ok_or_else(|| ErrorDisplayed::Str {
-            s: format!("FROST wallet not found: {wallet_id}"),
-        })?;
+    let data = load_frost_wallet_data(database, wallet_id)?;
+    let secrets = frost_storage::wallet_secrets(database, &data, &seed_phrases)
+        .map_err(|s| ErrorDisplayed::Str { s })?;
 
     let payload = frost_backup::PlaintextPayload {
         version: 1,
         kind: "frost-share".into(),
         label: data.label,
         public_key_package: data.public_key_package_hex,
-        key_package: data.key_package_hex,
-        ephemeral_seed: data.ephemeral_seed_hex,
+        key_package: secrets.key_package_hex.to_string(),
+        ephemeral_seed: secrets.ephemeral_seed_hex.to_string(),
         threshold: data.min_signers,
         max_signers: data.max_signers,
         mainnet: data.mainnet,
@@ -4644,7 +4618,9 @@ fn frost_export_backup_envelope(
 fn frost_import_backup_envelope(
     envelope_json: &str,
     passphrase: &str,
+    seed_phrases: Vec<String>,
 ) -> Result<String, ErrorDisplayed> {
+    let sealing_seed = first_seed(&seed_phrases)?;
     let payload = frost_backup::open_envelope(envelope_json, passphrase)
         .map_err(|e| ErrorDisplayed::Str { s: e })?;
 
@@ -4674,11 +4650,25 @@ fn frost_import_backup_envelope(
         orchard_fvk_uview: payload.orchard_fvk,
         address: payload.address,
         relay_url: payload.relay_url,
+        sealed: None,
+        seed_id: None,
     };
+    let mut data = data;
+    frost_storage::seal_wallet(&mut data, sealing_seed).map_err(|s| ErrorDisplayed::Str { s })?;
 
     db_handling::frost::store_frost_wallet(database, &data).map_err(|e| ErrorDisplayed::Str {
         s: format!("store imported wallet: {e}"),
     })
+}
+
+/// The seed new shares are sealed under: the first unlocked one.
+fn first_seed(seed_phrases: &[String]) -> Result<&str, ErrorDisplayed> {
+    seed_phrases
+        .first()
+        .map(String::as_str)
+        .ok_or_else(|| ErrorDisplayed::Str {
+            s: "FROST needs a key set on this device: its share is sealed under that seed".into(),
+        })
 }
 
 /// Parse the KeyPackage + PublicKeyPackage hex and assert they agree with
@@ -4739,6 +4729,7 @@ fn verify_envelope_threshold(
 /// path - so the two can never disagree about what a backup contains.
 fn collect_all_frost_shares(
     database: &sled::Db,
+    seed_phrases: &[String],
 ) -> Result<Vec<frost_backup::ShareEntry>, ErrorDisplayed> {
     let summaries =
         db_handling::frost::list_frost_wallets(database).map_err(|e| ErrorDisplayed::Str {
@@ -4760,11 +4751,13 @@ fn collect_all_frost_shares(
             .ok_or_else(|| ErrorDisplayed::Str {
                 s: format!("FROST wallet not found: {}", s.wallet_id),
             })?;
+        let secrets = frost_storage::wallet_secrets(database, &data, seed_phrases)
+            .map_err(|s| ErrorDisplayed::Str { s })?;
         shares.push(frost_backup::ShareEntry {
             label: data.label,
             public_key_package: data.public_key_package_hex,
-            key_package: data.key_package_hex,
-            ephemeral_seed: data.ephemeral_seed_hex,
+            key_package: secrets.key_package_hex.to_string(),
+            ephemeral_seed: secrets.ephemeral_seed_hex.to_string(),
             threshold: data.min_signers,
             max_signers: data.max_signers,
             mainnet: data.mainnet,
@@ -4777,10 +4770,13 @@ fn collect_all_frost_shares(
     Ok(shares)
 }
 
-fn frost_export_all_backup_envelope(passphrase: &str) -> Result<String, ErrorDisplayed> {
+fn frost_export_all_backup_envelope(
+    passphrase: &str,
+    seed_phrases: Vec<String>,
+) -> Result<String, ErrorDisplayed> {
     let db_guard = DB.read().map_err(|_| ErrorDisplayed::MutexPoisoned)?;
     let database = db_guard.as_ref().ok_or(ErrorDisplayed::DbNotInitialized)?;
-    let shares = collect_all_frost_shares(database)?;
+    let shares = collect_all_frost_shares(database, &seed_phrases)?;
     frost_backup::seal_batch_envelope(&shares, passphrase).map_err(|e| ErrorDisplayed::Str { s: e })
 }
 
@@ -4790,16 +4786,21 @@ fn frost_export_all_backup_envelope(passphrase: &str) -> Result<String, ErrorDis
 fn frost_import_all_backup_envelope(
     envelope_json: &str,
     passphrase: &str,
+    seed_phrases: Vec<String>,
 ) -> Result<String, ErrorDisplayed> {
+    let sealing_seed = first_seed(&seed_phrases)?;
     let shares = frost_backup::open_batch_envelope(envelope_json, passphrase)
         .map_err(|e| ErrorDisplayed::Str { s: e })?;
-    import_frost_shares(shares)
+    import_frost_shares(shares, sealing_seed)
 }
 
 /// Store a decrypted share list. The half of import that is the same however
 /// the bytes were protected - including the envelope-vs-KeyPackage threshold
 /// cross-check, which must not be skippable by arriving via a new transport.
-fn import_frost_shares(shares: Vec<frost_backup::ShareEntry>) -> Result<String, ErrorDisplayed> {
+fn import_frost_shares(
+    shares: Vec<frost_backup::ShareEntry>,
+    sealing_seed: &str,
+) -> Result<String, ErrorDisplayed> {
     let db_guard = DB.read().map_err(|_| ErrorDisplayed::MutexPoisoned)?;
     let database = db_guard.as_ref().ok_or(ErrorDisplayed::DbNotInitialized)?;
 
@@ -4835,7 +4836,12 @@ fn import_frost_shares(shares: Vec<frost_backup::ShareEntry>) -> Result<String, 
             orchard_fvk_uview: share.orchard_fvk,
             address: share.address,
             relay_url: share.relay_url,
+            sealed: None,
+            seed_id: None,
         };
+        let mut data = data;
+        frost_storage::seal_wallet(&mut data, sealing_seed)
+            .map_err(|s| ErrorDisplayed::Str { s })?;
         db_handling::frost::store_frost_wallet(database, &data).map_err(|e| {
             ErrorDisplayed::Str {
                 s: format!("store imported wallet: {e}"),
@@ -4878,10 +4884,11 @@ fn age_device_recipient(seed_phrase: &str) -> Result<String, ErrorDisplayed> {
 fn frost_export_all_backup_age(
     seed_phrase: &str,
     extra_recipients: Vec<String>,
+    seed_phrases: Vec<String>,
 ) -> Result<String, ErrorDisplayed> {
     let db_guard = DB.read().map_err(|_| ErrorDisplayed::MutexPoisoned)?;
     let database = db_guard.as_ref().ok_or(ErrorDisplayed::DbNotInitialized)?;
-    let shares = collect_all_frost_shares(database)?;
+    let shares = collect_all_frost_shares(database, &seed_phrases)?;
     let plaintext =
         frost_backup::batch_plaintext(&shares).map_err(|e| ErrorDisplayed::Str { s: e })?;
 
@@ -4908,7 +4915,7 @@ fn frost_import_all_backup_age(seed_phrase: &str, armored: &str) -> Result<Strin
         .map_err(|e| ErrorDisplayed::Str { s: e })?;
     let shares = frost_backup::parse_batch_plaintext(&plaintext)
         .map_err(|e| ErrorDisplayed::Str { s: e })?;
-    import_frost_shares(shares)
+    import_frost_shares(shares, seed_phrase)
 }
 
 // ── anchor verifier registry FFI ──
@@ -5401,38 +5408,7 @@ fn decode_ur_module_request(ur_parts: Vec<String>) -> Result<Vec<u8>, ErrorDispl
         }
     }
 
-    if ur_parts.len() == 1 {
-        let (_kind, bytes) = ur::ur::decode(&ur_parts[0]).map_err(|e| ErrorDisplayed::Str {
-            s: format!("Failed to decode UR: {e:?}"),
-        })?;
-        return Ok(bytes);
-    }
-
-    let mut decoder = ur::ur::Decoder::default();
-    for part in &ur_parts {
-        decoder.receive(part).map_err(|e| ErrorDisplayed::Str {
-            s: format!("Failed to receive UR part: {e:?}"),
-        })?;
-        if decoder.complete() {
-            break;
-        }
-    }
-    if !decoder.complete() {
-        return Err(ErrorDisplayed::Str {
-            s: format!(
-                "Incomplete UR sequence: received {} parts but not complete",
-                ur_parts.len()
-            ),
-        });
-    }
-    decoder
-        .message()
-        .map_err(|e| ErrorDisplayed::Str {
-            s: format!("Failed to get UR message: {e:?}"),
-        })?
-        .ok_or_else(|| ErrorDisplayed::Str {
-            s: "UR decoder returned None despite being complete".to_string(),
-        })
+    ur_message(&ur_parts)
 }
 
 /// CBOR unsigned integer (major type 0), shortest form.
@@ -5822,6 +5798,48 @@ mod tests {
         assert!(many.len() > 1, "a short fragment length has to animate");
         let back = decode_ur_payload(&many, "cworch-sig").unwrap();
         assert_eq!(back.len(), 97);
+    }
+
+    fn ur_frames(message: &[u8], fragment: usize, count: usize) -> Vec<String> {
+        let mut encoder = ur::ur::Encoder::new(message, fragment, "zigner-module").unwrap();
+        (0..count).map(|_| encoder.next_part().unwrap()).collect()
+    }
+
+    #[test]
+    fn ur_message_reassembles_an_animated_scan() {
+        let message: Vec<u8> = (0..5000u32).map(|i| (i * 7) as u8).collect();
+        let frames = ur_frames(&message, 200, 40);
+        assert_eq!(ur_message(&frames).unwrap(), message);
+    }
+
+    #[test]
+    fn ur_message_checks_a_lone_multipart_frame() {
+        let frames = ur_frames(b"short", 200, 1);
+        assert!(frames[0].contains("/1-1/"));
+        assert_eq!(ur_message(&frames).unwrap(), b"short");
+    }
+
+    /// A part whose text counter is valid but whose CBOR declares 400 million
+    /// fragments made the fountain decoder ask for gigabytes; it is refused
+    /// before the decoder sees it.
+    #[test]
+    fn ur_message_refuses_an_implausible_part() {
+        let frame = &ur_frames(&[1u8; 600], 200, 1)[0];
+        let (_, mut cbor) = ur::ur::decode(frame).unwrap();
+        // [seq, count, len, checksum, data]: replace count with 400_000_000
+        let mut at = 1;
+        ur_header_uint(&cbor, &mut at).unwrap();
+        let count_at = at;
+        ur_header_uint(&cbor, &mut at).unwrap();
+        cbor.splice(count_at..at, [0x1a, 0x17, 0xd7, 0x84, 0x00]);
+        let evil = format!(
+            "ur:zigner-module/1-3/{}",
+            ur::bytewords::encode(&cbor, ur::bytewords::Style::Minimal)
+        );
+        match ur_message(&[evil.clone(), evil]) {
+            Err(ErrorDisplayed::Str { s }) => assert!(s.contains("implausible"), "{}", s),
+            other => panic!("expected a refusal, got {:?}", other.map(|m| m.len())),
+        }
     }
 }
 
@@ -6876,6 +6894,62 @@ mod zcash_pczt_tests {
             v["sighash_match"], false,
             "{what}: other sighash must not match"
         );
+    }
+
+    fn frost_verify_json(pczt: &[u8]) -> Result<serde_json::Value, String> {
+        crate::frost_multisig::frost_verify_pczt(&hex::encode(pczt), "", &wallet_uview())
+            .map(|j| serde_json::from_str(&j).unwrap())
+    }
+
+    /// A payment to someone else is listed as a send with its amount and the
+    /// fee; only an address of the group's own key is change.
+    #[test]
+    fn frost_verify_lists_the_payment_and_the_fee() {
+        use zcash_address::unified::{Address, Encoding, Receiver};
+        let fx = build_v5_fixture(true, false);
+        let v = frost_verify_json(&fx.pczt).expect("honest PCZT verifies");
+        assert_eq!(v["total_send_zat"], fx.sent, "{v}");
+        assert_eq!(v["fee_zat"], fx.fee, "{v}");
+        let paid = Address::try_from_items(vec![Receiver::Orchard(fx.recipient_raw)])
+            .unwrap()
+            .encode(&zcash_protocol::consensus::NetworkType::Regtest);
+        let outputs = v["outputs"].as_array().unwrap();
+        let payment = outputs
+            .iter()
+            .find(|o| o["recipient"] == paid.as_str())
+            .unwrap_or_else(|| panic!("payment not listed: {}", v));
+        assert_eq!(payment["is_change"], false, "{v}");
+        assert!(
+            outputs
+                .iter()
+                .filter(|o| o["is_change"] == true)
+                .all(|o| o["recipient"] != paid.as_str()),
+            "{}",
+            v
+        );
+    }
+
+    /// The old check decrypted outputs with the group's keys and silently
+    /// dropped any it could not open. Now a recipient that contradicts its
+    /// note commitment, or a withheld output, is refused.
+    #[test]
+    fn frost_verify_refuses_outputs_it_cannot_prove() {
+        let fx = build_v5_fixture(true, false);
+        let decoy = orchard::keys::FullViewingKey::from(
+            &orchard::keys::SpendingKey::from_bytes([11u8; 32]).unwrap(),
+        )
+        .address_at(0u32, orchard::keys::Scope::External)
+        .to_raw_address_bytes();
+        let (tampered, n) = patch_all(&fx.pczt, &fx.recipient_raw, &decoy);
+        assert!(n > 0);
+        assert!(frost_verify_json(&tampered).is_err(), "tampered recipient");
+
+        let withheld = pczt::roles::redactor::Redactor::new(Pczt::parse(&fx.pczt).unwrap())
+            .redact_orchard_with(|mut o| o.redact_actions(|mut a| a.clear_output_value()))
+            .finish()
+            .serialize()
+            .unwrap();
+        assert!(frost_verify_json(&withheld).is_err(), "withheld value");
     }
 
     #[test]

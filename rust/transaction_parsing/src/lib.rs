@@ -33,19 +33,6 @@ mod error;
 // penumbra support
 #[cfg(feature = "penumbra")]
 pub mod penumbra;
-#[cfg(feature = "penumbra")]
-use penumbra::process_penumbra_transaction;
-
-// zcash support
-pub mod zcash;
-use zcash::process_zcash_sign_request;
-
-// penumbra schema support (always available)
-pub mod penumbra_protobuf;
-pub mod penumbra_schema_parser;
-use penumbra_schema_parser::{
-    process_penumbra_registry, process_penumbra_schema_digest, process_penumbra_schema_update,
-};
 
 #[cfg(test)]
 mod tests;
@@ -75,12 +62,16 @@ fn handle_scanner_input(database: &sled::Db, payload: &str) -> Result<Transactio
         return Err(Error::NotSubstrate(data_hex[..2].to_string()));
     }
 
-    // check for zcash transactions first (crypto type 0x04)
-    // format: [0x53][crypto_type][tx_type]
-    // zcash uses crypto_type=0x04, tx_type=0x02 for sign requests
+    // Zcash (crypto type 0x04) is never parsed here. Zigner signs Zcash only
+    // from a PCZT, whose sighash it computes itself. The old 0x02 request
+    // carried a bare sighash and a free-text summary, and is refused.
     if &data_hex[2..4] == "04" {
         return match &data_hex[4..6] {
-            "02" => process_zcash_sign_request(database, data_hex),
+            "02" => Err(Error::PayloadNotSupported(
+                "this Zcash request signs a hash Zigner cannot check - update the wallet \
+                 that made it"
+                    .to_string(),
+            )),
             // PCZT requests (0x03 single / 0x04 batch) are handled by the
             // protocol-module path in the app layer; reaching this branch
             // means the app-side dispatcher missed them. Fail closed with
@@ -101,11 +92,6 @@ fn handle_scanner_input(database: &sled::Db, payload: &str) -> Result<Transactio
         "04" => parse_transaction_bulk(database, data_hex),
         "06" => parse_transaction_with_proof(database, data_hex),
         "08" => process_any_chain_message(database, data_hex),
-        #[cfg(feature = "penumbra")]
-        "10" => process_penumbra_transaction(database, data_hex),
-        "12" => process_penumbra_schema_update(database, data_hex),
-        "13" => process_penumbra_schema_digest(database, data_hex),
-        "14" => process_penumbra_registry(database, data_hex),
         "80" => load_metadata(database, data_hex),
         "81" => load_types(database, data_hex),
         "c1" => add_specs(database, data_hex),

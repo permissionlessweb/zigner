@@ -11,14 +11,6 @@ import net.rotko.zigner.R
 import net.rotko.zigner.components.base.MarkdownText
 import net.rotko.zigner.components.base.toRichTextStr
 import net.rotko.zigner.screens.scan.transaction.transactionElements.*
-import net.rotko.zigner.screens.scan.transaction.transactionElements.TCPenumbraSummary
-import net.rotko.zigner.screens.scan.transaction.transactionElements.TCPenumbraSpend
-import net.rotko.zigner.screens.scan.transaction.transactionElements.TCPenumbraOutput
-import net.rotko.zigner.screens.scan.transaction.transactionElements.TCPenumbraSwap
-import net.rotko.zigner.screens.scan.transaction.transactionElements.TCPenumbraDelegate
-import net.rotko.zigner.screens.scan.transaction.transactionElements.TCPenumbraVote
-import net.rotko.zigner.screens.scan.transaction.transactionElements.TCPenumbraGenericAction
-import net.rotko.zigner.screens.scan.transaction.transactionElements.TCPenumbraSchema
 import io.parity.signer.uniffi.Card
 import io.parity.signer.uniffi.TransactionCard
 
@@ -132,15 +124,6 @@ fun TransactionElementSelector(card: TransactionCard) {
 				value = txCard.f,
 			)
 
-			// Penumbra transaction cards
-			is Card.PenumbraSummaryCard -> TCPenumbraSummary(summary = txCard.f)
-			is Card.PenumbraSpendCard -> TCPenumbraSpend(spend = txCard.f)
-			is Card.PenumbraOutputCard -> TCPenumbraOutput(output = txCard.f)
-			is Card.PenumbraSwapCard -> TCPenumbraSwap(swap = txCard.f)
-			is Card.PenumbraDelegateCard -> TCPenumbraDelegate(delegate = txCard.f)
-			is Card.PenumbraVoteCard -> TCPenumbraVote(vote = txCard.f)
-			is Card.PenumbraGenericActionCard -> TCPenumbraGenericAction(action = txCard.f)
-			is Card.PenumbraSchemaCard -> TCPenumbraSchema(schema = txCard.f)
 
 			// Zcash transaction cards
 			is Card.ZcashSummaryCard -> TCZcashSummary(summary = txCard.f)

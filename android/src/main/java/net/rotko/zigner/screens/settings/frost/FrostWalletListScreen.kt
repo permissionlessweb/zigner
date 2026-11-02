@@ -32,8 +32,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import io.parity.signer.uniffi.FrostWalletSummaryFfi
 import io.parity.signer.uniffi.frostDeleteWallet
-import io.parity.signer.uniffi.frostImportAllBackupEnvelope
-import io.parity.signer.uniffi.frostImportBackupEnvelope
 import io.parity.signer.uniffi.frostListWallets
 import io.parity.signer.uniffi.frostRenameWallet
 import kotlinx.coroutines.Dispatchers
@@ -209,9 +207,8 @@ fun FrostWalletListScreen(
 					try {
 						val envelopeType = org.json.JSONObject(json).optString("type", "")
 						if (envelopeType == "frost-share-batch-backup") {
-							val resultJson = withContext(Dispatchers.Default) {
-								frostImportAllBackupEnvelope(json, passphrase)
-							}
+							val resultJson = FrostExportUseCase.importAll(json, passphrase)
+								?: return@launch
 							val result = org.json.JSONObject(resultJson)
 							val imported = result.optInt("imported", 0)
 							val skipped = result.optInt("skipped", 0)
@@ -221,9 +218,8 @@ fun FrostWalletListScreen(
 							}
 							Timber.d("[frost-backup] batch import: imported=$imported skipped=$skipped")
 						} else {
-							val newId = withContext(Dispatchers.Default) {
-								frostImportBackupEnvelope(json, passphrase)
-							}
+							val newId = FrostExportUseCase.importSingle(json, passphrase)
+								?: return@launch
 							toast = "wallet restored"
 							Timber.d("[frost-backup] imported wallet=$newId")
 						}

@@ -9,7 +9,6 @@ import io.parity.signer.uniffi.MTransaction
 import io.parity.signer.uniffi.ZcashTransactionSummary
 import io.parity.signer.uniffi.ZcashOrchardSpend
 import io.parity.signer.uniffi.ZcashOrchardOutput
-import io.parity.signer.uniffi.PenumbraTransactionSummary
 
 /**
  * Local version of [Mtransaction] for the case of signing elements
@@ -77,20 +76,6 @@ private fun IndexedValue<MTransaction>.toSigningTransactionModel(): SigningTrans
 		)
 	}
 
-	// detect penumbra transaction
-	val penumbraSummary = methodCards.filterIsInstance<Card.PenumbraSummaryCard>().firstOrNull()
-	if (penumbraSummary != null) {
-		return SigningTransactionModel(
-			summaryModels = listOf(
-				TransactionSummaryModel.Penumbra(
-					summary = penumbraSummary.f,
-					mTransactionIndex = index,
-				)
-			),
-			keyModel = extractKeyModel(),
-		)
-	}
-
 	// substrate (default)
 	var pallet = ""
 	var method = ""
@@ -148,11 +133,6 @@ sealed class TransactionSummaryModel {
 		val summary: ZcashTransactionSummary,
 		val spends: List<ZcashOrchardSpend>,
 		val outputs: List<ZcashOrchardOutput>,
-		override val mTransactionIndex: Int,
-	) : TransactionSummaryModel()
-
-	data class Penumbra(
-		val summary: PenumbraTransactionSummary,
 		override val mTransactionIndex: Int,
 	) : TransactionSummaryModel()
 }

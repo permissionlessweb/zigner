@@ -46,5 +46,4 @@ pub mod navigation;
 pub mod derivations;
 
 pub mod dynamic_derivations;
-pub mod penumbra_schema;
 pub mod schema_version;

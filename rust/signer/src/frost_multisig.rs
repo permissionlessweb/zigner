@@ -212,43 +212,6 @@ pub fn frost_spend_sign_round2_signed(
     .map_err(|e| e.to_string())
 }
 
-/// sign multiple actions at once (one share per alpha).
-/// alphas_json: JSON array of hex-encoded 32-byte alphas (one per Orchard action).
-/// commitments_json: JSON array of hex-encoded signed commitments.
-/// Returns JSON: { "shares": [hex, ...] }
-pub fn frost_spend_sign_actions(
-    key_package_hex: &str,
-    nonces_hex: &str,
-    sighash_hex: &str,
-    alphas_json: &str,
-    commitments_json: &str,
-) -> Result<String, String> {
-    // Consume nonce BEFORE any signing — prevents reuse even if one action fails
-    consume_nonce(nonces_hex)?;
-
-    let sighash = parse_32(sighash_hex, "sighash")?;
-    let alphas: Vec<String> =
-        serde_json::from_str(alphas_json).map_err(|e| format!("bad alphas JSON: {}", e))?;
-    let commitments: Vec<String> = serde_json::from_str(commitments_json)
-        .map_err(|e| format!("bad commitments JSON: {}", e))?;
-
-    let mut shares = Vec::new();
-    for alpha_hex in &alphas {
-        let alpha = parse_32(alpha_hex, "alpha")?;
-        let share = orchestrate::spend_sign_round2(
-            key_package_hex,
-            nonces_hex,
-            &sighash,
-            &alpha,
-            &commitments,
-        )
-        .map_err(|e| e.to_string())?;
-        shares.push(share);
-    }
-
-    serde_json::to_string(&serde_json::json!({ "shares": shares })).map_err(|e| e.to_string())
-}
-
 /// derive raw Orchard address bytes (43 bytes, hex-encoded) from public key package.
 /// Caller encodes to unified address string for the appropriate network.
 pub fn frost_derive_address_raw(
@@ -304,28 +267,33 @@ pub fn frost_derive_metadata(
     .map_err(|e| e.to_string())
 }
 
-/// Verify a FROST payout PCZT on-device before signing (gh #17). Recomputes the
-/// canonical ZIP-244 sighash from the PCZT and OVK-decodes its outputs with the
-/// group UFVK (which zigner stored at DKG — NOT trusting the host), so the cold
-/// signer authorizes the ACTUAL recipient/amount rather than a host-supplied
-/// claim. The caller compares `recomputed_sighash` against the sighash it's
-/// being asked to sign, and the derived outputs against the displayed summary;
-/// any mismatch must block the signature.
+/// Verify a FROST payout PCZT on-device before signing (gh #17).
+///
+/// Recomputes the ZIP-244 sighash from the PCZT and lists what it pays, from
+/// the PCZT's own output fields, each proven against its note commitment
+/// with the bundle's value balance (`verify_displayed_summary`). Every output
+/// is accounted for: a withheld field, a transparent output or a Sapling part
+/// is refused, as on the single-signer path. An output is change only when
+/// its address belongs to the group's viewing key, so a coordinator cannot
+/// label a payment to itself as change.
 ///
 /// Returns JSON:
 /// `{ recomputed_sighash, sighash_match, outputs:[{recipient,amount_zat,is_change}],
-///    total_send_zat, total_change_zat }`
+///    total_send_zat, total_change_zat, fee_zat }`
 pub fn frost_verify_pczt(
     pczt_hex: &str,
     claimed_sighash_hex: &str,
     orchard_fvk_uview: &str,
 ) -> Result<String, String> {
-    use orchard::keys::Scope;
-    use orchard::note_encryption::{IronwoodVersion, OrchardVersion};
     use zcash_address::unified::{Container, Encoding, Fvk, Ufvk};
 
     let bytes = hex::decode(pczt_hex.trim()).map_err(|e| format!("bad pczt hex: {e}"))?;
     let pczt = pczt::Pczt::parse(&bytes).map_err(|e| format!("pczt parse: {e:?}"))?;
+
+    // Same refusals as the single-signer review: anything the list below
+    // could not show is refused before it is built.
+    crate::zcash_consensus_gate::check_supported(&pczt).map_err(|e| format!("{e:?}"))?;
+    crate::verify_displayed_summary(&pczt).map_err(|e| format!("{e:?}"))?;
 
     // The sighash the FROST share will commit to, from pczt's own Signer: it
     // dispatches on the transaction version (V5, or V6 for an ironwood spend)
@@ -350,21 +318,18 @@ pub fn frost_verify_pczt(
         .ok_or_else(|| "UFVK has no orchard component".to_string())?;
     let fvk = orchard::keys::FullViewingKey::from_bytes(&fvk_bytes)
         .ok_or_else(|| "invalid orchard FVK in UFVK".to_string())?;
-    let ovks = [fvk.to_ovk(Scope::External), fvk.to_ovk(Scope::Internal)];
-
-    // Same byte stream the sighash above was derived from.
-    let tx_data = pczt
-        .into_effects()
-        .map_err(|e| format!("pczt into_effects: {e:?}"))?;
 
     let mut out = Recovered::default();
-    // Both pools: since NU6.3 a spend's outputs land in the ironwood bundle,
-    // whose note plaintexts the orchard domain refuses by design.
-    if let Some(b) = tx_data.orchard_bundle() {
-        recover_outputs::<OrchardVersion, _>(b, &ovks, network, &mut out);
-    }
-    if let Some(b) = tx_data.ironwood_bundle() {
-        recover_outputs::<IronwoodVersion, _>(b, &ovks, network, &mut out);
+    // Both pools: since NU6.3 a spend's outputs land in the ironwood bundle.
+    for bundle in [pczt.orchard(), pczt.ironwood()] {
+        list_outputs(bundle, &fvk, network, &mut out)?;
+        let &(magnitude, negative) = bundle.value_sum();
+        let net = <i64 as std::convert::TryFrom<u64>>::try_from(magnitude)
+            .map_err(|_| "value sum out of range".to_string())?;
+        out.fee = out
+            .fee
+            .checked_add(if negative { -net } else { net })
+            .ok_or_else(|| "fee out of range".to_string())?;
     }
 
     serde_json::to_string(&serde_json::json!({
@@ -373,6 +338,7 @@ pub fn frost_verify_pczt(
         "outputs": out.outputs,
         "total_send_zat": out.total_send,
         "total_change_zat": out.total_change,
+        "fee_zat": out.fee,
     }))
     .map_err(|e| e.to_string())
 }
@@ -382,49 +348,46 @@ struct Recovered {
     outputs: Vec<serde_json::Value>,
     total_send: u64,
     total_change: u64,
+    /// Shielded net value: with no transparent or Sapling part, the fee.
+    fee: i64,
 }
 
-/// Decrypt one bundle's outputs with the outgoing viewing keys: the external
-/// key opens a payment, the internal key opens change back to the group.
-fn recover_outputs<V, A>(
-    bundle: &orchard::Bundle<A, zcash_protocol::value::ZatBalance>,
-    ovks: &[orchard::keys::OutgoingViewingKey; 2],
+/// List one bundle's outputs from the PCZT's own fields. Zero-value outputs
+/// are padding and move nothing, so they are not listed.
+fn list_outputs(
+    bundle: &pczt::orchard::Bundle,
+    fvk: &orchard::keys::FullViewingKey,
     network: zcash_protocol::consensus::NetworkType,
     out: &mut Recovered,
-) where
-    V: orchard::note_encryption::DomainVersion,
-    A: orchard::bundle::Authorization,
-{
-    use orchard::note_encryption::NoteEncryptionDomain;
+) -> Result<(), String> {
     use zcash_address::unified::{Address as UnifiedAddress, Encoding, Receiver};
-    use zcash_note_encryption::try_output_recovery_with_ovk;
 
-    for action in bundle.actions().iter() {
-        let domain = NoteEncryptionDomain::<V>::for_action(action);
-        let cv = action.cv_net();
-        let out_ct = action.encrypted_note().out_ciphertext;
-        let recovered = ovks.iter().enumerate().find_map(|(i, ovk)| {
-            try_output_recovery_with_ovk(&domain, ovk, action, cv, &out_ct).map(|r| (r, i == 1))
-        });
-        if let Some(((note, addr, _memo), is_change)) = recovered {
-            let amount = note.value().inner();
-            if is_change {
-                out.total_change = out.total_change.saturating_add(amount);
-            } else {
-                out.total_send = out.total_send.saturating_add(amount);
-            }
-            let ua = UnifiedAddress::try_from_items(vec![Receiver::Orchard(
-                addr.to_raw_address_bytes(),
-            )])
-            .map(|a| a.encode(&network))
-            .unwrap_or_default();
-            out.outputs.push(serde_json::json!({
-                "recipient": ua,
-                "amount_zat": amount,
-                "is_change": is_change,
-            }));
+    for (index, action) in bundle.actions().iter().enumerate() {
+        let output = action.output();
+        let (Some(amount), Some(raw)) = (*output.value(), output.recipient()) else {
+            return Err(format!("output {index} withholds its value or recipient"));
+        };
+        if amount == 0 {
+            continue;
         }
+        let addr = Option::<orchard::Address>::from(orchard::Address::from_raw_address_bytes(raw))
+            .ok_or_else(|| format!("output {index} has an invalid recipient"))?;
+        let is_change = fvk.scope_for_address(&addr).is_some();
+        if is_change {
+            out.total_change = out.total_change.saturating_add(amount);
+        } else {
+            out.total_send = out.total_send.saturating_add(amount);
+        }
+        let ua = UnifiedAddress::try_from_items(vec![Receiver::Orchard(*raw)])
+            .map(|a| a.encode(&network))
+            .map_err(|e| format!("output {index}: {e}"))?;
+        out.outputs.push(serde_json::json!({
+            "recipient": ua,
+            "amount_zat": amount,
+            "is_change": is_change,
+        }));
     }
+    Ok(())
 }
 
 // ── helpers ──

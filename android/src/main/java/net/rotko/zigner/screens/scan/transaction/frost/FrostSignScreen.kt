@@ -15,6 +15,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import io.parity.signer.uniffi.frostListWallets
 import io.parity.signer.uniffi.frostLoadWallet
+import io.parity.signer.uniffi.frostLoadWalletSecrets
+import net.rotko.zigner.domain.frost.FrostSeeds
 import io.parity.signer.uniffi.frostSignRound1
 import io.parity.signer.uniffi.frostSpendSignRound2Signed
 import io.parity.signer.uniffi.frostVerifyPczt
@@ -49,6 +51,8 @@ private data class FrostVerdict(
 	/** could not verify (no PCZT, no UFVK on file, verifier error) - signing is blocked */
 	val unverifiedReason: String?,
 	val outputs: List<FrostOutputRow>,
+	/** network fee from the PCZT's value balance; null when unverified */
+	val feeZat: Long? = null,
 )
 
 private data class FrostOutputRow(val recipient: String, val amountZat: Long, val isChange: Boolean)
@@ -80,10 +84,9 @@ fun FrostSignScreen(
 	var errorMsg by remember { mutableStateOf("") }
 	var qrData by remember { mutableStateOf("") }
 	var verdict by remember { mutableStateOf<FrostVerdict?>(null) }
-	// Held between the round-1 review and the approve click so commitments are
-	// generated with the same wallet material we verified against.
-	var loadedKeyPackage by remember { mutableStateOf("") }
-	var loadedEphemeralSeed by remember { mutableStateOf("") }
+	// The wallet reviewed in round 1. Its sealed share is opened only at
+	// Approve, behind the unlock, so commitments use the wallet verified here.
+	var loadedWalletId by remember { mutableStateOf("") }
 
 	LaunchedEffect(Unit) {
 		Timber.d("[FROST] FrostSignScreen round=$round pkg=…${publicKeyPackageHex.takeLast(8)}")
@@ -91,9 +94,8 @@ fun FrostSignScreen(
 			try {
 				when (round) {
 					1 -> {
-						val wallet = loadWalletJson(publicKeyPackageHex, walletIdHint)
-						loadedKeyPackage = wallet.getString("key_package")
-						loadedEphemeralSeed = wallet.getString("ephemeral_seed")
+						val (walletId, wallet) = loadWalletJson(publicKeyPackageHex, walletIdHint)
+						loadedWalletId = walletId
 						val ufvk = wallet.optString("orchard_fvk_uview", "")
 						verdict = computeFrostVerdict(pcztHex, sighashHex, ufvk)
 						state = FrostSignState.REVIEW
@@ -166,8 +168,8 @@ fun FrostSignScreen(
 					// explains it — don't imply a failed decode.
 					if (externals.isEmpty() && v.unverifiedReason == null && !v.hardMismatch) {
 						OutputCard(
-							title = "No recipient output derived",
-							body = "The PCZT decrypts to no external payment. Do not sign unless you expect a self-transfer.",
+							title = "No payment outside this group",
+							body = "Every output goes back to this group's own addresses. Do not sign unless you expect a self-transfer.",
 							danger = true,
 						)
 					}
@@ -184,6 +186,9 @@ fun FrostSignScreen(
 							body = o.recipient,
 							danger = false,
 						)
+					}
+					v.feeZat?.let { fee ->
+						OutputCard(title = "Fee ${zec(fee)} ZEC", body = "Network fee", danger = false)
 					}
 					if (summary.isNotEmpty()) {
 						Text(
@@ -209,8 +214,15 @@ fun FrostSignScreen(
 								state = FrostSignState.LOADING
 								scope.launch {
 									try {
+										val seeds = FrostSeeds.unlockAll()
+											?: throw IllegalStateException("Unlock cancelled")
+										val secrets = org.json.JSONObject(withContext(Dispatchers.Default) {
+											frostLoadWalletSecrets(loadedWalletId, seeds)
+										})
 										generateCommitments(
-											loadedKeyPackage, loadedEphemeralSeed, alphasJson, onNoncesUpdated,
+											secrets.getString("key_package"),
+											secrets.getString("ephemeral_seed"),
+											alphasJson, onNoncesUpdated,
 										) { qr -> qrData = qr }
 										// Recorded only after commitments succeed, and only
 										// on this verified path (Approve needs v.verified).
@@ -295,7 +307,7 @@ private fun VerdictBanner(v: FrostVerdict) {
 	val (text, color) = when {
 		v.hardMismatch -> "MISMATCH — the transaction does not match the request. Do NOT sign." to MaterialTheme.colors.red500
 		v.unverifiedReason != null -> "Cannot verify this request on this device (${v.unverifiedReason}). Signing is blocked." to MaterialTheme.colors.red500
-		else -> "Verified on-device: outputs + sighash match the PCZT." to MaterialTheme.colors.textSecondary
+		else -> "Verified on-device: every output, the fee and the sighash come from the PCZT." to MaterialTheme.colors.textSecondary
 	}
 	Text(
 		text = text,
@@ -328,11 +340,12 @@ private fun OutputCard(title: String, body: String, danger: Boolean) {
 	}
 }
 
-/** Find wallet (O(1) via walletIdHint, else O(n) public_key_package scan). */
+/** Find wallet (O(1) via walletIdHint, else O(n) public_key_package scan):
+ *  its id and public fields. */
 private suspend fun loadWalletJson(
 	publicKeyPackageHex: String,
 	walletIdHint: String,
-): org.json.JSONObject {
+): Pair<String, org.json.JSONObject> {
 	val walletJson = if (walletIdHint.isNotEmpty()) {
 		runCatching {
 			val w = withContext(Dispatchers.Default) { frostLoadWallet(walletIdHint) }
@@ -342,7 +355,7 @@ private suspend fun loadWalletJson(
 				null
 			} else {
 				Timber.d("[FROST] sign1 walletIdHint hit walletId=$walletIdHint")
-				w
+				walletIdHint to w
 			}
 		}.getOrNull()
 	} else null
@@ -358,9 +371,9 @@ private suspend fun loadWalletJson(
 			"no FROST wallet matches the requested public key package — was it stored on this device?"
 		)
 		Timber.d("[FROST] sign1 scan-matched wallet=${match.walletId}")
-		withContext(Dispatchers.Default) { frostLoadWallet(match.walletId) }
+		match.walletId to withContext(Dispatchers.Default) { frostLoadWallet(match.walletId) }
 	}
-	return org.json.JSONObject(finalJson)
+	return finalJson.first to org.json.JSONObject(finalJson.second)
 }
 
 /** gh #17: recompute sighash + OVK-decode outputs on-device via the rust verifier. */
@@ -401,6 +414,7 @@ private suspend fun computeFrostVerdict(
 			hardMismatch = !sighashMatch,
 			unverifiedReason = null,
 			outputs = outs,
+			feeZat = o.optLong("fee_zat", 0L),
 		)
 	} catch (e: Exception) {
 		Timber.e(e, "[FROST] frostVerifyPczt failed")

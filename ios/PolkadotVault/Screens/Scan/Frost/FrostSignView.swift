@@ -142,29 +142,19 @@ extension FrostSignView {
                 do {
                     switch self.round {
                     case 1:
-                        let walletJson = try frostLoadWallet(walletId: self.walletId)
-                        let wallet = try JSONSerialization.jsonObject(with: Data(walletJson.utf8)) as? [String: Any]
-                        let kp = wallet?["key_package"] as? String ?? ""
-                        let es = wallet?["ephemeral_seed"] as? String ?? ""
-                        let result = try frostSignRound1(ephemeralSeedHex: es, keyPackageHex: kp)
-                        let json = try JSONSerialization.jsonObject(with: Data(result.utf8)) as? [String: Any]
-                        let nonces = json?["nonces"] as? String ?? ""
-                        let commitments = json?["commitments"] as? String ?? ""
+                        // Signing needs the sealed share, opened with the seed;
+                        // not ported to iOS yet (round 2 is refused as well).
                         DispatchQueue.main.async {
-                            self.onStateUpdated(nonces, kp)
-                            self.state = .displayQr(commitments)
+                            self.state = .error("FROST signing is not available on iOS yet.")
                         }
                     case 2:
-                        let result = try frostSpendSignActions(
-                            keyPackageHex: self.previousKeyPackage,
-                            noncesHex: self.previousNonces,
-                            sighashHex: self.sighashHex,
-                            alphasJson: self.alphasJson,
-                            commitmentsJson: self.commitmentsJson
-                        )
+                        // Round 2 signed every action with one nonce, which
+                        // leaks this device's share. Refused until iOS takes
+                        // one nonce per action and checks the PCZT on-device,
+                        // as Android does.
                         DispatchQueue.main.async {
                             self.onStateUpdated("", "")
-                            self.state = .displayQr(result)
+                            self.state = .error("FROST signing is not available on iOS yet.")
                         }
                     default:
                         DispatchQueue.main.async { self.state = .error("Invalid round") }

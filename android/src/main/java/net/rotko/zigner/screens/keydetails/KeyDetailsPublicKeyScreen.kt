@@ -70,6 +70,7 @@ import net.rotko.zigner.ui.theme.red500
 import net.rotko.zigner.ui.theme.red500fill12
 import net.rotko.zigner.ui.theme.textTertiary
 import io.parity.signer.uniffi.Action
+import io.parity.signer.uniffi.PenumbraReceive
 import io.parity.signer.uniffi.ZcashVerifiedNoteDisplay
 import io.parity.signer.uniffi.encodeToQr
 import kotlinx.coroutines.launch
@@ -111,6 +112,9 @@ fun KeyDetailsPublicKeyScreen(
 	zcashTransparentAddress: String? = null,
 	zcashTransparentLoading: Boolean = false,
 	onRequestZcashTransparentAddress: Callback = {},
+	penumbraFreshReceive: PenumbraReceive? = null,
+	penumbraFreshLoading: Boolean = false,
+	onRequestPenumbraFreshReceive: Callback = {},
 	zcashVerifiedBalance: ULong? = null,
 	zcashVerifiedNotes: List<ZcashVerifiedNoteDisplay> = emptyList(),
 	zcashSyncedAt: ULong? = null,
@@ -199,8 +203,20 @@ fun KeyDetailsPublicKeyScreen(
 							// Penumbra Receive: only the address derived with the exported key
 							// (zigner#35); the stored one may predate the fix
 							isPenumbra && !showFvk -> {
-								val receivePng = fvkResult?.receiveQrPng
-								if (receivePng == null) {
+								val receivePng = if (penumbraFreshReceive != null) {
+									remember(penumbraFreshReceive) {
+										runBlocking {
+											encodeToQr(
+												penumbraFreshReceive.qrText.toByteArray(Charsets.UTF_8)
+													.map { it.toUByte() },
+												false
+											).toList()
+										}
+									}
+								} else {
+									fvkResult?.receiveQrPng
+								}
+								if (receivePng == null || penumbraFreshLoading) {
 									CircularProgressIndicator(
 										color = MaterialTheme.colors.pink500,
 										modifier = Modifier.size(48.dp)
@@ -310,7 +326,7 @@ fun KeyDetailsPublicKeyScreen(
 								modifier = Modifier.weight(1f)
 							)
 						} else if (isPenumbra && !showFvk) {
-							val receiveAddress = fvkResult?.receiveAddress.orEmpty()
+							val receiveAddress = penumbraFreshReceive?.address ?: fvkResult?.receiveAddress.orEmpty()
 							Text(
 								text = if (receiveAddress.isEmpty()) "" else receiveAddress.take(14) + "..." + receiveAddress.takeLast(8),
 								style = SignerTypeface.CaptionM,
@@ -441,6 +457,27 @@ fun KeyDetailsPublicKeyScreen(
 								}
 							},
 							backgroundColor = MaterialTheme.colors.background,
+						)
+					}
+				}
+
+				// Penumbra Receive mode: opt-in fresh address, same as Zafu's
+				if (isPenumbra && !showFvk) {
+					Box(
+						modifier = Modifier
+							.fillMaxWidth()
+							.padding(horizontal = 24.dp, vertical = 4.dp),
+						contentAlignment = Alignment.Center
+					) {
+						Text(
+							text = "New Address",
+							style = SignerTypeface.LabelM,
+							color = Color.White,
+							modifier = Modifier
+								.clip(RoundedCornerShape(8.dp))
+								.background(MaterialTheme.colors.pink500)
+								.clickable { onRequestPenumbraFreshReceive() }
+								.padding(horizontal = 24.dp, vertical = 10.dp)
 						)
 					}
 				}

@@ -2490,6 +2490,8 @@ fn a_frost_wallet_alone_opens_frost_signing_and_zcash() {
             orchard_fvk_uview: None,
             address: None,
             relay_url: None,
+            sealed: None,
+            seed_id: None,
         },
     )
     .unwrap();

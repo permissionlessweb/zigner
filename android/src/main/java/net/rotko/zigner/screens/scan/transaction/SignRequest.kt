@@ -3,7 +3,6 @@ package net.rotko.zigner.screens.scan.transaction
 import io.parity.signer.uniffi.CosmosSignRequest
 import io.parity.signer.uniffi.PenumbraSignRequest
 import io.parity.signer.uniffi.ZcashPcztInspection
-import io.parity.signer.uniffi.ZcashSimpleSignRequest
 
 /**
  * Unified sign request sealed class.
@@ -40,14 +39,6 @@ sealed class SignRequest {
 		override val networkName = "Zcash (PCZT)"
 		override val rawPayload: String
 			get() = urParts.joinToString("\n")
-	}
-
-	data class ZcashSimple(
-		val request: ZcashSimpleSignRequest,
-	) : SignRequest() {
-		override val networkName: String
-			get() = if (request.mainnet) "Zcash" else "Zcash (Testnet)"
-		override val rawPayload = request.rawQrHex
 	}
 }
 

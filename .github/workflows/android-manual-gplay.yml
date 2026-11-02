@@ -33,25 +33,33 @@ jobs:
           echo "BUILD_TOOL_VERSION=${{ needs.build-apk.outputs.build-tool-version }}" >> $GITHUB_ENV
 
       - name: Download built artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: zigner-aab
           path: app
 
-      - name: Sign app APK
-        uses: r0adkll/sign-android-release@v1
+      # An AAB is signed with jarsigner (apksigner does not sign bundles),
+      # here rather than in a third-party action.
+      - name: Sign app bundle
         id: sign_app
-        with:
-          releaseDirectory: app
-          signingKeyBase64: ${{ secrets.ANDROID_PLAY_STORE_KEYSTORE_BASE64 }}
-          alias: ${{ secrets.ANDROID_PLAY_STORE_KEY_ALIAS }}
-          keyStorePassword: ${{ secrets.ANDROID_PLAY_STORE_KEYSTORE_PASSWORD }}
-          keyPassword: ${{ secrets.ANDROID_PLAY_STORE_KEYSTORE_PASSWORD }}
         env:
-          BUILD_TOOLS_VERSION: ${{ env.BUILD_TOOL_VERSION }}
+          SIGNING_KEY_BASE64: ${{ secrets.ANDROID_PLAY_STORE_KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.ANDROID_PLAY_STORE_KEY_ALIAS }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_PLAY_STORE_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          ks="$RUNNER_TEMP/upload.jks"
+          trap 'rm -f "$ks"' EXIT
+          printf '%s' "$SIGNING_KEY_BASE64" | base64 -d > "$ks"
+          bundle=$(ls app/*.aab)
+          [ "$(echo "$bundle" | wc -l)" -eq 1 ] || { echo "expected one AAB, got: $bundle"; exit 1; }
+          jarsigner -keystore "$ks" -storepass:env KEYSTORE_PASSWORD -keypass:env KEYSTORE_PASSWORD \
+            -signedjar app/signed.aab "$bundle" "$KEY_ALIAS"
+          jarsigner -verify app/signed.aab
+          echo "signedReleaseFile=app/signed.aab" >> "$GITHUB_OUTPUT"
 
       - name: Publish to Google Play Store
-        uses: r0adkll/upload-google-play@v1
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.ANDROID_PLAY_STORE_API_JSON }}
           releaseFiles: ${{ steps.sign_app.outputs.signedReleaseFile }}
@@ -59,7 +67,7 @@ jobs:
           track: internal
 
       - name: Upload signed APK artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: signed-apk
           path: ${{ steps.sign_app.outputs.signedReleaseFile }}  
@@ -70,10 +78,10 @@ jobs:
 
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
     
       - name: Download signed APK artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: signed-apk
           path: release-assets
@@ -101,7 +109,7 @@ jobs:
 
       # Create GitHub Release using the generated changelog
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: v${{ steps.version.outputs.version }}
           name: Zafu Zigner ${{ steps.version.outputs.version }} android

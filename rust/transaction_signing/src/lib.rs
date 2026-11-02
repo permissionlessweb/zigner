@@ -29,6 +29,8 @@ pub use error::{Error, Result};
 #[cfg(feature = "penumbra")]
 pub mod penumbra;
 #[cfg(feature = "penumbra")]
+pub mod penumbra_review;
+#[cfg(feature = "penumbra")]
 pub use penumbra::{
     derive_spend_auth_key as penumbra_derive_spend_auth_key, sign_spend as penumbra_sign_spend,
     sign_transaction as penumbra_sign_transaction, EffectHash as PenumbraEffectHash,
@@ -50,14 +52,10 @@ pub use zcash::{
     attestation_digest, decode_notes_bundle_from_cbor,
     derive_orchard_fvk as zcash_derive_orchard_fvk,
     derive_transparent_address as zcash_derive_transparent_address, encode_notes_bundle_to_cbor,
-    sign_orchard_action as zcash_sign_orchard, sign_pczt as zcash_sign_pczt,
-    sign_transparent as zcash_sign_transparent, verify_anchor_attestation, verify_merkle_path,
-    OrchardFullViewingKey as ZcashOrchardFvk, OrchardSpendingKey as ZcashOrchardKey,
-    PcztSignerInput, PcztSignerOutput, TransparentSpendingKey as ZcashTransparentKey,
-    ZcashAuthorizationData, ZcashFvkExportData, ZcashNoteSyncResult, ZcashNoteWithPath,
-    ZcashNotesBundle, ZcashSignRequest, ZcashSignatureResponse, ZcashVerifiedNote,
-    QR_TYPE_ZCASH_FVK_EXPORT, QR_TYPE_ZCASH_NOTES, QR_TYPE_ZCASH_SIGNATURES,
-    QR_TYPE_ZCASH_SIGN_REQUEST, ZCASH_COIN_TYPE,
+    verify_merkle_path, OrchardFullViewingKey as ZcashOrchardFvk,
+    OrchardSpendingKey as ZcashOrchardKey, TransparentSpendingKey as ZcashTransparentKey,
+    ZcashFvkExportData, ZcashNoteSyncResult, ZcashNoteWithPath, ZcashNotesBundle,
+    ZcashVerifiedNote, QR_TYPE_ZCASH_FVK_EXPORT, QR_TYPE_ZCASH_NOTES, ZCASH_COIN_TYPE,
 };
 
 pub use sign_transaction::{create_signature, SignatureAndChecksum, SignatureType};

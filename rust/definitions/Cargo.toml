@@ -15,7 +15,6 @@ sp-core = {git = "https://github.com/paritytech/substrate", rev = "49734dd1d72a0
 sp-runtime = {git = "https://github.com/paritytech/substrate", rev = "49734dd1d72a00b9d3b87ba397661a63e0e17af3", default-features = false}
 sp-version = {git = "https://github.com/paritytech/substrate", rev = "49734dd1d72a00b9d3b87ba397661a63e0e17af3"}
 thiserror = "1.0.57"
-serde = { version = "1.0", features = ["derive"] }
 constants = {path = "../constants"}
 
 [features]
@@ -28,4 +27,3 @@ crate-type = ["lib"]
 
 [dev-dependencies]
 pretty_assertions = "1.4.0"
-serde_json = "1.0"

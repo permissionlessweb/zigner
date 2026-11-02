@@ -31,9 +31,6 @@ orchard = { package = "zakura-orchard", version = "=2.2.0", default-features = f
 # Address encoding for PCZT recipient display
 zcash_address = { package = "zakura-address", version = "=2.2.0", default-features = false }
 zcash_protocol = { package = "zakura-protocol", version = "=2.2.0", default-features = false }
-# gh #17 on-device FROST PCZT verify: OVK-decode outputs. Already in the build
-# graph via orchard, so the direct dep adds no compilation.
-zcash_note_encryption = "0.4"
 # Auth identity derivation (HMAC-SHA512 KDF) and backup encryption
 hmac = "0.12"
 hkdf = "0.12"

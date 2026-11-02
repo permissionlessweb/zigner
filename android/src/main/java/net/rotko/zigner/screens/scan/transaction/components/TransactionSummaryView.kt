@@ -63,10 +63,6 @@ fun TransactionSummaryView(
 					summary = summary,
 					onClick = { onTransactionClicked(summary.mTransactionIndex) }
 				)
-				is TransactionSummaryModel.Penumbra -> PenumbraSummaryRow(
-					summary = summary,
-					onClick = { onTransactionClicked(summary.mTransactionIndex) }
-				)
 				is TransactionSummaryModel.Substrate -> SubstrateSummaryRow(
 					summary = summary,
 					onClick = { onTransactionClicked(summary.mTransactionIndex) }
@@ -179,39 +175,6 @@ private fun ZcashSummaryRow(
 			TCNameValueElement(
 				name = "Actions",
 				value = "${summary.summary.spendCount} spends, ${summary.summary.outputCount} outputs"
-			)
-		}
-		ChevronIcon()
-	}
-}
-
-/** Penumbra transaction summary */
-@Composable
-private fun PenumbraSummaryRow(
-	summary: TransactionSummaryModel.Penumbra,
-	onClick: () -> Unit,
-) {
-	Row(
-		modifier = Modifier.clickable(onClick = onClick),
-		verticalAlignment = Alignment.CenterVertically,
-	) {
-		Column(
-			modifier = Modifier.weight(1f),
-			verticalArrangement = Arrangement.spacedBy(6.dp),
-		) {
-			Text(
-				text = "Penumbra",
-				style = SignerTypeface.TitleS,
-				color = MaterialTheme.colors.primary,
-			)
-			TCNameValueElement(name = "Fee", value = summary.summary.fee)
-			TCNameValueElement(
-				name = "Actions",
-				value = "${summary.summary.spendCount} spends, ${summary.summary.outputCount} outputs"
-			)
-			TCNameValueElement(
-				name = "Effect Hash",
-				value = summary.summary.effectHash.take(16) + "..."
 			)
 		}
 		ChevronIcon()

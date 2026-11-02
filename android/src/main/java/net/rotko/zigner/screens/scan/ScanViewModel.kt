@@ -48,11 +48,8 @@ import io.parity.signer.uniffi.encodeCworchSignature
 import io.parity.signer.uniffi.parseCosmosSignRequest
 import io.parity.signer.uniffi.signCosmosTransaction as uniffiSignCosmosTransaction
 import io.parity.signer.uniffi.ZcashNoteSyncResult
-import io.parity.signer.uniffi.ZcashSimpleSignRequest
 import io.parity.signer.uniffi.ModulePackageInfo
 import io.parity.signer.uniffi.decodeAndVerifyZcashNotes
-import io.parity.signer.uniffi.parseZcashSignRequest
-import io.parity.signer.uniffi.signZcashSimple
 import io.parity.signer.uniffi.decodeUrZcashPczt
 import io.parity.signer.uniffi.inspectZcashPczt
 import io.parity.signer.uniffi.signZcashPcztUr
@@ -440,7 +437,7 @@ class ScanViewModel : ViewModel() {
 		comment: String,
 		seedNames: List<String>,
 	): ActionResult? {
-		return when (val phrases = seedRepository.getSeedPhrases(seedNames)) {
+		return when (val phrases = seedRepository.getSeedPhrasesForceAuth(seedNames)) {
 			is RepoResult.Failure -> {
 				Timber.w(TAG, "signature transactions failure ${phrases.error}")
 				null
@@ -655,7 +652,7 @@ class ScanViewModel : ViewModel() {
 	// ========================================================================
 
 	/**
-	 * Parse any hex-based sign request (Penumbra, Cosmos, or Zcash simple)
+	 * Parse any hex-based sign request (Penumbra or Cosmos)
 	 * and set the unified signRequest state.
 	 */
 	fun performUnifiedSignRequest(qrHex: String, context: Context) {
@@ -667,9 +664,6 @@ class ScanViewModel : ViewModel() {
 				}
 				prefix == "530510" -> {
 					SignRequest.Cosmos(parseCosmosSignRequest(qrHex))
-				}
-				prefix == "530402" -> {
-					SignRequest.ZcashSimple(parseZcashSignRequest(qrHex))
 				}
 				else -> {
 					throw IllegalArgumentException("Unknown QR prefix: $prefix")
@@ -768,11 +762,6 @@ class ScanViewModel : ViewModel() {
 						} else {
 							SignatureResult.HexQr(hex, req.networkName, publicKey)
 						}
-					}
-					is SignRequest.ZcashSimple -> {
-						val seedPhrase = getSeedPhrase() ?: return@launch
-						val hex = signZcashSimple(seedPhrase, req.request)
-						signatureResult.value = SignatureResult.HexQr(hex, req.networkName)
 					}
 					is SignRequest.ZcashPczt -> {
 						val seedPhrase = getSeedPhrase() ?: return@launch

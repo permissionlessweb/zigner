@@ -25,7 +25,7 @@ jobs:
       build-tool-version: ${{ steps.read-build-tool-version.outputs.build-tool-version }}
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Install System Dependencies (Linux)
         run: |
@@ -44,10 +44,12 @@ jobs:
           echo "build-tool-version=${BUILD_TOOL_VERSION}" >> "${GITHUB_OUTPUT}"
 
       - name: Install Rust stable toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch
+        with:
+          toolchain: 1.99.1
 
       - name: Install uniffi_bindgen
-        uses: actions-rs/install@v0.1
+        uses: actions-rs/install@9da1d2adcfe5e7c16992e8242ca33a56b6d9b101 # v0.1
         with:
           crate: uniffi_bindgen
           version: 0.22.0 # Must be in sync with version in Cargo.toml
@@ -62,7 +64,7 @@ jobs:
           workspaces: rust -> rust/target
 
       - name: Gradle Cache
-        uses: actions/cache@v3
+        uses: actions/cache@6f8efc29b200d32929f49075959781ed54ec270c # v3
         with:
           path: |
             ~/.gradle/caches
@@ -83,7 +85,7 @@ jobs:
 
       - name: Upload debug APKs
         if: ${{ inputs.is-release == false }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: zigner-apk
           path: android/build/outputs/apk/debug/*.apk
@@ -100,7 +102,7 @@ jobs:
 
       - name: Upload release APKs
         if: ${{ inputs.is-release == true }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: zigner-apk
           path: android/build/outputs/apk/release/*.apk
@@ -108,7 +110,7 @@ jobs:
       # Google Play requires the Android App Bundle for new apps
       - name: Upload release AAB
         if: ${{ inputs.is-release == true }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: zigner-aab
           path: android/build/outputs/bundle/release/*.aab

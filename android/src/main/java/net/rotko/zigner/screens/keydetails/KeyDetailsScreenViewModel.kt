@@ -9,6 +9,7 @@ import net.rotko.zigner.domain.backend.UniffiResult
 import net.rotko.zigner.domain.storage.RepoResult
 import net.rotko.zigner.screens.keydetails.exportprivatekey.PrivateKeyExportModel
 import io.parity.signer.uniffi.MKeyDetails
+import io.parity.signer.uniffi.PenumbraReceive
 import io.parity.signer.uniffi.ZcashVerifiedNoteDisplay
 import io.parity.signer.uniffi.encodeToQr
 import io.parity.signer.uniffi.exportZcashFvk
@@ -152,6 +153,24 @@ class KeyDetailsScreenViewModel : ViewModel() {
 			is RepoResult.Success -> {
 				try {
 					io.parity.signer.uniffi.getZcashDiversifiedAddress(seedResult.result, accountIndex, diversifierIndex, mainnet)
+				} catch (e: Exception) {
+					null
+				}
+			}
+		}
+	}
+
+	/** A fresh Penumbra receive address, new on every call; the default one is unchanged */
+	suspend fun getPenumbraFreshReceiveAddress(
+		seedName: String,
+		accountIndex: UInt = 0u,
+	): PenumbraReceive? {
+		val seedResult = repo.getSeedPhrases(listOf(seedName))
+		return when (seedResult) {
+			is RepoResult.Failure -> null
+			is RepoResult.Success -> {
+				try {
+					io.parity.signer.uniffi.getPenumbraFreshReceiveAddress(seedResult.result, accountIndex)
 				} catch (e: Exception) {
 					null
 				}

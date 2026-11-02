@@ -17,9 +17,10 @@ class PolkadotVaultApp : Application() {
 		// actually load RustNative code
 		System.loadLibrary("signer")
 
-		initLogging("SIGNER_RUST_LOG")
-
+		// Rust logs reach logcat only in debug builds, like Timber: a release
+		// build has no logger, so nothing a dependency logs can leak there.
 		if (BuildConfig.DEBUG) {
+			initLogging("SIGNER_RUST_LOG")
 			Timber.plant(DebugTree())
 		}
 

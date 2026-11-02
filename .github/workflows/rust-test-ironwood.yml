@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       # Pinned, not `stable`. The module verification below compares bytes
       # against the committed asset, and rustc codegen changes between
@@ -40,7 +40,7 @@ jobs:
       # job's active toolchain itself; the file governs local builds. Keep
       # the two in sync.
       - name: Install pinned Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch
         with:
           toolchain: 1.97.0
           targets: wasm32-unknown-unknown

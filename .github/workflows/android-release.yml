@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       # No Rust toolchain setup: the build happens inside the pinned
       # container, which is the entire point - a runner-local toolchain would
@@ -49,7 +49,7 @@ jobs:
     needs: [verify-module, run-tests, build-apk]
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
 
@@ -59,22 +59,34 @@ jobs:
           echo "BUILD_TOOL_VERSION=${{ needs.build-apk.outputs.build-tool-version }}" >> $GITHUB_ENV
 
       - name: Download built artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: zigner-apk
           path: app
 
+      # Signed here with the SDK's own apksigner: the release key never
+      # passes through a third-party action.
       - name: Sign app APK
-        uses: r0adkll/sign-android-release@v1
         id: sign_app
-        with:
-          releaseDirectory: app
-          signingKeyBase64: ${{ secrets.ANDROID_SIGNING_KEY_BASE64 }}
-          alias: ${{ secrets.ANDROID_KEYSTORE_KEY_ALIAS }}
-          keyStorePassword: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          keyPassword: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         env:
-          BUILD_TOOLS_VERSION: ${{ env.BUILD_TOOL_VERSION }}
+          SIGNING_KEY_BASE64: ${{ secrets.ANDROID_SIGNING_KEY_BASE64 }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEYSTORE_KEY_ALIAS }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          bt="$ANDROID_HOME/build-tools/$BUILD_TOOL_VERSION"
+          ks="$RUNNER_TEMP/release.jks"
+          trap 'rm -f "$ks"' EXIT
+          printf '%s' "$SIGNING_KEY_BASE64" | base64 -d > "$ks"
+          unsigned=$(ls app/*.apk)
+          [ "$(echo "$unsigned" | wc -l)" -eq 1 ] || { echo "expected one APK, got: $unsigned"; exit 1; }
+          "$bt/zipalign" -f -p 4 "$unsigned" app/aligned.apk
+          "$bt/apksigner" sign --ks "$ks" --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass env:KEYSTORE_PASSWORD --key-pass env:KEYSTORE_PASSWORD \
+            --v2-signing-enabled true --v3-signing-enabled true --v4-signing-enabled true \
+            --out app/signed.apk app/aligned.apk
+          "$bt/apksigner" verify --print-certs app/signed.apk
+          echo "signedReleaseFile=app/signed.apk" >> "$GITHUB_OUTPUT"
 
       - name: Rename APK
         run: |
@@ -86,12 +98,14 @@ jobs:
           sha256sum "zigner-${{ github.ref_name }}.apk" > SHA256SUMS
 
       - name: Sign checksums
+        env:
+          SSH_SIGNING_KEY: ${{ secrets.SSH_SIGNING_KEY }}
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_SIGNING_KEY }}" > ~/.ssh/signing_key
-          chmod 600 ~/.ssh/signing_key
-          ssh-keygen -Y sign -f ~/.ssh/signing_key -n file app/SHA256SUMS
-          rm ~/.ssh/signing_key
+          set -euo pipefail
+          key="$RUNNER_TEMP/signing_key"
+          trap 'rm -f "$key"' EXIT
+          (umask 077; printf '%s\n' "$SSH_SIGNING_KEY" > "$key")
+          ssh-keygen -Y sign -f "$key" -n file app/SHA256SUMS
 
       - name: Get previous tag
         id: prev_tag
@@ -118,7 +132,7 @@ jobs:
           fi
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: ${{ github.ref_name }}
           name: Zafu Zigner ${{ github.ref_name }}

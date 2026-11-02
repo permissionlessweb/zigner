@@ -92,23 +92,6 @@ struct TransactionCardSelector: View {
             TCNamedValueCard(value: text)
         case .noneCard:
             TCNamedValueCard(name: Localizable.noneCapitalised.string)
-        // Penumbra cards
-        case let .penumbraSummaryCard(value):
-            TCNamedValueCard(name: "Penumbra", value: value.chainId)
-        case let .penumbraSpendCard(value):
-            TCNamedValueCard(name: "Spend", value: value.noteValue)
-        case let .penumbraOutputCard(value):
-            TCNamedValueCard(name: "Output", value: value.value)
-        case let .penumbraSwapCard(value):
-            TCNamedValueCard(name: "Swap", value: value.inputValue)
-        case let .penumbraDelegateCard(value):
-            TCNamedValueCard(name: "Delegate", value: value.amount)
-        case let .penumbraVoteCard(value):
-            TCNamedValueCard(name: "Vote", value: "Proposal \(value.proposalId)")
-        case let .penumbraGenericActionCard(value):
-            TCNamedValueCard(name: value.actionName, value: value.description)
-        case let .penumbraSchemaCard(value):
-            TCNamedValueCard(name: "Schema v\(value.schemaVersion)", value: value.chainId)
         // Zcash cards
         case let .zcashSummaryCard(value):
             TCNamedValueCard(name: "Zcash", value: value.mainnet ? "Mainnet" : "Testnet")

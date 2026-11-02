@@ -85,7 +85,9 @@ live in the Rust core under `rust/`. `android/` and `ios/` hold the native apps.
 - Android: `rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android`,
   then build in [Android Studio](https://developer.android.com/studio) with
   NDK `24.0.8215888`.
-- iOS: open the Xcode project in `ios/`.
+- iOS: `ios/` is kept but no longer maintained, untested and not built in CI. It
+  lacks the camera filtering, air-gap checks and recent fixes the Android
+  app has, and FROST signing is off. Do not use it to hold funds.
 - Tests: `cd rust && cargo test --locked`
 
 ## Releases and verification

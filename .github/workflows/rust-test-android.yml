@@ -21,7 +21,7 @@ jobs:
         password: ${{ github.token }}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Install system dependancies
         run: |
@@ -29,7 +29,9 @@ jobs:
           sudo apt install -y clang libclang-dev
 
       - name: Install Rust stable toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch
+        with:
+          toolchain: 1.99.1
 
       - name: Install cargo-nextest
         uses: baptiste0928/cargo-install@1cd874a5478fdca35d868ccc74640c5aabbb8f1b # v3.0.0
@@ -38,7 +40,7 @@ jobs:
           version: 0.9
 
       - name: Install uniffi_bindgen
-        uses: actions-rs/install@v0.1
+        uses: actions-rs/install@9da1d2adcfe5e7c16992e8242ca33a56b6d9b101 # v0.1
         with:
           crate: uniffi_bindgen
           version: 0.22.0 # Must be in sync with version in Cargo.toml
