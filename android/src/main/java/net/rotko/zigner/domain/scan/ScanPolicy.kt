@@ -1,50 +1,52 @@
 package net.rotko.zigner.domain.scan
 
-import android.content.Context
+import io.parity.signer.uniffi.ErrorDisplayed
+import io.parity.signer.uniffi.scanReadable
+import timber.log.Timber
 
 /**
  * What the camera is allowed to hand to a parser.
  *
  * The camera is this app's only untrusted input. Everything an attacker
- * controls arrives through it, and the scan dispatcher routes purely on the
- * content of the payload - a six-character prefix decides which parser runs.
- * Nothing consulted the user about it, so the reachable attack surface was
- * the UNION of every chain compiled in, not the subset anyone actually uses.
+ * controls arrives through it, and the scan dispatcher routes on the content
+ * of the payload. A network's content parser is reachable only when this
+ * device holds something it would be used with: no Penumbra key, no
+ * Penumbra parsing; no Zcash key or FROST wallet, no Zcash parsing; no Cosmos
+ * key, no Cosmos parsing. Polkadot is never reachable.
  *
- * A user who has never touched Penumbra could still have 433 lines of
- * hand-rolled protobuf parsing executed by pointing their camera at a QR
- * code. That parser is also among the least exercised code in the app, which
- * makes it a worse place to be wrong than the code people use daily.
+ * The set comes from the Rust core (`db_handling::scan_policy`), derived
+ * from the database each time the camera opens. There is no stored setting
+ * that could drift from what the device actually holds.
  *
- * So: deny by default, and route only what has been explicitly turned on.
- * This does not delete anything - it makes unused parsers unreachable, which
- * is the property that actually matters and is reversible in a way that
- * deleting 30k lines is not.
- *
- * The gate is checked BEFORE a payload reaches a parser. Prefix matching to
- * classify the payload is a fixed-length string comparison and is not itself
- * the thing being defended against.
+ * What this does NOT gate: the multi-frame transport decoder
+ * (`qrparserGetPacketsTotal` / `qrparserTryDecodeQrSequence`: RaptorQ,
+ * legacy frames, banana-split shares) runs on byte-mode codes before
+ * classification, and FROST P-frames are base64- and JSON-decoded before
+ * their gate.
  */
 enum class ScanCapability(val id: String, val label: String) {
-	/** Zcash: notes, PCZT, simple sign. The reason this device exists. */
-	ZCASH("zcash", "Zcash"),
-
 	/** Signed protocol-module packages and release-signing prefixes. */
 	MODULE("module", "Module updates"),
 
-	/** Encrypted backup and contact bundles. */
-	BACKUP("backup", "Encrypted backup"),
+	/** Seed recovery (banana split) and backup import. */
+	BACKUP("backup", "Recovery"),
 
-	/** ZID challenge-response identity. */
-	AUTH("auth", "Identity"),
+	/** FROST key generation, which starts before any FROST wallet exists. */
+	FROST_DKG("frost-dkg", "FROST wallet creation"),
 
-	/** FROST threshold signing (Zcash multisig). */
-	FROST("frost", "FROST multisig"),
+	/** FROST signing rounds. */
+	FROST("frost", "FROST signing"),
 
-	/** Substrate / Polkadot: SCALE payloads and runtime metadata. */
-	SUBSTRATE("substrate", "Polkadot / Substrate"),
+	/** Zcash: notes, PCZT, simple sign. */
+	ZCASH("zcash", "Zcash"),
 
 	PENUMBRA("penumbra", "Penumbra"),
+
+	/** ZID challenge-response identity, derived from a seed. */
+	AUTH("auth", "Identity"),
+
+	/** Never readable: no screen left to route them to. */
+	SUBSTRATE("substrate", "Polkadot / Substrate"),
 
 	COSMOS("cosmos", "Cosmos"),
 	;
@@ -55,49 +57,21 @@ enum class ScanCapability(val id: String, val label: String) {
 }
 
 object ScanPolicy {
-	private const val PREFS = "scan_policy"
-	private const val KEY_ENABLED = "enabled"
-	private const val KEY_INITIALISED = "initialised"
-
 	/**
-	 * On by default: the flows this device is for.
-	 *
-	 * Penumbra is on because this device signs Penumbra. Cosmos is on so a
-	 * Terp key can scan an amino sign request. Substrate stays off until a
-	 * flow sends it. An attacker cannot reach a parser that is off.
+	 * Open on an empty device, because they are how a device stops being
+	 * empty. Also what the camera falls back to if the lookup fails.
 	 */
-	val DEFAULT_ON = setOf(
-		ScanCapability.ZCASH,
-		ScanCapability.PENUMBRA,
+	val ALWAYS = setOf(
 		ScanCapability.MODULE,
 		ScanCapability.BACKUP,
-		ScanCapability.AUTH,
-		ScanCapability.FROST,
-		ScanCapability.COSMOS,
+		ScanCapability.FROST_DKG,
 	)
 
-	private fun prefs(context: Context) =
-		context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-
-	fun enabled(context: Context): Set<ScanCapability> {
-		val p = prefs(context)
-		// Distinguish "never configured" from "configured to allow nothing".
-		// Without this, a user who disables everything gets the defaults back
-		// on next launch, which would quietly undo an explicit decision.
-		if (!p.getBoolean(KEY_INITIALISED, false)) return DEFAULT_ON
-		val ids = p.getStringSet(KEY_ENABLED, emptySet()) ?: emptySet()
-		return ids.mapNotNull { ScanCapability.fromId(it) }.toSet()
-	}
-
-	fun isEnabled(context: Context, cap: ScanCapability): Boolean =
-		enabled(context).contains(cap)
-
-	fun setEnabled(context: Context, cap: ScanCapability, on: Boolean) {
-		val next = enabled(context).toMutableSet()
-		if (on) next.add(cap) else next.remove(cap)
-		prefs(context).edit()
-			.putBoolean(KEY_INITIALISED, true)
-			.putStringSet(KEY_ENABLED, next.map { it.id }.toSet())
-			.apply()
+	/** null when the lookup failed; the camera then reads only [ALWAYS]. */
+	fun readable(): Set<ScanCapability>? = try {
+		scanReadable().mapNotNull { ScanCapability.fromId(it) }.toSet()
+	} catch (e: ErrorDisplayed) {
+		Timber.e("[SCAN] policy lookup failed, reading only recovery and updates: $e")
+		null
 	}
 }

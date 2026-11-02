@@ -6,10 +6,6 @@
 //!   `load_metadata` update payloads from the database entries and through RPC
 //!   calls and update the hot database
 //!
-//! - `$ cargo run unwasm -payload <wasm_file_path> <optional -d key>` to
-//!   produce `load_metadata` update payloads from `.wasm` files and update the
-//!   hot database
-//!
 //! - `$ cargo run meta_default_file -name <network_name> -version
 //! <network_version>` to generates metadata files for `defaults` crate from
 //!   hot database entries
@@ -24,7 +20,7 @@ use crate::error::{Changed, Error, Result};
 use crate::helpers::{
     add_new_metadata, address_book_content, db_upd_metadata, error_occured, load_metadata_print,
     meta_fetch, network_specs_from_entry, prepare_metadata, MetaFetched, MetaShortCut,
-    MetaValuesStamped, SortedMetaValues, Write,
+    SortedMetaValues, Write,
 };
 use crate::parser::{Content, InstructionMeta, Set};
 
@@ -571,62 +567,6 @@ fn fetch_set_element(set_element: &AddressSpecs) -> Result<MetaFetched> {
 /// Show warning if the metadata (`v14`) has incomplete set of signed extensions.
 fn warn(name: &str, version: u32) {
     println!("Warning. Metadata {name}{version} has incomplete set of signed extensions, and could cause Vault to fail in parsing signable transactions using this metadata.");
-}
-
-/// `unwasm -payload <wasm_file_path> <optional -d key>`
-///
-/// Generate `load_metadata` payload from `.wasm` files.
-///
-/// Function is intended to be used for metadata not yet published on a node and
-/// only for the networks that have network specs on record in the hot database.
-///
-/// Metadata is retrieved from `.wasm` file itself. To get genesis hash needed
-/// to complete `load_metadata` payload and to check the metadata for
-/// consistency, network name found in the metadata is used to retrieve
-/// [`NetworkSpecs`](definitions::network_specs::NetworkSpecs).
-///
-/// Optional key `-d`, if used, indicates that the metadata entry should **not**
-/// be added to the [`METATREE`] of the hot database.
-pub fn unwasm<P>(database: &sled::Db, filename: &str, update_db: bool, files_dir: P) -> Result<()>
-where
-    P: AsRef<Path>,
-{
-    let meta_values = MetaValues::from_wasm_file(filename)?;
-    let set_element = search_name(database, &meta_values.name)?;
-    if let Some(prefix_from_meta) = meta_values.optional_base58prefix {
-        if prefix_from_meta != set_element.base58prefix {
-            Err(MetadataError::Base58PrefixSpecsMismatch {
-                specs: set_element.base58prefix,
-                meta: prefix_from_meta,
-            })?;
-        }
-    }
-    let genesis_hash = set_element.genesis_hash;
-    if update_db {
-        let meta_values_stamped = MetaValuesStamped {
-            meta_values: meta_values.to_owned(),
-            at_block_hash: None,
-        };
-        let mut sorted_meta_values = prepare_metadata(database)?;
-        let got_meta_update = add_new_metadata(&meta_values_stamped, &mut sorted_meta_values)?;
-        if got_meta_update {
-            println!(
-                "Unwasmed new metadata {}{}",
-                meta_values.name, meta_values.version
-            )
-        } else {
-            println!(
-                "Unwasmed previously known metadata {}{}",
-                meta_values.name, meta_values.version
-            )
-        }
-        db_upd_metadata(database, sorted_meta_values)?;
-    }
-    let shortcut = MetaShortCut {
-        meta_values,
-        genesis_hash,
-    };
-    load_metadata_print(&shortcut, files_dir)
 }
 
 /// `meta_default_file -name <network_name> -version <metadata_version>`

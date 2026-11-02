@@ -867,6 +867,10 @@ pub struct PenumbraFvkExport {
     /// Format: `ur:penumbra-accounts/<bytewords>`
     /// Uses CBOR tag 49301 (penumbra-accounts) containing tag 49302 (penumbra-full-viewing-key)
     pub ur_string: String,
+    /// Receive address (index 0 of the account's key), from penumbra-sdk
+    pub receive_address: String,
+    /// `penumbra:<address>:0x<genesis>`, the text of the receive QR
+    pub receive_qr_text: String,
 }
 
 /// Cosmos account export data for Zafu wallet import
@@ -1050,6 +1054,16 @@ pub struct PenumbraSignRequest {
     pub vote_count: u32,
     pub lqt_vote_count: u32,
     pub raw_qr_hex: String,
+}
+
+/// Result of signing a Penumbra request with the key found by searching all
+/// seeds/accounts. Carries only which seed/account matched, never key material.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PenumbraSignResult {
+    pub signature: Vec<u8>,
+    pub seed_name: String,
+    pub seed_index: u32,
+    pub account: u32,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

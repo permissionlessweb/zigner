@@ -2,6 +2,57 @@
 
 All notable changes to zigner are documented in this file.
 
+## Unreleased
+
+### Security
+
+- **The camera parses a network's codes only when the device holds a key
+  for it.** A Zcash-only device refuses Penumbra codes, and a Penumbra-only
+  device refuses Zcash codes, before their content parsers run. Zcash also opens
+  with a FROST wallet, FROST signing needs a FROST wallet, and identity
+  challenges need a key. Recovery, FROST wallet creation and module updates
+  stay open on an empty device, because that is how it stops being empty.
+  Polkadot and Cosmos codes are always refused. A refused code says what
+  the device is missing; a failed key lookup says that instead.
+- Not yet covered: the multi-frame QR transport decoder still runs on
+  byte-mode codes before they are classified.
+- The set comes from the Rust core and is derived from the database each
+  time the camera opens. The stored scan setting, which nothing could
+  change, is gone.
+
+## 0.13.0 - 2026-10-29
+
+Minor. **Penumbra users: read the first entry.**
+
+### Penumbra
+
+- **The Penumbra receive address was wrong (zigner#35).** Zigner derived the
+  address it showed with its own placeholder code instead of penumbra-sdk, so
+  the address did not belong to the viewing key Zigner exports or the key it
+  signs with. Funds sent to an address an older Zigner showed cannot be found
+  or spent, by Zigner or any other wallet. The FVK export and signing were
+  always correct: funds received at the address Zafu (or any wallet) shows
+  for the imported FVK are safe.
+  - The address now comes from penumbra-sdk: index 0 of the
+    `m/44'/6532'/account'` key, the same address Zafu shows for that FVK.
+  - Addresses stored by older versions are never shown again. A key added
+    before this release shows no address until you open it; opening it
+    derives the address from the seed and stores that one.
+  - The Receive QR is built only from that freshly derived address.
+- **Exported Penumbra keys are tagged `penumbra:`**, not `substrate:`. Zafu
+  29.5.3 accepts only `penumbra:` and refuses the old form, which marks an
+  address from an affected Zigner.
+- **12-word seeds** work for Penumbra: export and signing used a BIP39 parser
+  that accepts only 24 words.
+- Penumbra keys come from penumbra-sdk alone; Zigner's own derivation code is
+  deleted, with its `decaf377`, `poseidon377`, `f4jumble` and `aes` deps.
+
+### Dependencies
+
+- Removed Substrate's wasm executor and the `unwasm` command of
+  `generate_message` (host tool), which pulled zstd 0.11 into the build.
+- `tokio` 1.53.3, `zstd-sys` 2.1.2 and `zstd` 0.14.3 for new RustSec advisories.
+
 ## 0.12.0 - 2026-10-20
 
 Minor. NU7-ready signing on the zakura stack, a reproducible protocol

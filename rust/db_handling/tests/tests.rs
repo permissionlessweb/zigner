@@ -2428,3 +2428,111 @@ fn test_validate_key_password() {
     assert!(!validate_key_password(&db, &address_key, ALICE_SEED_PHRASE, "wrong_pass").unwrap());
     assert!(validate_key_password(&db, &address_key, ALICE_SEED_PHRASE, "password").unwrap());
 }
+
+#[test]
+fn camera_reads_only_what_the_device_holds() {
+    use db_handling::scan_policy::{readable, AUTH, BACKUP, FROST_DKG, MODULE, PENUMBRA, ZCASH};
+
+    let dbname = tempdir().unwrap();
+    let db = sled::open(dbname).unwrap();
+    populate_all_network_specs(&db).unwrap();
+    try_create_seed(&db, "Alice", ALICE_SEED_PHRASE, false).unwrap();
+
+    // empty device: only what turns it into a non-empty one
+    assert_eq!(readable(&db).unwrap(), vec![MODULE, BACKUP, FROST_DKG]);
+
+    // a Penumbra key opens Penumbra (and identity), not Zcash
+    let penumbra = NetworkSpecsKey::from_parts(
+        &H256::from_str("0000000000000000000000000000000000000000000000000000000000006532")
+            .unwrap(),
+        &Encryption::Penumbra,
+    );
+    try_create_address(&db, "Alice", ALICE_SEED_PHRASE, "m/44'/6532'/0'", &penumbra).unwrap();
+    assert_eq!(
+        readable(&db).unwrap(),
+        vec![MODULE, BACKUP, FROST_DKG, PENUMBRA, AUTH]
+    );
+
+    // a Zcash key opens Zcash
+    let zcash = NetworkSpecsKey::from_parts(
+        &H256::from_str("00040fe8ec8471911baa1db1266ea15dd06b4a8a5c453883c000b031973dce08")
+            .unwrap(),
+        &Encryption::Zcash,
+    );
+    // Zcash derivation takes 24-word seeds only
+    let bob = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon art";
+    try_create_seed(&db, "Bob", bob, false).unwrap();
+    try_create_address(&db, "Bob", bob, "m/32'/133'/0'", &zcash).unwrap();
+    assert_eq!(
+        readable(&db).unwrap(),
+        vec![MODULE, BACKUP, FROST_DKG, ZCASH, PENUMBRA, AUTH]
+    );
+}
+
+#[test]
+fn a_frost_wallet_alone_opens_frost_signing_and_zcash() {
+    use db_handling::frost::{store_frost_wallet, FrostWalletData};
+    use db_handling::scan_policy::{readable, BACKUP, FROST, FROST_DKG, MODULE, ZCASH};
+
+    let dbname = tempdir().unwrap();
+    let db = sled::open(dbname).unwrap();
+    store_frost_wallet(
+        &db,
+        &FrostWalletData {
+            key_package_hex: "aabb".to_string(),
+            public_key_package_hex: "ccdd".to_string(),
+            ephemeral_seed_hex: "eeff".to_string(),
+            label: "2-of-3".to_string(),
+            min_signers: 2,
+            max_signers: 3,
+            mainnet: true,
+            created_at: 0,
+            orchard_fvk_uview: None,
+            address: None,
+            relay_url: None,
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        readable(&db).unwrap(),
+        vec![MODULE, BACKUP, FROST_DKG, FROST, ZCASH]
+    );
+}
+
+#[test]
+fn export_alice_penumbra_is_tagged_penumbra() {
+    let dbname = tempdir().unwrap();
+    let db = sled::open(dbname).unwrap();
+
+    populate_all_network_specs(&db).unwrap();
+    try_create_seed(&db, "Alice", ALICE_SEED_PHRASE, true).unwrap();
+
+    let genesis =
+        H256::from_str("0000000000000000000000000000000000000000000000000000000000006532").unwrap();
+    let specs_key = NetworkSpecsKey::from_parts(&genesis, &Encryption::Penumbra);
+    try_create_address(
+        &db,
+        "Alice",
+        ALICE_SEED_PHRASE,
+        "m/44'/6532'/0'",
+        &specs_key,
+    )
+    .unwrap();
+
+    let multisigner = get_addresses_by_seed_name(&db, "Alice")
+        .unwrap()
+        .into_iter()
+        .find(|(_, details)| details.network_id.as_ref() == Some(&specs_key))
+        .map(|(multisigner, _)| multisigner)
+        .unwrap();
+    let key = export_key(&db, &multisigner, "Alice", &specs_key).unwrap();
+
+    assert!(key.base58.starts_with("penumbra1"), "{}", key.base58);
+    let definitions::navigation::QrData::Regular { data } = key.qr else {
+        panic!("penumbra export is a single QR");
+    };
+    assert_eq!(
+        String::from_utf8(data).unwrap(),
+        format!("penumbra:{}:0x{}", key.base58, hex::encode(genesis))
+    );
+}

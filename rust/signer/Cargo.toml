@@ -96,6 +96,8 @@ log = "0.4.21"
 # inspect/sign code over them. Dev-dependencies are not compiled for
 # `cargo build`, so none of this reaches the Android artifact.
 [dev-dependencies]
+penumbra-transaction = { git = "https://github.com/penumbra-zone/penumbra.git", tag = "v2.0.4", package = "penumbra-sdk-transaction", default-features = false }
+penumbra-proto = { git = "https://github.com/penumbra-zone/penumbra.git", tag = "v2.0.4", package = "penumbra-sdk-proto", default-features = false }
 # Builder for the test PCZTs.
 zcash_primitives = { package = "zakura-primitives", version = "=2.2.0", default-features = false, features = ["transparent-inputs"] }
 pczt = { package = "zakura-pczt", version = "=0.1.0-rc4", default-features = false, features = ["signer", "orchard", "transparent", "io-finalizer", "zcp-builder", "prover", "spend-finalizer", "tx-extractor"] }

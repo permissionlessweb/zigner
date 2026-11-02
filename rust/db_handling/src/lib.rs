@@ -62,6 +62,9 @@ pub mod anchor_verifiers;
 #[cfg(feature = "zcash")]
 pub mod frost;
 
+#[cfg(all(feature = "active", feature = "zcash"))]
+pub mod scan_policy;
+
 pub mod contacts;
 
 pub use error::{Error, Result};

@@ -119,6 +119,7 @@ fun KeyDetailsPublicKeyScreen(
 ) {
 	val isFvkNetwork = isFvkNetwork(model.networkInfo.networkLogo)
 	val isZcash = model.networkInfo.networkLogo.lowercase().contains("zcash")
+	val isPenumbra = model.networkInfo.networkLogo.lowercase().contains("penumbra")
 	var showFvk by remember { mutableStateOf(true) }
 	var showFvkCompatInfo by remember { mutableStateOf(false) }
 	// Zcash diversified address state
@@ -194,6 +195,25 @@ fun KeyDetailsPublicKeyScreen(
 									contentScale = ContentScale.Fit,
 									modifier = Modifier.size(264.dp)
 								)
+							}
+							// Penumbra Receive: only the address derived with the exported key
+							// (zigner#35); the stored one may predate the fix
+							isPenumbra && !showFvk -> {
+								val receivePng = fvkResult?.receiveQrPng
+								if (receivePng == null) {
+									CircularProgressIndicator(
+										color = MaterialTheme.colors.pink500,
+										modifier = Modifier.size(48.dp)
+									)
+								} else {
+									val receiveImage = remember(receivePng) { receivePng.intoImageBitmap() }
+									Image(
+										bitmap = receiveImage,
+										contentDescription = stringResource(R.string.qr_with_address_to_scan_description),
+										contentScale = ContentScale.Fit,
+										modifier = Modifier.size(264.dp)
+									)
+								}
 							}
 							// Zcash Receive: transparent address
 							isZcash && !showFvk && showTransparent -> {
@@ -285,6 +305,14 @@ fun KeyDetailsPublicKeyScreen(
 							val keyLabel = if (fvkResult.networkType == "cosmos") "PubKey" else "FVK"
 							Text(
 								text = "$keyLabel: ${fvkResult.displayKey.take(20)}...",
+								style = SignerTypeface.CaptionM,
+								color = MaterialTheme.colors.textTertiary,
+								modifier = Modifier.weight(1f)
+							)
+						} else if (isPenumbra && !showFvk) {
+							val receiveAddress = fvkResult?.receiveAddress.orEmpty()
+							Text(
+								text = if (receiveAddress.isEmpty()) "" else receiveAddress.take(14) + "..." + receiveAddress.takeLast(8),
 								style = SignerTypeface.CaptionM,
 								color = MaterialTheme.colors.textTertiary,
 								modifier = Modifier.weight(1f)

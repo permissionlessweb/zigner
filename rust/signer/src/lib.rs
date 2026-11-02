@@ -555,6 +555,16 @@ fn get_managed_networks() -> anyhow::Result<MManageNetworks, ErrorDisplayed> {
     })
 }
 
+/// The kinds of QR code the camera may parse on this device, as
+/// `db_handling::scan_policy` ids. Derived from what the device holds.
+fn scan_readable() -> anyhow::Result<Vec<String>, ErrorDisplayed> {
+    Ok(db_handling::scan_policy::readable(&get_db()?)
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .map(String::from)
+        .collect())
+}
+
 fn get_logs() -> anyhow::Result<MLog, ErrorDisplayed> {
     let history = db_handling::manage_history::get_history(&get_db()?)
         .map_err(|e| ErrorDisplayed::from(e.to_string()))?;
@@ -1010,6 +1020,11 @@ fn sign_network_spec_with_key(
 ///   ? 3: tstr                ; name - optional label
 /// }
 /// ```
+/// Genesis hash Zigner's penumbra network specs carry (`defaults`), the third
+/// field of the `penumbra:` address QR.
+const PENUMBRA_SPECS_GENESIS: &str =
+    "0000000000000000000000000000000000000000000000000000000000006532";
+
 #[allow(clippy::vec_init_then_push)]
 fn export_penumbra_fvk(
     seed_phrase: &str,
@@ -1159,6 +1174,15 @@ fn export_penumbra_fvk(
         ur::ur::encode(&cbor_data, &ur::Type::Custom("penumbra-accounts"))
     };
 
+    // the receive address, derived again with the seed: this is also how a
+    // key added before zigner#35 gets a stored address it owns
+    let receive_address =
+        db_handling::penumbra::refresh_receive_address(&get_db()?, seed_phrase, account_index)
+            .map_err(|e| ErrorDisplayed::Str {
+                s: format!("Failed to derive receive address: {e}"),
+            })?;
+    let receive_qr_text = format!("penumbra:{receive_address}:0x{PENUMBRA_SPECS_GENESIS}");
+
     Ok(PenumbraFvkExport {
         account_index,
         label: label_opt.unwrap_or_default(),
@@ -1166,6 +1190,8 @@ fn export_penumbra_fvk(
         wallet_id_bech32m,
         qr_data: export_data.encode_qr(),
         ur_string,
+        receive_address,
+        receive_qr_text,
     })
 }
 
@@ -1732,24 +1758,15 @@ fn parse_penumbra_sign_request(qr_hex: &str) -> Result<PenumbraSignRequest, Erro
 }
 
 /// Sign a Penumbra transaction and return encoded signature QR bytes
+/// (single seed, account 0; kept for existing callers)
 fn sign_penumbra_transaction(
     seed_phrase: &str,
     request: PenumbraSignRequest,
 ) -> Result<Vec<u8>, ErrorDisplayed> {
-    use transaction_parsing::penumbra::{
-        parse_penumbra_transaction, sign_transaction, SpendKeyBytes,
-    };
+    use transaction_parsing::penumbra::SpendKeyBytes;
     use transaction_signing::penumbra::verify_effect_hash;
 
-    // Re-parse to get the full plan data
-    let plan =
-        parse_penumbra_transaction(&request.raw_qr_hex).map_err(|e| ErrorDisplayed::Str {
-            s: format!("Failed to parse Penumbra QR: {e}"),
-        })?;
-
-    let effect_hash = plan.effect_hash.ok_or_else(|| ErrorDisplayed::Str {
-        s: "No effect hash in QR".to_string(),
-    })?;
+    let (plan, effect_hash) = penumbra_plan_and_hash(&request)?;
 
     // Derive spend key from seed phrase (account 0)
     let spend_key =
@@ -1766,13 +1783,107 @@ fn sign_penumbra_transaction(
         }
     })?;
 
+    penumbra_sign_with(&plan, effect_hash, &spend_key)
+}
+
+/// Error returned when no seed/account on the device reproduces the effect hash.
+pub const PENUMBRA_NO_MATCHING_KEY: &str = "No key on this device owns this request";
+
+/// Sign a Penumbra transaction with whichever seed/account owns it. The sign
+/// QR carries no key identifier, so we search seeds x accounts
+/// `0..max_accounts` (0 => default) for the FVK that reproduces the QR's
+/// effect hash; that recomputation is also the security check.
+fn sign_penumbra_transaction_any(
+    seed_names: Vec<String>,
+    mut seed_phrases: Vec<String>,
+    request: PenumbraSignRequest,
+    max_accounts: u32,
+) -> Result<PenumbraSignResult, ErrorDisplayed> {
+    use transaction_signing::penumbra::{
+        find_matching_spend_key, verify_effect_hash, PENUMBRA_DEFAULT_MAX_ACCOUNTS,
+    };
+    use zeroize::Zeroize;
+
+    let result = (|| {
+        if seed_names.len() != seed_phrases.len() {
+            return Err(ErrorDisplayed::Str {
+                s: "seed_names and seed_phrases length mismatch".to_string(),
+            });
+        }
+        let max_accounts = if max_accounts == 0 {
+            PENUMBRA_DEFAULT_MAX_ACCOUNTS
+        } else {
+            max_accounts
+        };
+        let (plan, effect_hash) = penumbra_plan_and_hash(&request)?;
+        let phrases: Vec<&str> = seed_phrases.iter().map(String::as_str).collect();
+        let found = find_matching_spend_key(&plan.plan_bytes, &effect_hash, &phrases, max_accounts)
+            .map_err(|e| ErrorDisplayed::Str {
+                s: format!("Key search failed: {e}"),
+            })?
+            .ok_or_else(|| ErrorDisplayed::Str {
+                s: PENUMBRA_NO_MATCHING_KEY.to_string(),
+            })?;
+
+        // defence in depth: re-run the canonical verification on the chosen key
+        verify_effect_hash(&plan.plan_bytes, &effect_hash, &found.spend_key).map_err(|e| {
+            ErrorDisplayed::Str {
+                s: format!("Effect hash verification failed: {e}"),
+            }
+        })?;
+
+        let signature = penumbra_sign_with(&plan, effect_hash, &found.spend_key)?;
+        Ok(PenumbraSignResult {
+            signature,
+            seed_name: seed_names[found.seed_index].clone(),
+            seed_index: found.seed_index as u32,
+            account: found.account,
+        })
+    })();
+
+    for p in seed_phrases.iter_mut() {
+        p.zeroize();
+    }
+    result
+}
+
+fn penumbra_plan_and_hash(
+    request: &PenumbraSignRequest,
+) -> Result<
+    (
+        transaction_parsing::penumbra::PenumbraTransactionPlan,
+        [u8; 64],
+    ),
+    ErrorDisplayed,
+> {
+    use transaction_parsing::penumbra::parse_penumbra_transaction;
+
+    // Re-parse to get the full plan data
+    let plan =
+        parse_penumbra_transaction(&request.raw_qr_hex).map_err(|e| ErrorDisplayed::Str {
+            s: format!("Failed to parse Penumbra QR: {e}"),
+        })?;
+
+    let effect_hash = plan.effect_hash.ok_or_else(|| ErrorDisplayed::Str {
+        s: "No effect hash in QR".to_string(),
+    })?;
+    Ok((plan, effect_hash))
+}
+
+fn penumbra_sign_with(
+    plan: &transaction_parsing::penumbra::PenumbraTransactionPlan,
+    effect_hash: [u8; 64],
+    spend_key: &transaction_parsing::penumbra::SpendKeyBytes,
+) -> Result<Vec<u8>, ErrorDisplayed> {
+    use transaction_parsing::penumbra::sign_transaction;
+
     // Sign the transaction
     let auth_data = sign_transaction(
         effect_hash,
         &plan.spend_randomizers,
         &plan.delegator_vote_randomizers,
         &plan.lqt_vote_randomizers,
-        &spend_key,
+        spend_key,
     )
     .map_err(|e| ErrorDisplayed::Str {
         s: format!("Signing failed: {e}"),
@@ -5636,6 +5747,42 @@ mod multichain_cosmos_tests {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn penumbra_sign_any_reports_no_matching_key() {
+        use bip39::{Language, Mnemonic, MnemonicType};
+        // throwaway seeds generated in-test
+        let a = Mnemonic::new(MnemonicType::Words24, Language::English)
+            .phrase()
+            .to_string();
+        let b = Mnemonic::new(MnemonicType::Words24, Language::English)
+            .phrase()
+            .to_string();
+        use penumbra_proto::DomainType;
+        // empty plan + effect hash no key can produce
+        let plan = penumbra_transaction::plan::TransactionPlan::default().encode_to_vec();
+        let qr = format!(
+            "53031000{}{}{}00000000",
+            hex::encode((plan.len() as u32).to_le_bytes()),
+            hex::encode(&plan),
+            "aa".repeat(64)
+        );
+        let request = super::parse_penumbra_sign_request(&qr).unwrap();
+        let err = super::sign_penumbra_transaction_any(
+            vec!["A".into(), "B".into()],
+            vec![a.clone(), b],
+            request.clone(),
+            0,
+        )
+        .unwrap_err();
+        assert!(
+            format!("{:?}", err).contains(super::PENUMBRA_NO_MATCHING_KEY),
+            "{:?}",
+            err
+        );
+        let err = super::sign_penumbra_transaction_any(vec![], vec![a], request, 0).unwrap_err();
+        assert!(format!("{:?}", err).contains("length mismatch"));
+    }
+
     #[test]
     fn cosmos_export_includes_terp() {
         let chains = super::cosmos_export_chains();

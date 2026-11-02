@@ -164,48 +164,6 @@ pub enum Command {
         hot_db: PathBuf,
     },
 
-    /// Prepare payload for `load_metadata` update from `.wasm` file
-    ///
-    /// This command extracts metadata from `.wasm` file and uses this metadata to
-    /// produce `load_metadata` update payload. Only networks with network specs
-    /// entries in the hot database could be processed with `unwasm` command, since
-    /// the `load_metadata` update payload in addition to metadata requires also
-    /// network genesis hash. `unwasm` command could be used to generate update QR
-    /// codes before the metadata becomes accessible from the node.
-    ///
-    /// Network name found in the metadata is used to find
-    /// [`NetworkSpecs`](definitions::network_specs::NetworkSpecs) for
-    /// the network. `NetworkSpecs` are used to get genesis hash and to check
-    /// base58 prefix, it the network metadata has base58 prefix inside.
-    ///
-    /// A raw bytes update payload file is generated in dedicated
-    /// [`FOLDER`](constants::FOLDER) to (optionally) be signed and later be
-    /// transformed into `load_metadata` update QR. Update payload file name is
-    /// `sign_me_load_metadata_<network_name>V<version>`.
-    ///
-    /// By default, metadata extracted from `.wasm` file is added to the database.
-    /// Optional `-d` key could be used is database should **not** be updated.
-    /// If the metadata gets entered in the database (i.e. no `-d` key used),
-    /// [`META_HISTORY`](constants::META_HISTORY) gets no entry. Block hash will be
-    /// added if the same metadata is later fetched from a node.
-    Unwasm {
-        /// WASM file
-        #[arg(long, short)]
-        filename: String,
-
-        /// update the DB.
-        #[arg(long, short)]
-        update_db: bool,
-
-        /// Hot database path
-        #[arg(long= "hot-db-path", value_name = "HOT_DB_PATH", default_value = HOT_DB_NAME)]
-        db_path: PathBuf,
-
-        /// Folder to save payloads ready for signing
-        #[arg(long, default_value = FOLDER)]
-        files_dir: PathBuf,
-    },
-
     /// Make file with hexadecimal metadata for defaults release metadata set
     ///
     /// Produces file with hex-encoded network metadata from the hot database

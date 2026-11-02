@@ -64,6 +64,8 @@ sealed class SignatureResult {
 		val hexString: String,
 		override val networkName: String,
 		val publicKeyHex: String? = null,
+		/** Which key set / account signed (display only, no key material) */
+		val signedBy: String? = null,
 	) : SignatureResult()
 
 	/** UR-encoded parts displayed as animated QR codes */
