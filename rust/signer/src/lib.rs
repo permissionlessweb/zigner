@@ -5742,7 +5742,20 @@ mod tests {
             hex::encode(&plan),
             "aa".repeat(64)
         );
-        let request = super::parse_penumbra_sign_request(&qr).unwrap();
+        // built directly: parse_penumbra_sign_request needs the app DB for
+        // own receive addresses
+        let request = super::PenumbraSignRequest {
+            chain_id: String::new(),
+            effect_hash_hex: "aa".repeat(64),
+            spend_count: 0,
+            vote_count: 0,
+            lqt_vote_count: 0,
+            raw_qr_hex: qr,
+            expiry_height: 0,
+            fee: String::new(),
+            memo: String::new(),
+            lines: vec![],
+        };
         let err = super::sign_penumbra_transaction_any(
             vec!["A".into(), "B".into()],
             vec![a.clone(), b],
