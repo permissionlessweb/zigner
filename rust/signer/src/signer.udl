@@ -833,6 +833,10 @@ namespace signer {
     [Throws=ErrorDisplayed]
     PenumbraFvkExport export_penumbra_fvk([ByRef] string seed_phrase, u32 account_index, [ByRef] string label);
 
+    // Opt-in fresh Penumbra receive address, new on every call (same as Zafu's)
+    [Throws=ErrorDisplayed]
+    PenumbraReceive get_penumbra_fresh_receive_address([ByRef] string seed_phrase, u32 account_index);
+
     // Cosmos accounts export - generate addresses QR for Zafu import
     // network_name filters to a single chain (e.g. "noble"), empty string exports all
     [Throws=ErrorDisplayed]
@@ -1494,6 +1498,13 @@ dictionary PenumbraFvkExport {
     string receive_address;
     // `penumbra:<address>:0x<genesis>` for the receive QR
     string receive_qr_text;
+};
+
+// A Penumbra receive address and its QR text
+dictionary PenumbraReceive {
+    string address;
+    // `penumbra:<address>:0x<genesis>`, same as PenumbraFvkExport
+    string qr_text;
 };
 
 // Cosmos account export for Zafu wallet import

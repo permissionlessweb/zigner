@@ -828,6 +828,14 @@ pub struct PenumbraFvkExport {
     pub receive_qr_text: String,
 }
 
+/// A Penumbra receive address and its QR text
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PenumbraReceive {
+    pub address: String,
+    /// `penumbra:<address>:0x<genesis>`, same as [`PenumbraFvkExport::receive_qr_text`]
+    pub qr_text: String,
+}
+
 /// Cosmos account export data for Zafu wallet import
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CosmosAccountExport {

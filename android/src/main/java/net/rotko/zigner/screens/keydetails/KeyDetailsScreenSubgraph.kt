@@ -34,6 +34,7 @@ import net.rotko.zigner.screens.keydetails.exportprivatekey.ConfirmExportPrivate
 import net.rotko.zigner.screens.keydetails.exportprivatekey.PrivateKeyExportBottomSheet
 import net.rotko.zigner.screens.keydetails.exportprivatekey.PrivateKeyExportModel
 import net.rotko.zigner.ui.BottomSheetWrapperRoot
+import io.parity.signer.uniffi.PenumbraReceive
 import io.parity.signer.uniffi.ZcashSyncInfo
 import io.parity.signer.uniffi.ZcashVerifiedNoteDisplay
 import kotlinx.coroutines.launch
@@ -65,6 +66,10 @@ fun KeyDetailsScreenSubgraph(
 	var zcashDiversifiedLoading by remember { mutableStateOf(false) }
 	var zcashTransparentAddress by remember { mutableStateOf<String?>(null) }
 	var zcashTransparentLoading by remember { mutableStateOf(false) }
+
+	// Penumbra fresh receive address, opt-in
+	var penumbraFreshReceive by remember { mutableStateOf<PenumbraReceive?>(null) }
+	var penumbraFreshLoading by remember { mutableStateOf(false) }
 
 	// Zcash verified balance + notes (from note sync)
 	val isZcash = model.networkInfo.networkLogo.lowercase().contains("zcash")
@@ -123,6 +128,17 @@ fun KeyDetailsScreenSubgraph(
 						seedName = model.address.cardBase.seedName,
 					)
 					zcashTransparentLoading = false
+				}
+			},
+			penumbraFreshReceive = penumbraFreshReceive,
+			penumbraFreshLoading = penumbraFreshLoading,
+			onRequestPenumbraFreshReceive = {
+				scope.launch {
+					penumbraFreshLoading = true
+					penumbraFreshReceive = vm.getPenumbraFreshReceiveAddress(
+						seedName = model.address.cardBase.seedName,
+					) ?: penumbraFreshReceive
+					penumbraFreshLoading = false
 				}
 			},
 			zcashVerifiedBalance = zcashVerifiedBalance,

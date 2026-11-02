@@ -1710,6 +1710,7 @@ dependencies = [
  "penumbra-sdk-keys",
  "pretty_assertions",
  "qrcode_rtx",
+ "rand_core 0.6.4",
  "regex",
  "ripemd 0.1.3",
  "secp256k1 0.29.1",

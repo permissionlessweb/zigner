@@ -1243,6 +1243,20 @@ fn export_penumbra_fvk(
     })
 }
 
+/// A fresh receive address for the Penumbra account, unlinkable to the
+/// default one but viewed by the same FVK (Zafu's `getEphemeralByIndex`).
+fn get_penumbra_fresh_receive_address(
+    seed_phrase: &str,
+    account_index: u32,
+) -> Result<PenumbraReceive, ErrorDisplayed> {
+    let address = db_handling::penumbra::fresh_receive_address(seed_phrase, account_index)
+        .map_err(|e| ErrorDisplayed::Str {
+            s: format!("Failed to derive receive address: {e}"),
+        })?;
+    let qr_text = format!("penumbra:{address}:0x{PENUMBRA_SPECS_GENESIS}");
+    Ok(PenumbraReceive { address, qr_text })
+}
+
 // ============================================================================
 // Cosmos account export
 // ============================================================================
