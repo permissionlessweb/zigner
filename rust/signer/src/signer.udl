@@ -889,6 +889,13 @@ namespace signer {
     [Throws=ErrorDisplayed]
     sequence<u8> sign_penumbra_transaction([ByRef] string seed_phrase, PenumbraSignRequest request);
 
+    // Sign Penumbra transaction with whichever seed/account (0..max_accounts)
+    // reproduces the request's effect hash. seed_names and seed_phrases are
+    // parallel lists. Errors with "No key on this device owns this request"
+    // when none match.
+    [Throws=ErrorDisplayed]
+    PenumbraSignResult sign_penumbra_transaction_any(sequence<string> seed_names, sequence<string> seed_phrases, PenumbraSignRequest request, u32 max_accounts);
+
     // ========================================================================
     // Zcash simple sign request (from Zafu wallet)
     // ========================================================================
@@ -1611,6 +1618,15 @@ dictionary PenumbraSignRequest {
     u32 vote_count;
     u32 lqt_vote_count;
     string raw_qr_hex;
+};
+
+// Result of sign_penumbra_transaction_any: signature QR bytes plus which seed
+// and account matched (no key material)
+dictionary PenumbraSignResult {
+    sequence<u8> signature;
+    string seed_name;
+    u32 seed_index;
+    u32 account;
 };
 
 // Penumbra generic action (for unrecognized action types)

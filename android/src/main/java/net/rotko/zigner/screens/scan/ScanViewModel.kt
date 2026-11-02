@@ -40,7 +40,8 @@ import io.parity.signer.uniffi.SeedKeysPreview
 import io.parity.signer.uniffi.TransactionType
 import io.parity.signer.uniffi.PenumbraSignRequest
 import io.parity.signer.uniffi.parsePenumbraSignRequest
-import io.parity.signer.uniffi.signPenumbraTransaction as uniffiSignPenumbraTransaction
+import io.parity.signer.uniffi.PenumbraSignResult
+import io.parity.signer.uniffi.signPenumbraTransactionAny
 import io.parity.signer.uniffi.CosmosSignRequest
 import io.parity.signer.uniffi.cosmosPublicKeyForSigners
 import io.parity.signer.uniffi.encodeCworchSignature
@@ -569,16 +570,9 @@ class ScanViewModel : ViewModel() {
 						)
 					}
 					is RepoResult.Success -> {
-						val seedPhrase = seeds.result.values.firstOrNull()
-						if (seedPhrase == null) {
-							transactionError.value = LocalErrorSheetModel(
-								title = "No Seed Found",
-								subtitle = "No seed phrase available for signing"
-							)
-							return@launch
-						}
-
-						val signatureBytes = uniffiSignPenumbraTransaction(seedPhrase, request)
+						val signed = signPenumbraWithOwningKey(seeds.result, request)
+							?: return@launch
+						val signatureBytes = signed.signature
 						penumbraSignatureQr.value = signatureBytes.map { it.toByte() }.toByteArray()
 					}
 				}
@@ -728,10 +722,24 @@ class ScanViewModel : ViewModel() {
 			try {
 				when (req) {
 					is SignRequest.Penumbra -> {
-						val seedPhrase = getSeedPhrase() ?: return@launch
-						val sigBytes = uniffiSignPenumbraTransaction(seedPhrase, req.request)
-						val hex = sigBytes.joinToString("") { "%02x".format(it.toByte()) }
-						signatureResult.value = SignatureResult.HexQr(hex, req.networkName)
+						val seeds = when (val loaded = seedRepository.getAllSeeds()) {
+							is RepoResult.Failure -> {
+								transactionError.value = LocalErrorSheetModel(
+									title = "Signing Error",
+									subtitle = "Could not access seed phrases"
+								)
+								return@launch
+							}
+							is RepoResult.Success -> loaded.result
+						}
+						val signed = signPenumbraWithOwningKey(seeds, req.request)
+							?: return@launch
+						val hex = signed.signature.joinToString("") { "%02x".format(it.toByte()) }
+						signatureResult.value = SignatureResult.HexQr(
+							hex,
+							req.networkName,
+							signedBy = penumbraSignedByLabel(signed),
+						)
 					}
 					is SignRequest.Cosmos -> {
 						val seeds = when (val loaded = seedRepository.getAllSeeds()) {
@@ -850,6 +858,46 @@ class ScanViewModel : ViewModel() {
 		val phrase = cosmosPhraseForRequest(seeds, request) ?: return null
 		return uniffiSignCosmosTransaction(phrase, request)
 	}
+
+	/**
+	 * Sign a Penumbra request with whichever key set/account owns it. The QR
+	 * names no key, so Rust tries every seed x accounts 0..7 and keeps the one
+	 * whose FVK reproduces the effect hash (still the security check).
+	 * Preferred/open key set is tried first, then the sorted names.
+	 */
+	private suspend fun signPenumbraWithOwningKey(
+		seeds: Map<String, String>,
+		request: PenumbraSignRequest,
+	): PenumbraSignResult? {
+		if (seeds.isEmpty()) {
+			transactionError.value = LocalErrorSheetModel(
+				title = "No Seed Found",
+				subtitle = "No seed phrase available for signing"
+			)
+			return null
+		}
+		val preferred = ServiceLocator.preferencesRepository.getLastSelectedSeed()
+		val ordered = buildList {
+			if (preferred != null && seeds.containsKey(preferred)) add(preferred)
+			for (name in seedRepository.getLastKnownSeedNames()) {
+				if (name != preferred && seeds.containsKey(name)) add(name)
+			}
+			for (name in seeds.keys) {
+				if (!contains(name)) add(name)
+			}
+		}
+		return withContext(Dispatchers.Default) {
+			signPenumbraTransactionAny(
+				ordered,
+				ordered.map { seeds.getValue(it) },
+				request,
+				0u, // 0 = Rust default (8 accounts)
+			)
+		}
+	}
+
+	private fun penumbraSignedByLabel(signed: PenumbraSignResult): String =
+		"${signed.seedName} · account ${signed.account}"
 
 	/**
 	 * Get the first available seed phrase, or show error and return null.

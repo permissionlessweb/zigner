@@ -87,6 +87,14 @@ fun UnifiedSignatureQrScreen(
 								)
 							}
 						}
+						if (result.signedBy != null) {
+							Text(
+								text = "signed by ${result.signedBy}",
+								style = SignerTypeface.BodyM,
+								color = MaterialTheme.colors.textSecondary,
+								modifier = Modifier.padding(top = 8.dp),
+							)
+						}
 					}
 				}
 				is SignatureResult.UrParts -> {

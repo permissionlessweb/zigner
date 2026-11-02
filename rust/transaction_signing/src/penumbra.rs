@@ -285,6 +285,66 @@ pub fn verify_effect_hash(
     Ok(())
 }
 
+/// Default number of accounts (0..N) searched per seed when locating the key
+/// that owns a sign request.
+pub const PENUMBRA_DEFAULT_MAX_ACCOUNTS: u32 = 8;
+
+/// Key located by [`find_matching_spend_key`]: index into the supplied seed
+/// list, the matching account, and the derived spend key (zeroized on drop).
+#[cfg(feature = "penumbra")]
+pub struct PenumbraKeyMatch {
+    pub seed_index: usize,
+    pub account: u32,
+    pub spend_key: SpendKeyBytes,
+}
+
+/// Search `seed_phrases` x accounts `0..max_accounts` for the key whose FVK
+/// reproduces `qr_effect_hash` from the plan. The plan is decoded once.
+/// Returns `Ok(None)` when no key matches (effect-hash verification remains the
+/// security check: we only ever sign with a key that recomputes the hash).
+#[cfg(feature = "penumbra")]
+pub fn find_matching_spend_key(
+    plan_bytes: &[u8],
+    qr_effect_hash: &[u8; 64],
+    seed_phrases: &[&str],
+    max_accounts: u32,
+) -> Result<Option<PenumbraKeyMatch>> {
+    use penumbra_keys::keys::{Bip44Path, SeedPhrase, SpendKey};
+    use penumbra_proto::DomainType;
+    use penumbra_transaction::plan::TransactionPlan;
+    use std::str::FromStr;
+    use subtle::ConstantTimeEq;
+
+    let plan = TransactionPlan::decode(plan_bytes)
+        .map_err(|e| Error::PenumbraKeyDerivation(format!("failed to decode plan: {e}")))?;
+
+    for (seed_index, phrase_str) in seed_phrases.iter().enumerate() {
+        // skip seeds that are not valid penumbra phrases rather than failing
+        let Ok(phrase) = SeedPhrase::from_str(phrase_str) else {
+            continue;
+        };
+        for account in 0..max_accounts {
+            let sk = SpendKey::from_seed_phrase_bip44(phrase.clone(), &Bip44Path::new(account));
+            let computed = match plan.effect_hash(sk.full_viewing_key()) {
+                Ok(h) => h,
+                Err(e) => {
+                    return Err(Error::PenumbraKeyDerivation(format!(
+                        "failed to compute effect hash: {e}"
+                    )))
+                }
+            };
+            if computed.as_bytes().ct_eq(qr_effect_hash).unwrap_u8() == 1 {
+                return Ok(Some(PenumbraKeyMatch {
+                    seed_index,
+                    account,
+                    spend_key: SpendKeyBytes(sk.to_bytes().0),
+                }));
+            }
+        }
+    }
+    Ok(None)
+}
+
 // ============================================================================
 // effect hash computation
 // ============================================================================
@@ -802,6 +862,75 @@ impl FvkExportData {
 #[cfg(all(test, feature = "penumbra"))]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_find_matching_spend_key() {
+        use penumbra_keys::keys::{AddressIndex, Bip44Path, SeedPhrase, SpendKey};
+        use penumbra_proto::DomainType;
+        use penumbra_transaction::plan::{ActionPlan, TransactionPlan};
+        use rand_chacha::rand_core::SeedableRng;
+
+        // throwaway seeds generated in-test
+        let mut rng = ChaCha20Rng::seed_from_u64(7);
+        let seed_a = SeedPhrase::generate(&mut rng).to_string();
+        let seed_b = SeedPhrase::generate(&mut rng).to_string();
+        let seed_c = SeedPhrase::generate(&mut rng).to_string();
+
+        let plan_for = |seed: &str, account: u32, rng: &mut ChaCha20Rng| {
+            let sk = SpendKey::from_seed_phrase_bip44(
+                seed.parse::<SeedPhrase>().unwrap(),
+                &Bip44Path::new(account),
+            );
+            let fvk = sk.full_viewing_key();
+            let (addr, _) = fvk.payment_address(AddressIndex::new(0));
+            let value = penumbra_asset::Value {
+                amount: 1000u64.into(),
+                asset_id: *penumbra_asset::STAKING_TOKEN_ASSET_ID,
+            };
+            let plan = TransactionPlan {
+                actions: vec![ActionPlan::Output(penumbra_shielded_pool::OutputPlan::new(
+                    rng, value, addr,
+                ))],
+                ..Default::default()
+            };
+            let hash = plan.effect_hash(fvk).unwrap();
+            let mut h = [0u8; 64];
+            h.copy_from_slice(hash.as_bytes());
+            (plan.encode_to_vec(), h, sk.to_bytes().0)
+        };
+
+        let seeds = [seed_a.as_str(), seed_b.as_str()];
+
+        // seed B, account 0
+        let (bytes, hash, sk) = plan_for(&seed_b, 0, &mut rng);
+        let m = find_matching_spend_key(&bytes, &hash, &seeds, 8)
+            .unwrap()
+            .unwrap();
+        assert_eq!((m.seed_index, m.account), (1, 0));
+        assert_eq!(m.spend_key.0, sk);
+        verify_effect_hash(&bytes, &hash, &m.spend_key).unwrap();
+
+        // seed A, account 3
+        let (bytes, hash, sk) = plan_for(&seed_a, 3, &mut rng);
+        let m = find_matching_spend_key(&bytes, &hash, &seeds, 8)
+            .unwrap()
+            .unwrap();
+        assert_eq!((m.seed_index, m.account), (0, 3));
+        assert_eq!(m.spend_key.0, sk);
+        // account 0 of the same seed must not verify
+        let a0 = SpendKeyBytes::from_seed_phrase(&seed_a, 0).unwrap();
+        assert!(verify_effect_hash(&bytes, &hash, &a0).is_err());
+        // account beyond the search window is not found
+        assert!(find_matching_spend_key(&bytes, &hash, &seeds, 3)
+            .unwrap()
+            .is_none());
+
+        // seed C not on device -> no match
+        let (bytes, hash, _) = plan_for(&seed_c, 0, &mut rng);
+        assert!(find_matching_spend_key(&bytes, &hash, &seeds, 8)
+            .unwrap()
+            .is_none());
+    }
 
     #[test]
     fn test_expand_ff() {

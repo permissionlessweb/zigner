@@ -65,6 +65,8 @@ constants = { path = "../constants" }
 db_handling = {path = "../db_handling", default-features = false, features = ["active"]}
 transaction_parsing = { path = "../transaction_parsing", default-features = false }
 tempfile = "3.10"
+penumbra-asset = { git = "https://github.com/penumbra-zone/penumbra.git", tag = "v2.0.4", package = "penumbra-sdk-asset" }
+penumbra-shielded-pool = { git = "https://github.com/penumbra-zone/penumbra.git", tag = "v2.0.4", package = "penumbra-sdk-shielded-pool", default-features = false }
 
 [lib]
 name = "transaction_signing"

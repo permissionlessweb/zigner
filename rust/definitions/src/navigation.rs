@@ -1056,6 +1056,16 @@ pub struct PenumbraSignRequest {
     pub raw_qr_hex: String,
 }
 
+/// Result of signing a Penumbra request with the key found by searching all
+/// seeds/accounts. Carries only which seed/account matched, never key material.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PenumbraSignResult {
+    pub signature: Vec<u8>,
+    pub seed_name: String,
+    pub seed_index: u32,
+    pub account: u32,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ZcashVerifiedNoteDisplay {
     pub value: u64,

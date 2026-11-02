@@ -204,6 +204,7 @@ extension PenumbraTransactionView {
         private let seedsMediator: SeedsMediating
         private let onCompletion: () -> Void
         private var selectedSeedPhrase: String?
+        private var selectedSeedName: String = ""
 
         init(
             qrHex: String,
@@ -227,6 +228,7 @@ extension PenumbraTransactionView {
                     state = .error("No seed phrase available")
                 } else {
                     selectedSeedPhrase = phrase
+                    selectedSeedName = name
                     state = .review
                 }
             } else {
@@ -241,6 +243,7 @@ extension PenumbraTransactionView {
                 return
             }
             selectedSeedPhrase = phrase
+            selectedSeedName = seedName
             state = .review
         }
 
@@ -249,10 +252,15 @@ extension PenumbraTransactionView {
             state = .signing
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
                 do {
-                    let signatureBytes = try signPenumbraTransaction(
-                        seedPhrase: seedPhrase,
-                        request: request
+                    // search accounts 0..7 of the chosen seed for the key
+                    // whose FVK reproduces the effect hash
+                    let result = try signPenumbraTransactionAny(
+                        seedNames: [self?.selectedSeedName ?? ""],
+                        seedPhrases: [seedPhrase],
+                        request: request,
+                        maxAccounts: 0
                     )
+                    let signatureBytes = result.signature
                     DispatchQueue.main.async {
                         self?.state = .signature(signatureBytes)
                     }

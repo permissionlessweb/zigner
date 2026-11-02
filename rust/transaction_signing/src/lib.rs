@@ -1,6 +1,12 @@
 #![deny(unused_crate_dependencies)]
 #![deny(rustdoc::broken_intra_doc_links)]
 
+// dev-dependencies used only by penumbra-feature tests
+#[cfg(test)]
+use penumbra_asset as _;
+#[cfg(test)]
+use penumbra_shielded_pool as _;
+
 use sp_runtime::MultiSigner;
 
 use db_handling::db_transactions::TrDbColdStub;
