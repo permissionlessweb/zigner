@@ -1,11 +1,11 @@
 package net.rotko.zigner.screens.scan.transaction
 
 import android.graphics.BitmapFactory
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.MaterialTheme
@@ -155,7 +155,7 @@ fun ZcashPcztScreen(
 			.padding(16.dp)
 	) {
 		Text(
-			text = "Zcash Transaction (PCZT)",
+			text = "Zcash transaction (PCZT)",
 			style = SignerTypeface.TitleL,
 			color = MaterialTheme.colors.primary,
 			modifier = Modifier.padding(bottom = 16.dp)
@@ -249,7 +249,7 @@ fun ZcashPcztScreen(
 				Spacer(modifier = Modifier.height(8.dp))
 				Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
 					PrimaryButtonWide(
-						label = "Approve & Sign",
+						label = "Approve & sign",
 						onClicked = {
 							state = PcztState.SIGNING
 							scope.launch {
@@ -306,7 +306,7 @@ fun ZcashPcztScreen(
 							modifier = Modifier
 								.fillMaxWidth()
 								.aspectRatio(1f)
-								.clip(RoundedCornerShape(12.dp))
+								.clip(RectangleShape)
 								.background(Color.White),
 							contentAlignment = Alignment.Center,
 						) {
@@ -321,7 +321,7 @@ fun ZcashPcztScreen(
 				}
 				if (signedQrFrames.size > 1) {
 					Text(
-						text = "frame ${currentFrameIdx + 1} / ${signedQrFrames.size}",
+						text = "Frame ${currentFrameIdx + 1} / ${signedQrFrames.size}",
 						style = SignerTypeface.CaptionM,
 						color = MaterialTheme.colors.textTertiary,
 						modifier = Modifier.padding(top = 8.dp).align(Alignment.CenterHorizontally),
@@ -385,7 +385,7 @@ private fun VerificationCard(insp: ZcashPcztInspection) {
 	Column(
 		modifier = Modifier
 			.fillMaxWidth()
-			.clip(RoundedCornerShape(12.dp))
+			.clip(RectangleShape)
 			.background(MaterialTheme.colors.fill6)
 			.padding(16.dp),
 		verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -428,7 +428,7 @@ private fun PcztGlossaryNote(insp: ZcashPcztInspection) {
 		color = MaterialTheme.colors.textTertiary,
 		modifier = Modifier
 			.fillMaxWidth()
-			.clip(RoundedCornerShape(8.dp))
+			.clip(RectangleShape)
 			.background(MaterialTheme.colors.fill6)
 			.padding(12.dp),
 	)
@@ -453,7 +453,7 @@ private fun UnrecognizedSpendsPage(
 			verticalArrangement = Arrangement.spacedBy(12.dp),
 		) {
 			Text(
-				text = "\u26A0 Unrecognized spends",
+				text = "\u26A0 unrecognized spends",
 				style = SignerTypeface.TitleS,
 				color = MaterialTheme.colors.red500,
 			)
@@ -463,12 +463,12 @@ private fun UnrecognizedSpendsPage(
 				color = MaterialTheme.colors.textSecondary,
 			)
 			Text(
-				text = "If you have sent funds since your last sync, this can be expected — the change from earlier sends is not verified on this device yet. Otherwise, this transaction may spend notes you do not recognize. Re-sync your notes from zafu and verify the recipient and amount carefully before proceeding.",
+				text = "If you have sent funds since your last sync, this can be expected — the change from earlier sends is not verified on this device yet. Otherwise, this transaction may spend notes you do not recognize. Re-sync your notes from Zafu and verify the recipient and amount carefully before proceeding.",
 				style = SignerTypeface.CaptionM,
 				color = MaterialTheme.colors.textTertiary,
 				modifier = Modifier
 					.fillMaxWidth()
-					.clip(RoundedCornerShape(8.dp))
+					.clip(RectangleShape)
 					.background(MaterialTheme.colors.fill6)
 					.padding(12.dp),
 			)
@@ -509,7 +509,7 @@ private fun PcztAdvancedContent(insp: ZcashPcztInspection, urParts: List<String>
 				color = if (sp.known) MaterialTheme.colors.textSecondary else MaterialTheme.colors.red500,
 				modifier = Modifier
 					.fillMaxWidth()
-					.clip(RoundedCornerShape(6.dp))
+					.clip(RectangleShape)
 					.background(MaterialTheme.colors.fill6)
 					.padding(8.dp),
 			)
@@ -531,7 +531,7 @@ private fun PcztAdvancedContent(insp: ZcashPcztInspection, urParts: List<String>
 				color = MaterialTheme.colors.textSecondary,
 				modifier = Modifier
 					.fillMaxWidth()
-					.clip(RoundedCornerShape(6.dp))
+					.clip(RectangleShape)
 					.background(MaterialTheme.colors.fill6)
 					.padding(8.dp),
 			)

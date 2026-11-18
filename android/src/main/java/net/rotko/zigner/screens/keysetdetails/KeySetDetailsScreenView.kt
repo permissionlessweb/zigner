@@ -1,6 +1,7 @@
 package net.rotko.zigner.screens.keysetdetails
 
 import android.content.res.Configuration
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -15,7 +16,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
@@ -73,7 +73,6 @@ import net.rotko.zigner.domain.KeySetDetailsModel
 import net.rotko.zigner.domain.NetworkState
 import net.rotko.zigner.domain.abbreviateString
 import net.rotko.zigner.domain.conditional
-import net.rotko.zigner.screens.keysetdetails.items.HotWalletQrSection
 import net.rotko.zigner.screens.keysetdetails.items.KeySetBottomBar
 import net.rotko.zigner.screens.keysetdetails.items.NetworkKeysSection
 import net.rotko.zigner.screens.keysetdetails.items.WalletHeaderCard
@@ -123,7 +122,7 @@ fun KeySetDetailsScreenView(
 				modifier = Modifier
 					.fillMaxHeight()
 					.verticalScroll(rememberScrollState()),
-				verticalArrangement = Arrangement.spacedBy(12.dp),
+				verticalArrangement = Arrangement.spacedBy(0.dp),
 			) {
 				WalletHeaderCard(
 					model = model,
@@ -131,11 +130,10 @@ fun KeySetDetailsScreenView(
 					onSeedSelect = onSeedSelect,
 					onShowRoot = onShowRoot,
 					onExposedClicked = onExposedClicked,
-					modifier = Modifier.padding(top = 8.dp),
+					modifier = Modifier.padding(top = 8.dp, bottom = 24.dp),
 				)
 
 				if (model.keysAndNetwork.isNotEmpty()) {
-					FilterRow(onFilterClicked)
 					val groups = remember(model.keysAndNetwork) {
 						groupKeysByNetwork(model.keysAndNetwork)
 					}
@@ -146,11 +144,9 @@ fun KeySetDetailsScreenView(
 							onKeyClick = onOpenKey,
 						)
 					}
-					AddDerivedKeyInlineButton(onClick = onAddNewDerivation)
 				} else if (fullModelWasEmpty) {
 					KeySetDetailsEmptyList(onAdd = onAddNewDerivation)
 				} else {
-					FilterRow(onFilterClicked)
 					Spacer(modifier = Modifier.padding(top = 32.dp))
 					Text(
 						text = stringResource(R.string.key_set_details_all_filtered_keys_title),
@@ -162,11 +158,6 @@ fun KeySetDetailsScreenView(
 							.padding(horizontal = 40.dp),
 					)
 				}
-
-				HotWalletQrSection(
-					seedName = model.root.seedName,
-					getSeedPhrase = getSeedPhrase,
-				)
 
 				MultisigSection(
 					onManage = {
@@ -185,62 +176,6 @@ fun KeySetDetailsScreenView(
 			onScan = {
 				navController.navigate(CoreUnlockedNavSubgraph.Camera.destination(null))
 			},
-		)
-	}
-}
-
-@Composable
-private fun AddDerivedKeyInlineButton(onClick: Callback) {
-	val shape = RoundedCornerShape(14.dp)
-	Row(
-		modifier = Modifier
-			.fillMaxWidth()
-			.padding(horizontal = 16.dp)
-			.clip(shape)
-			.border(
-				width = 1.dp,
-				color = MaterialTheme.colors.appliedStroke,
-				shape = shape,
-			)
-			.clickable(onClick = onClick)
-			.padding(vertical = 14.dp),
-		verticalAlignment = Alignment.CenterVertically,
-		horizontalArrangement = Arrangement.Center,
-	) {
-		Icon(
-			imageVector = Icons.Filled.Add,
-			contentDescription = null,
-			tint = MaterialTheme.colors.textSecondary,
-			modifier = Modifier.size(18.dp),
-		)
-		Spacer(modifier = Modifier.size(8.dp))
-		Text(
-			text = stringResource(R.string.key_sets_details_screem_create_derived_button),
-			color = MaterialTheme.colors.textSecondary,
-			style = SignerTypeface.LabelM,
-		)
-	}
-}
-
-@Composable
-private fun FilterRow(onFilterClicked: Callback) {
-	Row(
-		modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
-		verticalAlignment = Alignment.CenterVertically,
-	) {
-		Text(
-			text = "Networks",
-			color = MaterialTheme.colors.textSecondary,
-			style = SignerTypeface.LabelS,
-			modifier = Modifier.weight(1f),
-		)
-		Icon(
-			painter = painterResource(id = R.drawable.ic_tune_28),
-			contentDescription = stringResource(R.string.key_sets_details_screem_filter_icon_description),
-			modifier = Modifier
-				.clickable(onClick = onFilterClicked)
-				.size(24.dp),
-			tint = MaterialTheme.colors.textSecondary,
 		)
 	}
 }
@@ -335,7 +270,7 @@ private fun KeySetDetailsEmptyList(onAdd: Callback) {
 		Column(
 			modifier = Modifier
 				.fillMaxWidth()
-				.clip(RoundedCornerShape(dimensionResource(id = R.dimen.bigCornerRadius)))
+				.clip(RectangleShape)
 				.background(MaterialTheme.colors.fill6)
 				.padding(24.dp),
 			horizontalAlignment = Alignment.CenterHorizontally,
@@ -377,11 +312,11 @@ private fun MultisigSection(
 
 	if (wallets.isEmpty()) return
 
-	val shape = RoundedCornerShape(16.dp)
+	val shape = RectangleShape
 	val chevronRotation by animateFloatAsState(
 		targetValue = if (expanded) 180f else 0f,
 		animationSpec = tween(durationMillis = 220),
-		label = "multisig-chevron-rotation",
+		label = "Multisig-chevron-rotation",
 	)
 
 	Column(
@@ -466,7 +401,7 @@ private fun MultisigWalletRow(
 					style = SignerTypeface.CaptionM,
 					color = MaterialTheme.colors.textTertiary,
 					modifier = Modifier
-						.clip(RoundedCornerShape(4.dp))
+						.clip(RectangleShape)
 						.background(MaterialTheme.colors.appliedStroke)
 						.padding(horizontal = 6.dp, vertical = 2.dp),
 				)

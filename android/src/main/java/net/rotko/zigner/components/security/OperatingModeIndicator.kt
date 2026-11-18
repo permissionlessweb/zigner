@@ -1,11 +1,11 @@
 package net.rotko.zigner.components.security
 
 import android.content.res.Configuration.UI_MODE_NIGHT_NO
+import androidx.compose.ui.graphics.RectangleShape
 import android.content.res.Configuration.UI_MODE_NIGHT_YES
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
@@ -58,7 +58,7 @@ fun OperatingModeIndicator(
 
     Row(
         modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RectangleShape)
             .background(backgroundColor)
             .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
             .padding(horizontal = 12.dp, vertical = 6.dp),

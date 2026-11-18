@@ -1,6 +1,7 @@
 package net.rotko.zigner.screens.settings.frost
 
 import android.content.Context
+import androidx.compose.ui.graphics.RectangleShape
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -8,7 +9,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.*
@@ -97,7 +97,7 @@ fun FrostBackupAgeScreen(onBack: Callback) {
 		// Catch the obvious mistake here rather than letting Rust reject the
 		// whole export after the user has already authenticated.
 		if (!looksLikeRecipient(line)) {
-			error = "not a public key: expected an ssh-... line or an age1... recipient"
+			error = "Not a public key: Expected an ssh-... Line or an age1... Recipient"
 			return
 		}
 		if (recipients.contains(line)) {
@@ -123,7 +123,7 @@ fun FrostBackupAgeScreen(onBack: Callback) {
 					success = true
 				} catch (e: Exception) {
 					Timber.e(e, "[frost-backup-age] save failed")
-					error = e.message ?: "save failed"
+					error = e.message ?: "Save failed"
 				}
 			}
 		}
@@ -142,7 +142,7 @@ fun FrostBackupAgeScreen(onBack: Callback) {
 				modifier = Modifier.weight(1f).fillMaxWidth(),
 				contentAlignment = Alignment.Center,
 			) {
-				AnimatedSuccessBadge(visible = true, message = "backup saved")
+				AnimatedSuccessBadge(visible = true, message = "Backup saved")
 				LaunchedEffect(Unit) {
 					kotlinx.coroutines.delay(2500)
 					onBack()
@@ -231,7 +231,7 @@ fun FrostBackupAgeScreen(onBack: Callback) {
 				Row(
 					modifier = Modifier
 						.fillMaxWidth()
-						.clip(RoundedCornerShape(8.dp))
+						.clip(RectangleShape)
 						.background(MaterialTheme.colors.fill6)
 						.padding(horizontal = 12.dp, vertical = 12.dp),
 					verticalAlignment = Alignment.CenterVertically,
@@ -243,7 +243,7 @@ fun FrostBackupAgeScreen(onBack: Callback) {
 						modifier = Modifier.weight(1f),
 					)
 					Text(
-						text = "always",
+						text = "Always",
 						style = SignerTypeface.CaptionM,
 						color = MaterialTheme.colors.textTertiary,
 					)
@@ -254,7 +254,7 @@ fun FrostBackupAgeScreen(onBack: Callback) {
 					Row(
 						modifier = Modifier
 							.fillMaxWidth()
-							.clip(RoundedCornerShape(8.dp))
+							.clip(RectangleShape)
 							.background(MaterialTheme.colors.fill6)
 							.padding(start = 12.dp, top = 12.dp, bottom = 12.dp),
 						verticalAlignment = Alignment.CenterVertically,
@@ -317,7 +317,7 @@ fun FrostBackupAgeScreen(onBack: Callback) {
 					onClicked = {
 						val seed = selectedSeed
 						if (seed == null) {
-							error = "no seed on this device"
+							error = "No seed on this device"
 							return@SecondaryButtonWide
 						}
 						if (busy) return@SecondaryButtonWide
@@ -332,7 +332,7 @@ fun FrostBackupAgeScreen(onBack: Callback) {
 								// the user has already authenticated.
 								val pending = draft.trim()
 								if (pending.isNotEmpty() && !looksLikeRecipient(pending)) {
-									error = "not a public key: $pending"
+									error = "Not a public key: $pending"
 									busy = false
 									return@launch
 								}
@@ -349,7 +349,7 @@ fun FrostBackupAgeScreen(onBack: Callback) {
 								saveLauncher.launch("frost-backup-${ymdToday()}.age")
 							} catch (e: Exception) {
 								Timber.e(e, "[frost-backup-age] export failed")
-								error = e.message ?: "export failed"
+								error = e.message ?: "Export failed"
 							} finally {
 								busy = false
 							}

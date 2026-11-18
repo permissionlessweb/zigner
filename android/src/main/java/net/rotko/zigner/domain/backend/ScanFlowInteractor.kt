@@ -34,7 +34,7 @@ class ScanFlowInteractor {
 				OperationResult.Err(
 					NavigationError(
 						e.findErrorDisplayed()?.message ?: e.message
-						?: "unknown navigation error"
+						?: "Unknown navigation error"
 					)
 				)
 			}

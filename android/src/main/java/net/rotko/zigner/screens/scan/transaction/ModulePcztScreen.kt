@@ -1,11 +1,11 @@
 package net.rotko.zigner.screens.scan.transaction
 
 import android.graphics.BitmapFactory
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.MaterialTheme
@@ -59,7 +59,7 @@ enum class ModulePcztState {
 // crash the signer - it renders this message instead (the module ships as an
 // updatable asset precisely so new tx formats only need a module update).
 internal const val MODULE_CANNOT_PARSE_MESSAGE =
-	"protocol module cannot parse this request - update your zigner module"
+	"Protocol module cannot parse this request - update your Zigner module"
 
 @Composable
 fun ModulePcztScreen(
@@ -132,7 +132,7 @@ fun ModulePcztScreen(
 			.padding(16.dp)
 	) {
 		Text(
-			text = "Zcash Transaction",
+			text = "Zcash transaction",
 			style = SignerTypeface.TitleL,
 			color = MaterialTheme.colors.primary,
 			modifier = Modifier.padding(bottom = 16.dp)
@@ -168,7 +168,7 @@ fun ModulePcztScreen(
 				Spacer(modifier = Modifier.height(8.dp))
 				Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
 					PrimaryButtonWide(
-						label = "Approve & Sign",
+						label = "Approve & sign",
 						onClicked = {
 							state = ModulePcztState.SIGNING
 							scope.launch {
@@ -247,7 +247,7 @@ fun ModulePcztScreen(
 							modifier = Modifier
 								.fillMaxWidth()
 								.aspectRatio(1f)
-								.clip(RoundedCornerShape(12.dp))
+								.clip(RectangleShape)
 								.background(Color.White),
 							contentAlignment = Alignment.Center,
 						) {
@@ -262,7 +262,7 @@ fun ModulePcztScreen(
 				}
 				if (responseQrFrames.size > 1) {
 					Text(
-						text = "frame ${currentFrameIdx + 1} / ${responseQrFrames.size}",
+						text = "Frame ${currentFrameIdx + 1} / ${responseQrFrames.size}",
 						style = SignerTypeface.CaptionM,
 						color = MaterialTheme.colors.textTertiary,
 						modifier = Modifier.padding(top = 8.dp).align(Alignment.CenterHorizontally),
@@ -341,7 +341,7 @@ private fun ModulePcztSummaryCard(
 	Column(
 		modifier = Modifier
 			.fillMaxWidth()
-			.clip(RoundedCornerShape(12.dp))
+			.clip(RectangleShape)
 			.background(MaterialTheme.colors.fill6)
 			.padding(16.dp),
 		verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -386,7 +386,7 @@ private fun ModulePcztSummaryCard(
 		// derive it - never an understated number re-derived by the app.
 		Text(
 			text = summary.feeZat?.let { "Fee: %.8f ZEC".format(it.toLong() / 100_000_000.0) }
-				?: "Fee: unknown",
+				?: "Fee: Unknown",
 			style = SignerTypeface.CaptionM,
 			color = MaterialTheme.colors.textSecondary,
 		)
@@ -427,7 +427,7 @@ private fun ModuleOutputLine(line: String) {
 	Column(
 		modifier = Modifier
 			.fillMaxWidth()
-			.clip(RoundedCornerShape(6.dp))
+			.clip(RectangleShape)
 			.background(MaterialTheme.colors.fill6)
 			.padding(8.dp),
 	) {
@@ -485,7 +485,7 @@ private fun ModuleMemoLine(memo: OutputMemo, zats: Long?) {
 	Column(
 		modifier = Modifier
 			.fillMaxWidth()
-			.clip(RoundedCornerShape(6.dp))
+			.clip(RectangleShape)
 			.background(MaterialTheme.colors.fill6)
 			.padding(8.dp),
 	) {
@@ -498,7 +498,7 @@ private fun ModuleMemoLine(memo: OutputMemo, zats: Long?) {
 		if (zats == null || zats != 0L) {
 			Text(
 				text = zats?.let { "%.8f ZEC burned with this data".format(it / 100_000_000.0) }
-					?: "amount unreadable",
+					?: "Amount unreadable",
 				style = SignerTypeface.LabelM,
 				color = MaterialTheme.colors.red500,
 			)

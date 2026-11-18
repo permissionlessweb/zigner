@@ -34,7 +34,7 @@ internal fun SettingsAdvancedScreen(
 			.statusBarsPadding()
 	) {
 		ScreenHeaderClose(
-			title = "Advanced Settings",
+			title = "Advanced settings",
 			onClose = onBack,
 		)
 		Column(

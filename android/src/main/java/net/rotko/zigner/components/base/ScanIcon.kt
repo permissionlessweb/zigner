@@ -25,6 +25,7 @@ import androidx.compose.ui.zIndex
 import net.rotko.zigner.R
 import net.rotko.zigner.domain.Callback
 import net.rotko.zigner.ui.theme.SignerNewTheme
+import net.rotko.zigner.ui.theme.onGold
 import net.rotko.zigner.ui.theme.pink500
 
 
@@ -67,7 +68,7 @@ fun ScanIcon(
 		Image(
 			painter = painterResource(R.drawable.ic_qr_code_2),
 			contentDescription = stringResource(R.string.description_scan_icon),
-			colorFilter = ColorFilter.tint(Color.White),
+			colorFilter = ColorFilter.tint(MaterialTheme.colors.onGold),
 			modifier = Modifier.size(32.dp)
 		)
 	}

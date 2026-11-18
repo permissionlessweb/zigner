@@ -34,6 +34,7 @@ import net.rotko.zigner.screens.keysetdetails.exportroot.KeySetRootExportBottomS
 import net.rotko.zigner.screens.keysetdetails.filtermenu.NetworkFilterMenu
 import net.rotko.zigner.screens.keysetdetails.seedselectmenu.SeedSelectMenuFull
 import net.rotko.zigner.ui.BottomSheetWrapperRoot
+import net.rotko.zigner.screens.keysetdetails.items.EverydayWalletSheet
 import net.rotko.zigner.ui.mainnavigation.CoreUnlockedNavSubgraph
 import kotlinx.coroutines.launch
 
@@ -153,6 +154,19 @@ fun KeySetDetailsScreenSubgraph(
 								menuNavController.popBackStack()
 								menuNavController.navigate(KeySetDetailsMenuSubgraph.export)
 							},
+							onEverydayWalletClicked = {
+								menuNavController.navigate(KeySetDetailsMenuSubgraph.everyday_wallet) {
+									popUpTo(KeySetDetailsMenuSubgraph.empty)
+								}
+							},
+							onAddDerivedKeyClicked = {
+								menuNavController.popBackStack()
+								coreNavController.navigate(
+									CoreUnlockedNavSubgraph.NewDerivedKey.destination(
+										seedName = state.filteredModel.root.seedName
+									)
+								)
+							},
 							onBackupSeedClicked = {
 								menuNavController.navigate(KeySetDetailsMenuSubgraph.backup_method_select) {
 									popUpTo(KeySetDetailsMenuSubgraph.empty)
@@ -189,6 +203,14 @@ fun KeySetDetailsScreenSubgraph(
 									popUpTo(KeySetDetailsMenuSubgraph.empty)
 								}
 							}
+						)
+					}
+				}
+				composable(KeySetDetailsMenuSubgraph.everyday_wallet) {
+					BottomSheetWrapperRoot(onClosedAction = closeAction) {
+						EverydayWalletSheet(
+							seedName = state.filteredModel.root.seedName,
+							getSeedPhrase = { name -> keySetViewModel.getSeedPhrase(name) },
 						)
 					}
 				}
@@ -309,6 +331,7 @@ private object KeySetDetailsMenuSubgraph {
 	const val empty = "keys_menu_empty"
 	const val select_keyset = "keys_menu_select_keyset"
 	const val keys_menu = "keys_menu"
+	const val everyday_wallet = "keys_menu_everyday_wallet"
 	const val keys_menu_delete_confirm = "keys_menu_delete_confirm"
 	const val network_filter = "keys_network_filters"
 	const val backup_method_select = "backup_method_select"

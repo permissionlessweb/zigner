@@ -2,6 +2,33 @@
 
 All notable changes to zigner are documented in this file.
 
+## 0.15.0 - 2026-11-18
+
+Minor. Zigner takes the zafu look and its own name. No change to what it
+signs or how keys are kept.
+
+### Look
+
+- **The zafu theme.** The same dark and light palettes and typefaces as
+  zafu, square corners, gold buttons with dark ink.
+- **Scroll art** on unlock, welcome, new and restore.
+- **New launcher icon:** the zafu enso replaces the gold Z.
+- **The app is called Zigner**, not "Zafu Zigner", on the launcher, the
+  unlock screen and the network warnings.
+- Sentence case everywhere, a simpler home, and the everyday wallet in the
+  menu.
+
+### Fixes
+
+- Unlock and welcome buttons stay above the navigation bar.
+- Showing a viewing key rides on the app unlock, with no prompt per view.
+- The Penumbra review screen uses the theme colours.
+
+### Scope
+
+- Docs and store text name Zcash and Penumbra only. Polkadot, Kusama,
+  Substrate and Cosmos are no longer advertised.
+
 ## 0.14.0 - 2026-10-31
 
 Minor. Security release from a full review of the signer. **Penumbra users:

@@ -1,6 +1,7 @@
 package net.rotko.zigner.screens.keysetdetails.items
 
 import android.content.res.Configuration
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -23,8 +24,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Icon
+import net.rotko.zigner.domain.BASE58_STYLE_ABBREVIATE
+import net.rotko.zigner.domain.abbreviateString
+import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
@@ -73,17 +76,40 @@ fun NetworkKeysSection(
 	modifier: Modifier = Modifier,
 	initiallyExpanded: Boolean = true,
 ) {
-	var expanded by rememberSaveable(network.networkSpecsKey) {
-		mutableStateOf(initiallyExpanded)
+	// One plain row per key: network, address, open. Paths, key counts and
+	// collapse toggles meant nothing to people and are gone from home.
+	Column(modifier = modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+		keys.forEach { key ->
+			Row(
+				modifier = Modifier
+					.fillMaxWidth()
+					.clickable { onKeyClick(key.addressKey, network.networkSpecsKey) }
+					.padding(vertical = 16.dp),
+				verticalAlignment = Alignment.CenterVertically,
+			) {
+				NetworkIcon(networkLogoName = network.networkLogo, size = 32.dp)
+				Spacer(modifier = Modifier.width(14.dp))
+				Column(modifier = Modifier.weight(1f)) {
+					Text(
+						text = network.networkTitle,
+						color = MaterialTheme.colors.primary,
+						style = SignerTypeface.TitleS,
+					)
+					Text(
+						text = key.base58.abbreviateString(BASE58_STYLE_ABBREVIATE),
+						color = MaterialTheme.colors.textTertiary,
+						style = SignerTypeface.BodyS,
+					)
+				}
+				Icon(
+					imageVector = Icons.Outlined.ChevronRight,
+					contentDescription = null,
+					tint = MaterialTheme.colors.textTertiary,
+				)
+			}
+			SignerDivider()
+		}
 	}
-	NetworkKeysSectionContent(
-		network = network,
-		keys = keys,
-		expanded = expanded,
-		onToggle = { expanded = !expanded },
-		onKeyClick = onKeyClick,
-		modifier = modifier,
-	)
 }
 
 @Composable
@@ -96,11 +122,11 @@ private fun NetworkKeysSectionContent(
 	modifier: Modifier = Modifier,
 ) {
 	val accent = networkAccent(network.networkLogo)
-	val shape = RoundedCornerShape(16.dp)
+	val shape = RectangleShape
 	val chevronRotation by animateFloatAsState(
 		targetValue = if (expanded) 180f else 0f,
 		animationSpec = tween(durationMillis = 220),
-		label = "chevron-rotation",
+		label = "Chevron-rotation",
 	)
 
 	Column(
@@ -149,7 +175,7 @@ private fun NetworkKeysSectionContent(
 				modifier = Modifier
 					.padding(end = 12.dp)
 					.size(28.dp)
-					.clip(RoundedCornerShape(8.dp))
+					.clip(RectangleShape)
 					.background(networkAccentTint(network.networkLogo)),
 				contentAlignment = Alignment.Center,
 			) {

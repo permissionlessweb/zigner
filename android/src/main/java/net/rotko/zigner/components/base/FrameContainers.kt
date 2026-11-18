@@ -1,6 +1,8 @@
 package net.rotko.zigner.components.base
 
 import android.content.res.Configuration
+import net.rotko.zigner.ui.theme.pink500
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.annotation.StringRes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -9,7 +11,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
@@ -36,7 +37,7 @@ fun NotificationFrameText(
 	withBorder: Boolean = true,
 ) {
 	val innerShape =
-		RoundedCornerShape(dimensionResource(id = R.dimen.innerFramesCornerRadius))
+		RectangleShape
 	Row(
 		modifier = modifier
 			.padding(8.dp)
@@ -74,9 +75,9 @@ fun NotificationFrameTextImportant(
 	textColor: Color = MaterialTheme.colors.pink300,
 	modifier: Modifier = Modifier,
 ) {
-	val BACKGROUND = Color(0x14F272B6)
+	val BACKGROUND = MaterialTheme.colors.pink500.copy(alpha = 0.08f)
 	val innerShape =
-		RoundedCornerShape(dimensionResource(id = R.dimen.innerFramesCornerRadius))
+		RectangleShape
 	Row(
 		modifier = modifier
 			.conditional(withBorder) {
@@ -114,7 +115,7 @@ fun NotificationFrameTextAlert(
 	modifier: Modifier = Modifier,
 ) {
 	val innerShape =
-		RoundedCornerShape(dimensionResource(id = R.dimen.innerFramesCornerRadius))
+		RectangleShape
 	Row(
 		modifier = modifier
 			.border(

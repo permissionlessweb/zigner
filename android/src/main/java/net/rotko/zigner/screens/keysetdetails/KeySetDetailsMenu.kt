@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material.icons.outlined.QrCode
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.QrCode2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
@@ -49,6 +50,8 @@ fun KeySetDeleteConfirmBottomSheet(
 fun KeyDetailsMenuGeneral(
 	networkState: State<NetworkState?>,
 	onSelectKeysClicked: Callback,
+	onEverydayWalletClicked: Callback,
+	onAddDerivedKeyClicked: Callback,
 	onBackupSeedClicked: Callback,
 	onExportToDeviceClicked: Callback,
 	onBackupMultisigClicked: Callback,
@@ -74,6 +77,18 @@ fun KeyDetailsMenuGeneral(
 		// 	label = stringResource(R.string.menu_option_export_keys),
 		// 	onclick = onSelectKeysClicked
 		// )
+
+		MenuItemForBottomSheet(
+			Icons.Outlined.QrCode2,
+			label = stringResource(R.string.key_set_menu_option_everyday_wallet),
+			onclick = onEverydayWalletClicked,
+		)
+
+		MenuItemForBottomSheet(
+			Icons.Outlined.Add,
+			label = stringResource(R.string.key_set_menu_option_add_key),
+			onclick = onAddDerivedKeyClicked,
+		)
 
 		MenuItemForBottomSheet(
 			iconId = R.drawable.ic_settings_backup_restore_28,
@@ -141,7 +156,7 @@ private fun PreviewKeyDetailsMenu() {
 	SignerNewTheme {
 		val state = remember { mutableStateOf(NetworkState.None) }
 		KeyDetailsMenuGeneral(
-			state, {}, {}, {}, {}, {}, {}, {}, {},
+			state, {}, {}, {}, {}, {}, {}, {}, {}, {}, {},
 		)
 	}
 }

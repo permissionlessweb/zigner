@@ -1,9 +1,9 @@
 package net.rotko.zigner.screens.scan.transaction
 
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Tab
@@ -52,7 +52,7 @@ fun UnifiedTransactionScreen(
 			.background(MaterialTheme.colors.backgroundPrimary)
 	) {
 		ScreenHeader(
-			title = "Sign Transaction",
+			title = "Sign transaction",
 			onBack = onDecline,
 		)
 
@@ -118,7 +118,7 @@ fun UnifiedTransactionScreen(
 			verticalArrangement = Arrangement.spacedBy(8.dp),
 		) {
 			PrimaryButtonWide(
-				label = "Approve & Sign",
+				label = "Approve & sign",
 				onClicked = onApprove,
 			)
 			SecondaryButtonWide(
@@ -136,17 +136,17 @@ fun UnifiedTransactionScreen(
 @Composable
 private fun NetworkBadge(name: String) {
 	val color = when {
-		name.contains("Penumbra") -> Color(0xFF8B5CF6)
-		name.contains("Cosmos") || name.contains("Noble") || name.contains("Osmosis") -> Color(0xFF6366F1)
-		name.contains("Zcash") -> Color(0xFFF5A623)
+		name.contains("Penumbra") -> networkAccent("penumbra")
+		name.contains("Cosmos") || name.contains("Noble") || name.contains("Osmosis") -> networkAccent("cosmos")
+		name.contains("Zcash") -> networkAccent("zcash")
 		else -> MaterialTheme.colors.primary
 	}
 	Text(
 		text = name,
-		style = SignerTypeface.LabelM.copy(fontWeight = FontWeight.Bold),
+		style = SignerTypeface.LabelM,
 		color = color,
 		modifier = Modifier
-			.clip(RoundedCornerShape(6.dp))
+			.clip(RectangleShape)
 			.background(color.copy(alpha = 0.15f))
 			.padding(horizontal = 10.dp, vertical = 4.dp),
 	)
@@ -180,7 +180,7 @@ private fun TxTypeBadge(signRequest: SignRequest) {
 		style = SignerTypeface.LabelM,
 		color = MaterialTheme.colors.textSecondary,
 		modifier = Modifier
-			.clip(RoundedCornerShape(6.dp))
+			.clip(RectangleShape)
 			.background(MaterialTheme.colors.fill6)
 			.padding(horizontal = 10.dp, vertical = 4.dp),
 	)
@@ -215,7 +215,7 @@ private fun PenumbraSimpleContent(req: SignRequest.Penumbra) {
 				line.isOwn -> "${line.counterparty}\n(this device's address)"
 				else -> line.counterparty
 			},
-			color = if (line.isOwn) Color(0xFF10B981) else Color(0xFF8B5CF6),
+			color = if (line.isOwn) MaterialTheme.colors.accentGreen else MaterialTheme.colors.pink500,
 		)
 	}
 
@@ -246,7 +246,7 @@ private fun CosmosSimpleContent(req: SignRequest.Cosmos) {
 		Column(
 			modifier = Modifier
 				.fillMaxWidth()
-				.clip(RoundedCornerShape(12.dp))
+				.clip(RectangleShape)
 				.background(MaterialTheme.colors.fill6)
 				.padding(16.dp),
 			verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -254,7 +254,7 @@ private fun CosmosSimpleContent(req: SignRequest.Cosmos) {
 			// Message type
 			Text(
 				text = "$prefix${msg.msgType}",
-				style = SignerTypeface.LabelM.copy(fontWeight = FontWeight.Bold),
+				style = SignerTypeface.LabelM,
 				color = MaterialTheme.colors.primary,
 			)
 
@@ -288,9 +288,9 @@ private fun CosmosSimpleContent(req: SignRequest.Cosmos) {
 
 			if (msg.blind) {
 				Text(
-					text = "Blind signing — verify in Advanced tab",
+					text = "Blind signing — verify in advanced tab",
 					style = SignerTypeface.CaptionM,
-					color = Color(0xFFE74C3C),
+					color = MaterialTheme.colors.red500,
 				)
 			}
 		}
@@ -336,9 +336,9 @@ internal fun ZcashPcztSimpleContent(req: SignRequest.ZcashPczt) {
 					else -> "Unknown spend — verify carefully"
 				},
 				color = when {
-					spend.known -> Color(0xFFF5A623) // gold
-					isDummy -> Color(0xFF6B7280) // neutral grey
-					else -> Color(0xFFE74C3C) // red
+					spend.known -> MaterialTheme.colors.pink500
+					isDummy -> MaterialTheme.colors.textTertiary
+					else -> MaterialTheme.colors.red500
 				},
 			)
 		}
@@ -351,7 +351,7 @@ internal fun ZcashPcztSimpleContent(req: SignRequest.ZcashPczt) {
 			Column(
 				modifier = Modifier
 					.fillMaxWidth()
-					.clip(RoundedCornerShape(12.dp))
+					.clip(RectangleShape)
 					.background(MaterialTheme.colors.fill6)
 					.padding(16.dp),
 				verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -381,7 +381,7 @@ internal fun ZcashPcztSimpleContent(req: SignRequest.ZcashPczt) {
 @Composable
 private fun AdvancedTabContent(signRequest: SignRequest) {
 	Text(
-		text = "Raw Payload",
+		text = "Raw payload",
 		style = SignerTypeface.LabelM,
 		color = MaterialTheme.colors.textTertiary,
 		modifier = Modifier.padding(bottom = 4.dp),
@@ -390,7 +390,7 @@ private fun AdvancedTabContent(signRequest: SignRequest) {
 	val payload = signRequest.rawPayload
 	if (payload.isEmpty()) {
 		Text(
-			text = "(no raw payload available)",
+			text = "(No raw payload available)",
 			style = SignerTypeface.CaptionM,
 			color = MaterialTheme.colors.textTertiary,
 		)
@@ -453,7 +453,7 @@ private fun AdvancedTabContent(signRequest: SignRequest) {
 			color = MaterialTheme.colors.textSecondary,
 			modifier = Modifier
 				.fillMaxWidth()
-				.clip(RoundedCornerShape(8.dp))
+				.clip(RectangleShape)
 				.background(MaterialTheme.colors.fill6)
 				.padding(12.dp),
 		)
@@ -470,7 +470,7 @@ internal fun HighlightCard(title: String, subtitle: String, color: Color) {
 	Column(
 		modifier = Modifier
 			.fillMaxWidth()
-			.clip(RoundedCornerShape(12.dp))
+			.clip(RectangleShape)
 			.background(color.copy(alpha = 0.1f))
 			.padding(16.dp),
 		verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -523,10 +523,10 @@ internal fun WarningCard(message: String) {
 	Column(
 		modifier = Modifier
 			.fillMaxWidth()
-			.clip(RoundedCornerShape(8.dp))
-			.background(Color(0x33E74C3C))
+			.clip(RectangleShape)
+			.background(MaterialTheme.colors.red500fill12)
 			.padding(12.dp),
 	) {
-		Text(text = message, style = SignerTypeface.CaptionM, color = Color(0xFFE74C3C))
+		Text(text = message, style = SignerTypeface.CaptionM, color = MaterialTheme.colors.red500)
 	}
 }

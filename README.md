@@ -1,6 +1,6 @@
 <div align="center">
 
-# Zafu Zigner
+# Zigner
 
 **Air-gapped cold wallet for Zcash: turn a spare phone into an offline signer.**
 

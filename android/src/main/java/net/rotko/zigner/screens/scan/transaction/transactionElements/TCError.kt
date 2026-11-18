@@ -1,11 +1,11 @@
 package net.rotko.zigner.screens.scan.transaction.transactionElements
 
 import android.content.res.Configuration
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
@@ -25,7 +25,7 @@ fun TCError(error: String) {
 	Row(
 		modifier = Modifier.background(
 			color = MaterialTheme.colors.backgroundDanger,
-			shape = RoundedCornerShape(dimensionResource(id = R.dimen.innerFramesCornerRadius))
+			shape = RectangleShape
 		),
 		horizontalArrangement = Arrangement.spacedBy(8.dp),
 	) {

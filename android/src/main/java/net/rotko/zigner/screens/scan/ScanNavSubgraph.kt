@@ -136,7 +136,7 @@ fun ScanNavSubgraph(
 			}) {
 				LocalErrorBottomSheet(
 					error = LocalErrorSheetModel(
-						title = "Module Update Failed",
+						title = "Module update failed",
 						subtitle = "Failed to stage the module package for installation",
 						details = modulePackageError.value
 					),
