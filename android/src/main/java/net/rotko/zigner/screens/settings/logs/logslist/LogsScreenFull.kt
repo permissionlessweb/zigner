@@ -1,6 +1,8 @@
 package net.rotko.zigner.screens.settings.logs.logslist
 
 import timber.log.Timber
+import net.rotko.zigner.R
+import androidx.compose.ui.res.stringResource
 import android.widget.Toast
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
@@ -46,7 +48,7 @@ fun LogsScreenFull(
 				navController.popBackStack()
 			}
 			CompletableResult.InProgress -> {
-				WaitingScreen()
+				WaitingScreen(stringResource(R.string.waiting_reading_log))
 			}
 			is CompletableResult.Ok -> {
 				LogsScreen(

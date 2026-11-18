@@ -48,10 +48,11 @@ private const val ENSO_STEPS = 56
 
 /**
  * Shown while the person waits: the seated samurai breathes, and an ink enso
- * is drawn around him. It does not claim progress, only that zigner is working.
+ * is drawn around him. It claims no progress; [what] says what zigner is
+ * doing, in the caller's words, never a bare "please wait".
  */
 @Composable
-fun WaitingScreen() {
+fun WaitingScreen(what: String) {
 	val loop = rememberInfiniteTransition(label = "waiting")
 	val breath by loop.animateFloat(
 		initialValue = 1f,
@@ -119,7 +120,7 @@ fun WaitingScreen() {
 			}
 			Spacer(modifier = Modifier.height(20.dp))
 			Text(
-				text = "Please wait",
+				text = what,
 				style = SignerTypeface.BodyM,
 				color = MaterialTheme.colors.textTertiary,
 			)
@@ -137,5 +138,5 @@ fun WaitingScreen() {
 )
 @Composable
 private fun PreviewWaitingScreen() {
-	WaitingScreen()
+	WaitingScreen("Loading keys")
 }
