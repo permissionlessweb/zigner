@@ -9,8 +9,8 @@ signs or how keys are kept.
 
 ### Look
 
-- **The zafu theme.** Sumi (dark) and washi (light) palettes, Shippori Mincho
-  and Iosevka type, square corners, gold buttons with dark ink.
+- **The zafu theme.** The same dark and light palettes and typefaces as
+  zafu, square corners, gold buttons with dark ink.
 - **Scroll art** on unlock, welcome, new and restore.
 - **New launcher icon:** the zafu enso replaces the gold Z.
 - **The app is called Zigner**, not "Zafu Zigner", on the launcher, the

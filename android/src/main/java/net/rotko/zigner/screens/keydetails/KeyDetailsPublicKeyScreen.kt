@@ -472,11 +472,11 @@ fun KeyDetailsPublicKeyScreen(
 						contentAlignment = Alignment.Center
 					) {
 						Text(
-							text = "New Address",
+							text = "New address",
 							style = SignerTypeface.LabelM,
-							color = Color.White,
+							color = MaterialTheme.colors.onGold,
 							modifier = Modifier
-								.clip(RoundedCornerShape(8.dp))
+								.clip(RectangleShape)
 								.background(MaterialTheme.colors.pink500)
 								.clickable { onRequestPenumbraFreshReceive() }
 								.padding(horizontal = 24.dp, vertical = 10.dp)
