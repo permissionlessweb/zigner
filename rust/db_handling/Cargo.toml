@@ -28,6 +28,7 @@ zeroize = { version = "1.7.0", optional = true, features = ["std"] }
 bech32 = { version = "0.11.0", default-features = false, features = ["alloc"], optional = true }
 blake2b_simd = { version = "1.0.2", default-features = false, optional = true }
 penumbra-keys = { git = "https://github.com/penumbra-zone/penumbra.git", tag = "v2.0.4", package = "penumbra-sdk-keys", optional = true }
+rand_core = { version = "0.6", features = ["getrandom"], optional = true }
 
 # Ledger Ed25519 (Cardano-style BIP32-Ed25519)
 hmac = { version = "0.12", optional = true }
@@ -56,7 +57,7 @@ tempfile = { version = "3.10" }
 default = []
 active = ["defaults/active", "definitions/active", "tiny-bip39", "sp-core", "sp-runtime", "zeroize", "penumbra", "ledger", "cosmos", "zcash"]
 test = []
-penumbra = ["blake2b_simd", "tiny-bip39", "zeroize", "penumbra-keys"]
+penumbra = ["blake2b_simd", "tiny-bip39", "zeroize", "penumbra-keys", "rand_core"]
 ledger = ["hmac", "sha2", "tiny-bip39", "zeroize", "sp-core", "sp-runtime"]
 cosmos = ["bip32", "bech32", "sha2", "ripemd", "tiny-bip39", "zeroize", "sp-core", "sp-runtime"]
 zcash = ["bip32/bip39", "tiny-bip39", "zeroize", "orchard", "zcash_address", "zip32", "serde"]

@@ -39,13 +39,9 @@ fun UnifiedTransactionScreen(
 	onApprove: Callback,
 	onDecline: Callback,
 	modifier: Modifier = Modifier,
-	getSeedName: suspend () -> String = { "" },
 ) {
 	// Approval screen: reject touches while an overlay is up.
 	TapjackGuard()
-
-	var signingSeedName by remember { mutableStateOf("") }
-	LaunchedEffect(Unit) { signingSeedName = getSeedName() }
 
 	var selectedTab by remember { mutableStateOf(0) }
 	val tabs = listOf("Simple", "Advanced")
@@ -111,7 +107,7 @@ fun UnifiedTransactionScreen(
 			verticalArrangement = Arrangement.spacedBy(12.dp),
 		) {
 			when (selectedTab) {
-				0 -> SimpleTabContent(signRequest, signingSeedName)
+				0 -> SimpleTabContent(signRequest)
 				1 -> AdvancedTabContent(signRequest)
 			}
 		}
@@ -195,16 +191,16 @@ private fun TxTypeBadge(signRequest: SignRequest) {
 // =============================================================================
 
 @Composable
-private fun SimpleTabContent(signRequest: SignRequest, signingSeedName: String) {
+private fun SimpleTabContent(signRequest: SignRequest) {
 	when (signRequest) {
-		is SignRequest.Penumbra -> PenumbraSimpleContent(signRequest, signingSeedName)
+		is SignRequest.Penumbra -> PenumbraSimpleContent(signRequest)
 		is SignRequest.Cosmos -> CosmosSimpleContent(signRequest)
 		is SignRequest.ZcashPczt -> ZcashPcztSimpleContent(signRequest)
 	}
 }
 
 @Composable
-private fun PenumbraSimpleContent(req: SignRequest.Penumbra, signingSeedName: String) {
+private fun PenumbraSimpleContent(req: SignRequest.Penumbra) {
 	val r = req.request
 
 	// Everything below is decoded from the transaction plan Zigner signs; the
@@ -226,7 +222,9 @@ private fun PenumbraSimpleContent(req: SignRequest.Penumbra, signingSeedName: St
 	DetailRow(label = "Fee", value = r.fee)
 	if (r.memo.isNotEmpty()) DetailRow(label = "Memo", value = r.memo)
 	DetailRow(label = "Expires at block", value = if (r.expiryHeight == 0uL) "never" else "${r.expiryHeight}")
-	DetailRow(label = "Signing as", value = "${signingSeedName.ifEmpty { "(no seed available)" }} · account 0")
+	// The signer looks for the key set and account (0-7) whose viewing key
+	// reproduces this plan's effect hash; the request itself names neither.
+	DetailRow(label = "Signs with", value = "the key set on this device that owns it")
 }
 
 @Composable

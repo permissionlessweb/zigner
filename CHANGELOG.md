@@ -8,6 +8,17 @@ Minor. Security release from a full review of the signer. **Penumbra users:
 liquidity positions, Dutch auctions and votes are refused until each has a
 review screen.** iOS FROST signing is turned off.
 
+### Penumbra
+
+- **Any key set and account can sign** (#50, thanks hard-nett). A sign
+  request names neither, and Zigner used account 0 of the first key set, so
+  any other key failed. It now tries accounts 0-7 on each key set until one
+  reproduces the plan's effect hash, which remains the check that the plan
+  is the one being signed. The review screen no longer claims a fixed key.
+- **Optional fresh receive address** (#51, thanks hard-nett). "New address"
+  on the Penumbra receive screen derives a new unlinkable address of the
+  same account each tap; the default address and QR are unchanged.
+
 ### Security
 
 - **FROST key shares are encrypted at rest.** A share has no seed phrase

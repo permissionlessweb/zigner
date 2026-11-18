@@ -417,7 +417,6 @@ fun ScanNavSubgraph(
 		UnifiedTransactionScreen(
 			signRequest = unifiedSignRequest.value!!,
 			modifier = Modifier.statusBarsPadding(),
-			getSeedName = { scanViewModel.getFirstSeedName() },
 			onApprove = {
 				scanViewModel.signUnifiedTransaction(context)
 			},

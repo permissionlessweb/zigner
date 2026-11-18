@@ -1243,6 +1243,20 @@ fn export_penumbra_fvk(
     })
 }
 
+/// A fresh receive address for the Penumbra account, unlinkable to the
+/// default one but viewed by the same FVK (Zafu's `getEphemeralByIndex`).
+fn get_penumbra_fresh_receive_address(
+    seed_phrase: &str,
+    account_index: u32,
+) -> Result<PenumbraReceive, ErrorDisplayed> {
+    let address = db_handling::penumbra::fresh_receive_address(seed_phrase, account_index)
+        .map_err(|e| ErrorDisplayed::Str {
+            s: format!("Failed to derive receive address: {e}"),
+        })?;
+    let qr_text = format!("penumbra:{address}:0x{PENUMBRA_SPECS_GENESIS}");
+    Ok(PenumbraReceive { address, qr_text })
+}
+
 // ============================================================================
 // Cosmos account export
 // ============================================================================
@@ -1570,10 +1584,8 @@ fn sign_penumbra_transaction(
     seed_phrase: &str,
     request: PenumbraSignRequest,
 ) -> Result<Vec<u8>, ErrorDisplayed> {
-    use transaction_parsing::penumbra::{
-        parse_penumbra_transaction, sign_transaction, SpendKeyBytes,
-    };
-    use transaction_signing::penumbra::verify_effect_hash;
+    use transaction_parsing::penumbra::{parse_penumbra_transaction, sign_transaction};
+    use transaction_signing::penumbra::spend_key_owning_effect;
 
     // Re-parse to get the full plan data
     let plan =
@@ -1588,20 +1600,26 @@ fn sign_penumbra_transaction(
     // Only a plan the review screen can show is ever signed.
     review_penumbra_qr(&plan, &[])?;
 
-    // Derive spend key from seed phrase (account 0)
+    // The request names neither the seed nor the account. Try accounts 0..8
+    // on this seed. Effect-hash verification is the check that this plan is
+    // the one being signed, and the way the owning account is found.
     let spend_key =
-        SpendKeyBytes::from_seed_phrase(seed_phrase, 0).map_err(|e| ErrorDisplayed::Str {
-            s: format!("Key derivation failed: {e}"),
+        spend_key_owning_effect(seed_phrase, &plan.plan_bytes, &effect_hash).map_err(|e| {
+            let text = e.to_string();
+            if text.contains("No key on this device owns this request.") {
+                ErrorDisplayed::Str {
+                    s: "No key on this device owns this request.".to_string(),
+                }
+            } else if text.contains("invalid mnemonic") {
+                ErrorDisplayed::Str {
+                    s: format!("Key derivation failed: {e}"),
+                }
+            } else {
+                ErrorDisplayed::Str {
+                    s: format!("Effect hash verification failed: {e}"),
+                }
+            }
         })?;
-
-    // SECURITY: Verify the effect hash from the QR matches what we compute
-    // from the plan + our FVK. This prevents a compromised hot wallet from
-    // tricking us into signing a different transaction.
-    verify_effect_hash(&plan.plan_bytes, &effect_hash, &spend_key).map_err(|e| {
-        ErrorDisplayed::Str {
-            s: format!("Effect hash verification failed: {e}"),
-        }
-    })?;
 
     // Sign the transaction
     let auth_data = sign_transaction(

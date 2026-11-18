@@ -281,6 +281,43 @@ pub fn verify_effect_hash(
     Ok(())
 }
 
+/// Accounts `0..PENUMBRA_ACCOUNT_SEARCH` are tried when a sign request does not
+/// name one. Eight covers the accounts a device exports. A later QR version can
+/// carry the account index and skip the search.
+#[cfg(feature = "penumbra")]
+pub const PENUMBRA_ACCOUNT_SEARCH: u32 = 8;
+
+/// Spend key on `seed_phrase` whose viewing key reproduces `effect_hash`.
+///
+/// The effect-hash check stays the proof that this plan is the one being
+/// signed. It is also how the owning account is found: a mismatch tries the
+/// next account. A plan that does not decode is returned immediately. When no
+/// account in range matches, the error is
+/// `No key on this device owns this request.`
+#[cfg(feature = "penumbra")]
+pub fn spend_key_owning_effect(
+    seed_phrase: &str,
+    plan_bytes: &[u8],
+    effect_hash: &[u8; 64],
+) -> Result<SpendKeyBytes> {
+    for account in 0..PENUMBRA_ACCOUNT_SEARCH {
+        let spend_key = SpendKeyBytes::from_seed_phrase(seed_phrase, account)?;
+        match verify_effect_hash(plan_bytes, effect_hash, &spend_key) {
+            Ok(()) => return Ok(spend_key),
+            Err(Error::PenumbraKeyDerivation(ref msg))
+                if msg.contains("effect hash mismatch")
+                    || msg.contains("failed to compute effect hash") =>
+            {
+                continue;
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    Err(Error::PenumbraKeyDerivation(
+        "No key on this device owns this request.".to_string(),
+    ))
+}
+
 // ============================================================================
 // effect hash computation
 // ============================================================================
@@ -1032,5 +1069,68 @@ mod tests {
 
         assert_eq!(decoded.fvk_bytes, export_data.fvk_bytes);
         assert_eq!(decoded.wallet_id, export_data.wallet_id);
+    }
+
+    /// Public BIP39 test phrase. Not a wallet.
+    const TEST_PHRASE: &str = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
+    const OTHER_PHRASE: &str =
+        "legal winner thank year wave sausage worth useful legal winner thank yellow";
+
+    fn plan_for_account(phrase: &str, account: u32) -> ([u8; 64], Vec<u8>) {
+        use penumbra_keys::keys::SpendKey;
+        use penumbra_keys::keys::SpendKeyBytes as SdkSpendKeyBytes;
+        use penumbra_proto::DomainType;
+        use penumbra_sdk_shielded_pool::OutputPlan;
+        use penumbra_transaction::plan::{ActionPlan, TransactionPlan};
+        use rand_chacha::rand_core::SeedableRng;
+        use rand_chacha::ChaCha20Rng;
+
+        let spend_key = SpendKeyBytes::from_seed_phrase(phrase, account).unwrap();
+        let sdk: SpendKey = SdkSpendKeyBytes(*spend_key.as_bytes()).into();
+        // An empty plan's effect hash ignores the viewing key, so every
+        // account would match. One output binds the hash to this key.
+        let mut rng = ChaCha20Rng::from_seed([9u8; 32]);
+        let mut plan = TransactionPlan::default();
+        plan.actions
+            .push(ActionPlan::Output(OutputPlan::dummy(&mut rng)));
+        let hash = plan.effect_hash(sdk.full_viewing_key()).unwrap();
+        (*hash.as_bytes(), plan.encode_to_vec())
+    }
+
+    #[test]
+    fn penumbra_owner_account_matches_effect_hash() {
+        let (effect_hash, plan_bytes) = plan_for_account(TEST_PHRASE, 3);
+        let found = spend_key_owning_effect(TEST_PHRASE, &plan_bytes, &effect_hash).unwrap();
+        let account3 = SpendKeyBytes::from_seed_phrase(TEST_PHRASE, 3).unwrap();
+        let account0 = SpendKeyBytes::from_seed_phrase(TEST_PHRASE, 0).unwrap();
+        assert_eq!(found.as_bytes(), account3.as_bytes());
+        assert_ne!(found.as_bytes(), account0.as_bytes());
+
+        let (effect_hash, plan_bytes) = plan_for_account(TEST_PHRASE, 0);
+        let found = spend_key_owning_effect(TEST_PHRASE, &plan_bytes, &effect_hash).unwrap();
+        assert_eq!(found.as_bytes(), account0.as_bytes());
+    }
+
+    #[test]
+    fn penumbra_owner_other_seed_is_not_the_owner() {
+        let (effect_hash, plan_bytes) = plan_for_account(TEST_PHRASE, 0);
+        let err = match spend_key_owning_effect(OTHER_PHRASE, &plan_bytes, &effect_hash) {
+            Err(e) => e,
+            Ok(_) => panic!("other seed must not own the plan"),
+        };
+        assert!(err
+            .to_string()
+            .contains("No key on this device owns this request."));
+    }
+
+    #[test]
+    fn penumbra_owner_undecodable_plan_is_not_a_missing_key() {
+        let err = match spend_key_owning_effect(TEST_PHRASE, b"not a plan", &[0u8; 64]) {
+            Err(e) => e,
+            Ok(_) => panic!("undecodable plan must not select a key"),
+        };
+        let text = err.to_string();
+        assert!(text.contains("failed to decode plan"));
+        assert!(!text.contains("No key on this device owns this request."));
     }
 }
