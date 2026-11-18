@@ -1,5 +1,5 @@
 <resources>
-	<string name="app_name">Zafu Zigner</string>
+	<string name="app_name">Zigner</string>
 	<string name="remove_key_confirm_title">Forget this key?</string>
 	<string name="remove_key_confirm_text">This key will be removed for this network. Are you sure?</string>
 	<string name="remove_key_confirm_cta">Remove key</string>
@@ -80,7 +80,7 @@
 	<string name="log_message_network_custom">Custom</string>
 	<string name="menu_option_add_note">Add note</string>
 	<string name="menu_option_clear_logs">Clear logs</string>
-	<string name="unlock_device_title">Unlock Zafu Zigner</string>
+	<string name="unlock_device_title">Unlock Zigner</string>
 	<string name="unlock_device_subtitle">Please authenticate yourself</string>
 	<string name="auth_error_message">Authentication error: %s</string>
 	<string name="auth_failed_message">Authentication failed</string>
@@ -107,9 +107,9 @@
 	<string name="camera_no_permission_text">Camera permission not granted</string>
 	<string name="general_got_it">Got it</string>
 	<string name="exposed_now_title">Network connected</string>
-	<string name="exposed_now_message">Zafu Zigner detects currently connected network; please enable airplane mode, disable Wi-Fi and bt, disconnect all cables and handle security breach according with your security protocol.</string>
+	<string name="exposed_now_message">Zigner detects currently connected network; please enable airplane mode, disable Wi-Fi and bt, disconnect all cables and handle security breach according with your security protocol.</string>
 	<string name="exposed_past_title">Network was connected!</string>
-	<string name="exposed_past_message">Your Zafu Zigner device has connected to a mobile, Wi-Fi, tether or Bluetooth network since your last acknowledgement and should be considered unsafe to use.</string>
+	<string name="exposed_past_message">Your Zigner device has connected to a mobile, Wi-Fi, tether or Bluetooth network since your last acknowledgement and should be considered unsafe to use.</string>
 	<string name="exposed_before_cancel_button">Go back</string>
 	<string name="exposed_before_proceed_button">Acknowledge and proceed</string>
 	<string name="settings_title">Settings</string>
@@ -213,7 +213,7 @@
 	<string name="create_derivations_success">Derived key successfully created.</string>
 	<string name="create_derivations_failure">Derivation key failure: %1$s</string>
 	<string name="unlock_screen_title">Zigner</string>
-	<string name="unlock_screen_description">The device has been locked because of failed authentication, please unlock the device to keep using Zafu Zigner</string>
+	<string name="unlock_screen_description">The device has been locked because of failed authentication, please unlock the device to keep using Zigner</string>
 	<string name="key_set_details_no_keys_title">Key set don\'t have any derived keys</string>
 	<string name="key_sets_empty_title">Zigner</string>
 	<string name="key_sets_empty_message">Your keys. Offline.</string>
