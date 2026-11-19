@@ -1,8 +1,8 @@
 package net.rotko.zigner.screens.scan.transaction
 
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
@@ -81,7 +81,7 @@ fun AuthChallengeScreen(
 			.padding(16.dp)
 	) {
 		Text(
-			text = "Sign In",
+			text = "Sign in",
 			style = SignerTypeface.TitleL,
 			color = MaterialTheme.colors.primary,
 			modifier = Modifier.padding(bottom = 16.dp)
@@ -97,7 +97,7 @@ fun AuthChallengeScreen(
 					Column(
 						modifier = Modifier
 							.fillMaxWidth()
-							.clip(RoundedCornerShape(12.dp))
+							.clip(RectangleShape)
 							.background(MaterialTheme.colors.fill6)
 							.padding(24.dp),
 						horizontalAlignment = Alignment.CenterHorizontally,
@@ -121,7 +121,7 @@ fun AuthChallengeScreen(
 						Column(
 							modifier = Modifier
 								.fillMaxWidth()
-								.clip(RoundedCornerShape(8.dp))
+								.clip(RectangleShape)
 								.background(MaterialTheme.colors.fill6)
 								.padding(12.dp),
 							verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -144,7 +144,7 @@ fun AuthChallengeScreen(
 						Row(
 							modifier = Modifier
 								.fillMaxWidth()
-								.clip(RoundedCornerShape(8.dp))
+								.clip(RectangleShape)
 								.background(MaterialTheme.colors.red500fill12)
 								.padding(12.dp),
 							horizontalArrangement = Arrangement.spacedBy(8.dp)

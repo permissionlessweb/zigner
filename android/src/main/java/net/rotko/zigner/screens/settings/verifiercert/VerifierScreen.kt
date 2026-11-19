@@ -1,10 +1,10 @@
 package net.rotko.zigner.screens.settings.verifiercert
 
 import android.content.res.Configuration
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import android.os.SystemClock
 import android.widget.Toast
 import androidx.compose.material.MaterialTheme
@@ -105,7 +105,7 @@ internal fun VerifierScreen(
 				.padding(top = 16.dp, bottom = 8.dp, start = 8.dp, end = 8.dp)
 				.background(
 					MaterialTheme.colors.fill6,
-					RoundedCornerShape(dimensionResource(id = R.dimen.qrShapeCornerRadius))
+					RectangleShape
 				)
 				.clickable(
 					indication = null,

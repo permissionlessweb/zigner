@@ -1,8 +1,8 @@
 package net.rotko.zigner.screens.settings.frost
 
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.OutlinedTextField
@@ -34,7 +34,7 @@ fun FrostRenameDialog(
 	Dialog(onDismissRequest = onCancel) {
 		Column(
 			modifier = Modifier
-				.clip(RoundedCornerShape(12.dp))
+				.clip(RectangleShape)
 				.background(MaterialTheme.colors.background)
 				.padding(20.dp),
 		) {
@@ -45,7 +45,7 @@ fun FrostRenameDialog(
 			)
 			Spacer(modifier = Modifier.height(6.dp))
 			Text(
-				text = "Local label only — peers and zafu keep their own labels.",
+				text = "Local label only — peers and Zafu keep their own labels.",
 				style = SignerTypeface.CaptionM,
 				color = MaterialTheme.colors.textTertiary,
 			)
@@ -54,7 +54,7 @@ fun FrostRenameDialog(
 			OutlinedTextField(
 				value = label,
 				onValueChange = { label = it },
-				label = { Text("label") },
+				label = { Text("Label") },
 				keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
 				singleLine = true,
 				modifier = Modifier.fillMaxWidth(),
@@ -67,12 +67,12 @@ fun FrostRenameDialog(
 				verticalAlignment = Alignment.CenterVertically,
 			) {
 				SecondaryButtonWide(
-					label = "cancel",
+					label = "Cancel",
 					modifier = Modifier.weight(1f),
 					onClicked = onCancel,
 				)
 				PrimaryButtonWide(
-					label = "save",
+					label = "Save",
 					modifier = Modifier.weight(1f),
 					onClicked = { if (canConfirm) onConfirm(trimmed) },
 				)

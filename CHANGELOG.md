@@ -2,11 +2,49 @@
 
 All notable changes to zigner are documented in this file.
 
+## 0.15.0 - 2026-11-18
+
+Minor. Zigner takes the zafu look and its own name. No change to what it
+signs or how keys are kept.
+
+### Look
+
+- **The zafu theme.** The same dark and light palettes and typefaces as
+  zafu, square corners, gold buttons with dark ink.
+- **Scroll art** on unlock, welcome, new and restore.
+- **New launcher icon:** the zafu enso replaces the gold Z.
+- **The app is called Zigner**, not "Zafu Zigner", on the launcher, the
+  unlock screen and the network warnings.
+- Sentence case everywhere, a simpler home, and the everyday wallet in the
+  menu.
+
+### Fixes
+
+- Unlock and welcome buttons stay above the navigation bar.
+- Showing a viewing key rides on the app unlock, with no prompt per view.
+- The Penumbra review screen uses the theme colours.
+
+### Scope
+
+- Docs and store text name Zcash and Penumbra only. Polkadot, Kusama,
+  Substrate and Cosmos are no longer advertised.
+
 ## 0.14.0 - 2026-10-31
 
 Minor. Security release from a full review of the signer. **Penumbra users:
 liquidity positions, Dutch auctions and votes are refused until each has a
 review screen.** iOS FROST signing is turned off.
+
+### Penumbra
+
+- **Any key set and account can sign** (#50, thanks hard-nett). A sign
+  request names neither, and Zigner used account 0 of the first key set, so
+  any other key failed. It now tries accounts 0-7 on each key set until one
+  reproduces the plan's effect hash, which remains the check that the plan
+  is the one being signed. The review screen no longer claims a fixed key.
+- **Optional fresh receive address** (#51, thanks hard-nett). "New address"
+  on the Penumbra receive screen derives a new unlinkable address of the
+  same account each tap; the default address and QR are unchanged.
 
 ### Security
 

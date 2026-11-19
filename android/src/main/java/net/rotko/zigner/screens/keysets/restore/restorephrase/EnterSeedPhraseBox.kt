@@ -1,6 +1,7 @@
 package net.rotko.zigner.screens.keysets.restore.restorephrase
 
 import android.content.res.Configuration
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -156,7 +157,7 @@ fun EnterSeedPhraseBox(
 private fun EnterSeedPhraseWord(index: Int, word: String) {
 	Row(
 		Modifier
-			.background(MaterialTheme.colors.fill6, RoundedCornerShape(16.dp))
+			.background(MaterialTheme.colors.fill6, RectangleShape)
 			.defaultMinSize(minWidth = 40.dp, minHeight = 24.dp)
 			.padding(vertical = 8.dp, horizontal = 12.dp)
 	) {

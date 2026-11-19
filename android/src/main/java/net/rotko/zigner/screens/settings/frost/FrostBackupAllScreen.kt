@@ -68,7 +68,7 @@ fun FrostBackupAllScreen(onBack: Callback) {
 					success = true
 				} catch (e: Exception) {
 					Timber.e(e, "[frost-backup-all] save failed")
-					error = e.message ?: "save failed"
+					error = e.message ?: "Save failed"
 				}
 			}
 		}
@@ -90,7 +90,7 @@ fun FrostBackupAllScreen(onBack: Callback) {
 			contentAlignment = Alignment.Center,
 		) {
 			if (success) {
-				AnimatedSuccessBadge(visible = true, message = "backup saved")
+				AnimatedSuccessBadge(visible = true, message = "Backup saved")
 				LaunchedEffect(Unit) {
 					kotlinx.coroutines.delay(2500)
 					success = false
@@ -129,7 +129,7 @@ fun FrostBackupAllScreen(onBack: Callback) {
 							)
 							Spacer(modifier = Modifier.height(16.dp))
 							Text(
-								text = "⚠ this passphrase cannot be reset. losing it means the backup is unusable.",
+								text = "⚠ this passphrase cannot be reset. Losing it means the backup is unusable.",
 								style = SignerTypeface.CaptionM,
 								color = MaterialTheme.colors.red400,
 							)
@@ -170,7 +170,7 @@ fun FrostBackupAllScreen(onBack: Callback) {
 						saveLauncher.launch("frost-backup-all-${ymdToday()}.json")
 					} catch (e: Exception) {
 						Timber.e(e, "[frost-backup-all] export failed")
-						error = e.message ?: "export failed"
+						error = e.message ?: "Export failed"
 					}
 				}
 			},

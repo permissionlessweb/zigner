@@ -1,6 +1,8 @@
 package net.rotko.zigner.screens.keysets.create
 
 import android.content.res.Configuration
+import androidx.compose.foundation.layout.height
+import net.rotko.zigner.components.base.ScrollArt
 import timber.log.Timber
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
@@ -74,6 +76,7 @@ fun NewKeySetNameScreen(
 			},
 			backNotClose = false,
 		)
+		ScrollArt(art = R.drawable.art_bamboo, modifier = Modifier.height(200.dp))
 		Text(
 			text = stringResource(R.string.new_key_set_title),
 			color = MaterialTheme.colors.primary,

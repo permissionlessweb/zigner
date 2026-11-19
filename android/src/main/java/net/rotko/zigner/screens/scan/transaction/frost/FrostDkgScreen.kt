@@ -146,7 +146,7 @@ fun FrostDkgScreen(
 				modifier = Modifier.weight(1f),
 			)
 			if (state != DkgState.ERROR) {
-				DontQuitIcon(message = "don't leave this screen — quitting cancels DKG")
+				DontQuitIcon(message = "Don't leave this screen — quitting cancels DKG")
 			}
 		}
 		Text(
@@ -183,7 +183,7 @@ fun FrostDkgScreen(
 				}
 				Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
 					if (frames == null) Text(
-						"failed to prepare QR payload",
+						"Failed to prepare QR payload",
 						style = SignerTypeface.BodyL,
 						color = MaterialTheme.colors.red500,
 					) else AnimatedQrKeysInfo<List<List<UByte>>>(
@@ -224,7 +224,7 @@ fun FrostDkgScreen(
 			DkgState.ERROR -> {
 				Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
 					Column(horizontalAlignment = Alignment.CenterHorizontally) {
-						Text("DKG Failed", style = SignerTypeface.TitleS, color = MaterialTheme.colors.red500)
+						Text("DKG failed", style = SignerTypeface.TitleS, color = MaterialTheme.colors.red500)
 						Spacer(modifier = Modifier.height(8.dp))
 						Text(errorMsg, style = SignerTypeface.BodyL, color = MaterialTheme.colors.textSecondary)
 					}

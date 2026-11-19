@@ -1,9 +1,9 @@
 package net.rotko.zigner.screens.settings.frost
 
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
@@ -36,7 +36,7 @@ fun FrostSeedPickerDialog(
 	Dialog(onDismissRequest = onCancel) {
 		Column(
 			modifier = Modifier
-				.clip(RoundedCornerShape(12.dp))
+				.clip(RectangleShape)
 				.background(MaterialTheme.colors.background)
 				.padding(20.dp)
 		) {

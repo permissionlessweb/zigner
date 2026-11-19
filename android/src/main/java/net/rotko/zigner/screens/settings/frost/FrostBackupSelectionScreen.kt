@@ -69,7 +69,7 @@ fun FrostBackupSelectionScreen(onBack: Callback) {
 					success = true
 				} catch (e: Exception) {
 					Timber.e(e, "[frost-backup-sel] save failed")
-					error = e.message ?: "save failed"
+					error = e.message ?: "Save failed"
 				}
 			}
 		}
@@ -86,7 +86,7 @@ fun FrostBackupSelectionScreen(onBack: Callback) {
 		when {
 			success -> {
 				Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-					AnimatedSuccessBadge(visible = true, message = "backup saved")
+					AnimatedSuccessBadge(visible = true, message = "Backup saved")
 					LaunchedEffect(Unit) {
 						kotlinx.coroutines.delay(2500)
 						onBack()
@@ -198,7 +198,7 @@ fun FrostBackupSelectionScreen(onBack: Callback) {
 						saveLauncher.launch("frost-backup-${ymdToday()}.json")
 					} catch (e: Exception) {
 						Timber.e(e, "[frost-backup-sel] export failed")
-						error = e.message ?: "export failed"
+						error = e.message ?: "Export failed"
 					}
 				}
 			},

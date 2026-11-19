@@ -1,34 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 	<plurals name="key_sets_item_derived_subtitle">
-		<item quantity="one">%1$d Key</item>
-		<item quantity="other">%1$d Keys</item>
+		<item quantity="one">%1$d key</item>
+		<item quantity="other">%1$d keys</item>
 	</plurals>
 
 	<plurals name="key_set_multiselect_title_some_selected">
-		<item quantity="one">%1$d Key Set Selected</item>
-		<item quantity="other">%1$d Key Sets Selected</item>
+		<item quantity="one">%1$d key set selected</item>
+		<item quantity="other">%1$d key sets selected</item>
 	</plurals>
 
 	<plurals name="key_sets_export_qe_title">
-		<item quantity="one">Export %1$d Key Set</item>
-		<item quantity="other">Export %1$d Key Sets</item>
+		<item quantity="one">Export %1$d key set</item>
+		<item quantity="other">Export %1$d key sets</item>
 	</plurals>
 
 	<plurals name="key_export_title">
-		<item quantity="one">Export %1$d Key</item>
-		<item quantity="other">Export %1$d Keys</item>
+		<item quantity="one">Export %1$d key</item>
+		<item quantity="other">Export %1$d keys</item>
 	</plurals>
 
 	<plurals name="transactions_title_other">
-		<item quantity="one">Sign Transaction</item>
-		<item quantity="other">Sign %1$d Transactions</item>
+		<item quantity="one">Sign transaction</item>
+		<item quantity="other">Sign %1$d transactions</item>
 	</plurals>
 
 
 	<plurals name="import_derivations_success_keys_imported">
-		<item quantity="one">%1$d Key Has Been Imported</item>
-		<item quantity="other">%1$d Keys Has Been Imported</item>
+		<item quantity="one">%1$d key has been imported</item>
+		<item quantity="other">%1$d keys has been imported</item>
 	</plurals>
 </resources>
 

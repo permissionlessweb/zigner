@@ -1,12 +1,12 @@
 package net.rotko.zigner.screens.scan.transaction.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -26,9 +26,9 @@ fun TransactionPreviewField(
             .padding(8.dp)
             .border(
                 BorderStroke(1.dp, MaterialTheme.colors.Crypto400),
-                RoundedCornerShape(8.dp)
+                RectangleShape
             )
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RectangleShape)
             .padding(8.dp)
 	) {
 		transactionCards(cardSet.author)

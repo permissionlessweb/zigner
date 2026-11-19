@@ -40,7 +40,7 @@ internal fun ConfirmOnlineModeBottomSheet(
 	onConfirm: Callback,
 ) {
 	BottomSheetConfirmDialog(
-		title = "Enable Online Mode?",
+		title = "Enable online mode?",
 		message = "This will PERMANENTLY mark your wallet as having used online mode.\n\n" +
 			"When enabled:\n" +
 			"• Network radios (WiFi, Bluetooth) can be active\n" +
@@ -81,7 +81,7 @@ internal fun ConfirmReEnableOnlineModeBottomSheet(
 			.padding(24.dp)
 	) {
 		Text(
-			text = "Re-enable Online Mode?",
+			text = "Re-enable online mode?",
 			style = SignerTypeface.TitleL,
 			color = MaterialTheme.colors.primary,
 		)

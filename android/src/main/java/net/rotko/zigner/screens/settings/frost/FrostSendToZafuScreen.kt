@@ -99,7 +99,7 @@ fun FrostSendToZafuScreen(
 			.background(MaterialTheme.colors.background)
 			.statusBarsPadding(),
 	) {
-		ScreenHeaderClose(title = "Send to zafu", onClose = onBack)
+		ScreenHeaderClose(title = "Send to Zafu", onClose = onBack)
 
 		Column(
 			modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -138,7 +138,7 @@ fun FrostSendToZafuScreen(
 					)
 					Spacer(modifier = Modifier.height(4.dp))
 					Text(
-						"Show this animated QR to zafu. Public metadata only — no secret material.",
+						"Show this animated QR to Zafu. Public metadata only — no secret material.",
 						style = SignerTypeface.CaptionM,
 						color = MaterialTheme.colors.textTertiary,
 					)
@@ -162,7 +162,7 @@ fun FrostSendToZafuScreen(
 			) {
 				if (frames == null) {
 					Text(
-						"failed to prepare QR payload",
+						"Failed to prepare QR payload",
 						style = SignerTypeface.BodyL,
 						color = MaterialTheme.colors.red500,
 					)

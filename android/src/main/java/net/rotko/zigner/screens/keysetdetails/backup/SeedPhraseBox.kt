@@ -25,23 +25,20 @@ import androidx.compose.ui.unit.sp
 import net.rotko.zigner.R
 import net.rotko.zigner.domain.KeepScreenOn
 import net.rotko.zigner.domain.DisableScreenshots
+import net.rotko.zigner.ui.theme.IosevkaFontFamily
 import net.rotko.zigner.ui.theme.SignerNewTheme
 import net.rotko.zigner.ui.theme.fill6
 import net.rotko.zigner.ui.theme.textDisabled
 import net.rotko.zigner.ui.theme.textSecondary
 
-private val RobotoFontFamily = FontFamily(
-	Font(R.font.robotomono_regular, FontWeight.Medium),
-	Font(R.font.robotomono_bold, FontWeight.Bold),
-)
 internal val PhraseNumberStyle: TextStyle = TextStyle(
-	fontFamily = RobotoFontFamily,
+	fontFamily = IosevkaFontFamily,
 	fontWeight = FontWeight.Normal,
 	fontSize = 13.sp
 )
 internal val PhraseWordStyle: TextStyle = TextStyle(
-	fontFamily = RobotoFontFamily,
-	fontWeight = FontWeight.Bold,
+	fontFamily = IosevkaFontFamily,
+	fontWeight = FontWeight.Normal,
 	fontSize = 13.sp
 )
 

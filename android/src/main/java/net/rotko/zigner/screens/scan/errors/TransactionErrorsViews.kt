@@ -1,6 +1,7 @@
 package net.rotko.zigner.screens.scan.errors
 
 import android.content.Context
+import androidx.compose.ui.graphics.RectangleShape
 import android.content.res.Configuration
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -11,7 +12,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
@@ -73,12 +73,12 @@ fun LocalErrorBottomSheet(
 					.padding(horizontal = 24.dp)
 					.background(
 						MaterialTheme.colors.fill6,
-						RoundedCornerShape(dimensionResource(id = R.dimen.innerFramesCornerRadius))
+						RectangleShape
 					)
 					.border(
 						1.dp,
 						MaterialTheme.colors.fill12,
-						RoundedCornerShape(dimensionResource(id = R.dimen.innerFramesCornerRadius))
+						RectangleShape
 					)
 			) {
 				descriptionSteps.forEachIndexed() { index, step ->
@@ -137,12 +137,12 @@ fun LocalErrorBottomSheet(
 					.padding(horizontal = 24.dp)
 					.background(
 						MaterialTheme.colors.fill6,
-						RoundedCornerShape(dimensionResource(id = R.dimen.innerFramesCornerRadius))
+						RectangleShape
 					)
 					.border(
 						1.dp,
 						MaterialTheme.colors.fill12,
-						RoundedCornerShape(dimensionResource(id = R.dimen.innerFramesCornerRadius))
+						RectangleShape
 					)
 			) {
 				Text(

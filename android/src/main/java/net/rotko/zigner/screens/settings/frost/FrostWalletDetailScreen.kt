@@ -1,6 +1,7 @@
 package net.rotko.zigner.screens.settings.frost
 
 import android.content.Context
+import androidx.compose.ui.graphics.RectangleShape
 import android.content.res.Configuration
 import android.net.Uri
 import android.widget.Toast
@@ -24,7 +25,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
@@ -126,10 +126,10 @@ fun FrostWalletDetailScreen(
 			scope.launch {
 				try {
 					withContext(Dispatchers.IO) { writeFile(ctx, uri, envelope) }
-					toast = "backup saved"
+					toast = "Backup saved"
 				} catch (e: Exception) {
 					Timber.e(e, "[frost-backup] save failed")
-					error = e.message ?: "save failed"
+					error = e.message ?: "Save failed"
 				}
 			}
 		}
@@ -190,11 +190,11 @@ fun FrostWalletDetailScreen(
 						withContext(Dispatchers.Default) {
 							frostRenameWallet(walletId, newLabel)
 						}
-						toast = "renamed to \"$newLabel\""
+						toast = "Renamed to \"$newLabel\""
 						reload()
 					} catch (e: Exception) {
 						Timber.e(e, "[frost-rename] failed")
-						error = e.message ?: "rename failed"
+						error = e.message ?: "Rename failed"
 					}
 				}
 			},
@@ -223,7 +223,7 @@ fun FrostWalletDetailScreen(
 						saveLauncher.launch(filename)
 					} catch (e: Exception) {
 						Timber.e(e, "[frost-backup] export failed")
-						error = e.message ?: "export failed"
+						error = e.message ?: "Export failed"
 					}
 				}
 			},
@@ -246,7 +246,7 @@ fun FrostWalletDetailScreen(
 						onDeleted()
 					} catch (e: Exception) {
 						Timber.e(e, "[frost-delete] failed")
-						error = e.message ?: "delete failed"
+						error = e.message ?: "Delete failed"
 					}
 				}
 			},
@@ -384,7 +384,7 @@ private fun IdentityCard(
 	onRenameTap: Callback,
 ) {
 	val accent = networkAccent("zcash")
-	val shape = RoundedCornerShape(16.dp)
+	val shape = RectangleShape
 	Column(
 		modifier = Modifier
 			.fillMaxWidth()
@@ -421,7 +421,7 @@ private fun IdentityCard(
 					)
 					Spacer(modifier = Modifier.width(8.dp))
 					Text(
-						text = "threshold",
+						text = "Threshold",
 						style = SignerTypeface.BodyL,
 						color = MaterialTheme.colors.textSecondary,
 					)
@@ -443,7 +443,7 @@ private fun IdentityCard(
 						modifier = Modifier
 							.padding(start = 8.dp)
 							.size(28.dp)
-							.clip(RoundedCornerShape(6.dp))
+							.clip(RectangleShape)
 							.clickable(onClick = onRenameTap),
 						contentAlignment = Alignment.Center,
 					) {
@@ -467,7 +467,7 @@ private fun NetworkPillSmall(label: String, accent: Color) {
 		style = SignerTypeface.CaptionM,
 		color = accent,
 		modifier = Modifier
-			.clip(RoundedCornerShape(6.dp))
+			.clip(RectangleShape)
 			.background(accent.copy(alpha = 0.12f))
 			.padding(horizontal = 8.dp, vertical = 3.dp),
 	)
@@ -504,7 +504,7 @@ private fun DetailRow(
 				modifier = Modifier
 					.padding(start = 8.dp)
 					.size(32.dp)
-					.clip(RoundedCornerShape(8.dp))
+					.clip(RectangleShape)
 					.background(MaterialTheme.colors.fill6)
 					.clickable(onClick = onCopy),
 				contentAlignment = Alignment.Center,
@@ -527,7 +527,7 @@ private fun FvkRevealCard(
 	onToggle: Callback,
 	onCopy: Callback,
 ) {
-	val shape = RoundedCornerShape(14.dp)
+	val shape = RectangleShape
 	Column(
 		modifier = Modifier
 			.fillMaxWidth()
@@ -556,7 +556,7 @@ private fun FvkRevealCard(
 				tint = MaterialTheme.colors.textSecondary,
 				modifier = Modifier
 					.size(28.dp)
-					.clip(RoundedCornerShape(6.dp))
+					.clip(RectangleShape)
 					.clickable(onClick = onToggle)
 					.padding(4.dp),
 			)
@@ -580,7 +580,7 @@ private fun FvkRevealCard(
 					modifier = Modifier
 						.padding(start = 8.dp)
 						.size(32.dp)
-						.clip(RoundedCornerShape(8.dp))
+						.clip(RectangleShape)
 						.background(MaterialTheme.colors.fill6)
 						.clickable(onClick = onCopy),
 					contentAlignment = Alignment.Center,
@@ -632,7 +632,7 @@ private fun PrimaryRowAction(
 	icon: androidx.compose.ui.graphics.vector.ImageVector,
 	onClick: Callback,
 ) {
-	val shape = RoundedCornerShape(14.dp)
+	val shape = RectangleShape
 	Row(
 		modifier = Modifier
 			.fillMaxWidth()
@@ -665,7 +665,7 @@ private fun GhostRowAction(
 	onClick: Callback,
 	danger: Boolean = false,
 ) {
-	val shape = RoundedCornerShape(14.dp)
+	val shape = RectangleShape
 	val tint = if (danger) MaterialTheme.colors.red400 else MaterialTheme.colors.primary
 	Row(
 		modifier = Modifier

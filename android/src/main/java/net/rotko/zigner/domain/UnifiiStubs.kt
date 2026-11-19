@@ -151,7 +151,7 @@ object UnifiiStubs {
 									name = "astar",
 									pathId = "#262626",
 									secondaryColor = "#262626",
-									title = "astar-sr25519",
+									title = "Astar-sr25519",
 									unit = "ASTR",
 								)
 							),

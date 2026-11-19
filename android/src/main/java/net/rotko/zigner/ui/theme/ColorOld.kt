@@ -3,65 +3,43 @@ package net.rotko.zigner.ui.theme
 import androidx.compose.material.Colors
 import androidx.compose.ui.graphics.Color
 
-val Colors.Border600: Color
-	get() = if (isLight) Color(0xFFB9C3C8) else Color(0xFF7E8D95)
-val Colors.Border500: Color
-	get() = if (isLight) Color(0xFFACB7BF) else Color(0xFF556068)
-val Colors.Border400: Color
-	get() = if (isLight) Color(0xFFDCE3E7) else Color(0xFF334048)
+/**
+ * Names kept from the Parity-era palette so older screens compile; every value
+ * now points at the sumi / washi tokens in Color.kt.
+ */
+private fun Colors.pick(light: Color, dark: Color) = if (isLight) light else dark
 
-val Colors.Bg600: Color
-	get() = if (isLight) Color(0xFF3A3A3C) else Color(0xFF3A3A3C)
-val Colors.Bg500: Color
-	get() = if (isLight) Color(0xFF343434) else Color(0xFF343434)
-val Colors.Bg400: Color
-	get() = if (isLight) Color(0xFFEDEDED) else Color(0xFF2E2D2F)
-val Colors.Bg300: Color
-	get() = if (isLight) Color(0xFFF7FAFD) else Color(0xFF1F2021)
-val Colors.Bg200: Color
-	get() = if (isLight) Color(0xFFFFFFFF) else Color(0xFF1A1A1B)
-val Colors.Bg100: Color
-	get() = if (isLight) Color(0xFFF3F4F5) else Color(0xFF111111)
-val Colors.Bg000: Color
-	get() = if (isLight) Color(0xFFFFFFFF) else Color(0xFF000000)
-val Colors.BgDanger: Color
-	get() = if (isLight) Color(0xFFFFD3D0) else Color(0xFF2F2424)
+val Colors.Border600: Color get() = pick(WashiBorder, ZafuBorderStrong)
+val Colors.Border500: Color get() = pick(WashiBorder, ZafuBorderStrong)
+val Colors.Border400: Color get() = pick(WashiBorder, ZafuBorder)
 
-val Colors.Text600: Color
-	get() = if (isLight) Color(0xFF000000) else Color(0xFFFEFEFE)
-val Colors.Text500: Color
-	get() = if (isLight) Color(0xFF535353) else Color(0xFFD1D1D1)
-val Colors.Text400: Color
-	get() = if (isLight) Color(0xFF8F8E8E) else Color(0xFFAEAEAE)
-val Colors.Text300: Color
-	get() = if (isLight) Color(0xFF7B8287) else Color(0xFF7E8D95)
-val Colors.Text100: Color
-	get() = if (isLight) Color(0xFF020202) else Color(0xFF334048)
+val Colors.Bg600: Color get() = pick(WashiSurfaceSecondary, ZafuBorderStrong)
+val Colors.Bg500: Color get() = pick(WashiSurfaceSecondary, ZafuBorder)
+val Colors.Bg400: Color get() = pick(WashiSurfaceSecondary, ZafuSurfaceSecondary)
+val Colors.Bg300: Color get() = pick(WashiSurfaceSecondary, ZafuSurfaceSecondary)
+val Colors.Bg200: Color get() = pick(WashiSurface, ZafuSurface)
+val Colors.Bg100: Color get() = pick(WashiBackground, ZafuBackground)
+val Colors.Bg000: Color get() = pick(WashiBackground, ZafuBackground)
+val Colors.BgDanger: Color get() = pick(WashiErr, ZafuErr).copy(alpha = 0.12f)
 
-val Colors.Action600: Color
-	get() = if (isLight) Color(0xFFFFFFFF) else Color(0xFFFFFFFF)
-val Colors.Action400: Color
-	get() = if (isLight) Color(0xFF4FA5F5) else Color(0xFF3996EC)
-val Colors.Action300: Color
-	get() = if (isLight) Color(0xFF2980D7) else Color(0xFF2980D7)
-val Colors.Action200: Color
-	get() = if (isLight) Color(0xFFB9D4EF) else Color(0xFF0F447A)
-val Colors.Action100: Color
-	get() = if (isLight) Color(0xFFDFEFFF) else Color(0xFF082542)
+val Colors.Text600: Color get() = pick(WashiTextHigh, ZafuTextHigh)
+val Colors.Text500: Color get() = pick(WashiText, ZafuText)
+val Colors.Text400: Color get() = pick(WashiTextDim, ZafuTextDim)
+val Colors.Text300: Color get() = pick(WashiTextDim, ZafuTextDim)
+val Colors.Text100: Color get() = pick(WashiBorder, ZafuBorderStrong)
 
-// Updated crypto colors to use Zafu gold theme
-val Colors.Crypto500: Color
-	get() = if (isLight) Color(0xFFFFF0D0) else Color(0xFF5A4500)
-val Colors.Crypto400: Color
-	get() = if (isLight) Color(0xFFF4A31E) else Color(0xFFF4A31E)  // Zafu gold
-val Colors.Crypto200: Color
-	get() = if (isLight) Color(0xFFD4900A) else Color(0xFFB8841A)
-val Colors.Crypto100: Color
-	get() = if (isLight) Color(0xFFFFF5E0) else Color(0xFF3D2A00)
+// Action was Parity blue; zafu has one action colour, gold.
+val Colors.Action600: Color get() = pick(WashiTextHigh, ZafuTextHigh)
+val Colors.Action400: Color get() = pick(WashiGold, ZafuGold)
+val Colors.Action300: Color get() = pick(WashiGold, ZafuGoldDim)
+val Colors.Action200: Color get() = pick(WashiBorder, ZafuGoldLine)
+val Colors.Action100: Color get() = pick(WashiSurfaceSecondary, ZafuSurfaceSecondary)
 
-val Colors.SignalDanger: Color
-	get() = if (isLight) Color(0xFFFF3B30) else Color(0xFFFF3B30)
-val Colors.SignalOn: Color
-	get() = if (isLight) Color(0xFF32D74B) else Color(0xFF32D74B)
-val Colors.SignalWarning: Color
-	get() = if (isLight) Color(0xFFFFD541) else Color(0xFFFFD541)
+val Colors.Crypto500: Color get() = pick(WashiSurfaceSecondary, ZafuGoldLine)
+val Colors.Crypto400: Color get() = pick(WashiGold, ZafuGold)
+val Colors.Crypto200: Color get() = pick(WashiGold, ZafuGoldDim)
+val Colors.Crypto100: Color get() = pick(WashiSurfaceSecondary, ZafuGoldLine)
+
+val Colors.SignalDanger: Color get() = pick(WashiErr, ZafuErr)
+val Colors.SignalOn: Color get() = pick(WashiOk, ZafuOk)
+val Colors.SignalWarning: Color get() = ZafuWarn

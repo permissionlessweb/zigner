@@ -1,6 +1,7 @@
 package net.rotko.zigner.screens.settings.frost
 
 import android.content.Context
+import androidx.compose.ui.graphics.RectangleShape
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
@@ -16,7 +17,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
@@ -78,7 +78,7 @@ internal fun IconActionButton(
 	val ctx = LocalContext.current
 	Box(
 		modifier = modifier
-			.clip(RoundedCornerShape(8.dp))
+			.clip(RectangleShape)
 			.background(background)
 			.pointerInput(label) {
 				detectTapGestures(
