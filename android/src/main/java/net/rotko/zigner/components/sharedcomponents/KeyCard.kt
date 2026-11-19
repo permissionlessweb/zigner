@@ -1,11 +1,11 @@
 package net.rotko.zigner.components.sharedcomponents
 
 import android.content.res.Configuration
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.material.Icon
@@ -85,7 +85,7 @@ fun NetworkLabel(networkName: String, modifier: Modifier = Modifier) {
 		modifier = modifier
 			.background(
 				MaterialTheme.colors.fill12,
-				RoundedCornerShape(dimensionResource(id = R.dimen.innerFramesCornerRadius))
+				RectangleShape
 			)
 			.padding(horizontal = 8.dp, vertical = 2.dp)
 	)

@@ -1,10 +1,10 @@
 package net.rotko.zigner.screens.scan.transaction
 
 import android.graphics.BitmapFactory
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
@@ -72,7 +72,7 @@ fun ZidSignScreen(
 			.padding(16.dp)
 	) {
 		Text(
-			text = "ZID Identity Sign",
+			text = "ZID identity sign",
 			style = SignerTypeface.TitleL,
 			color = MaterialTheme.colors.primary,
 			modifier = Modifier.padding(bottom = 16.dp)
@@ -88,7 +88,7 @@ fun ZidSignScreen(
 					Column(
 						modifier = Modifier
 							.fillMaxWidth()
-							.clip(RoundedCornerShape(12.dp))
+							.clip(RectangleShape)
 							.background(MaterialTheme.colors.fill6)
 							.padding(24.dp),
 						horizontalAlignment = Alignment.CenterHorizontally,
@@ -112,7 +112,7 @@ fun ZidSignScreen(
 						Column(
 							modifier = Modifier
 								.fillMaxWidth()
-								.clip(RoundedCornerShape(8.dp))
+								.clip(RectangleShape)
 								.background(MaterialTheme.colors.fill6)
 								.padding(12.dp),
 						) {
@@ -128,7 +128,7 @@ fun ZidSignScreen(
 					Column(
 						modifier = Modifier
 							.fillMaxWidth()
-							.clip(RoundedCornerShape(8.dp))
+							.clip(RectangleShape)
 							.background(MaterialTheme.colors.fill6)
 							.padding(12.dp),
 						verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -233,7 +233,7 @@ fun ZidSignScreen(
 								.fillMaxWidth()
 								.padding(horizontal = 24.dp)
 								.aspectRatio(1f)
-								.clip(RoundedCornerShape(12.dp))
+								.clip(RectangleShape)
 								.background(Color.White),
 							contentAlignment = Alignment.Center,
 						) {

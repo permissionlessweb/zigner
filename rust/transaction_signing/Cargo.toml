@@ -58,6 +58,8 @@ cosmos = ["secp256k1", "sha2", "serde_json", "bech32"]
 
 [dev-dependencies]
 pretty_assertions = "1"
+# An output plan makes the effect hash depend on the viewing key. The
+# transaction crate uses this type but does not re-export it.
 sled = "0.34.6"
 constants = { path = "../constants" }
 db_handling = {path = "../db_handling", default-features = false, features = ["active"]}

@@ -1874,20 +1874,34 @@ fn review_penumbra_qr(
 }
 
 /// Sign a Penumbra transaction and return encoded signature QR bytes
-/// (single seed, account 0; kept for existing callers)
+/// (single seed, accounts 0..8; kept for existing callers)
 fn sign_penumbra_transaction(
     seed_phrase: &str,
     request: PenumbraSignRequest,
 ) -> Result<Vec<u8>, ErrorDisplayed> {
-    use transaction_parsing::penumbra::SpendKeyBytes;
-    use transaction_signing::penumbra::verify_effect_hash;
+    use transaction_signing::penumbra::{spend_key_owning_effect, verify_effect_hash};
 
     let (plan, effect_hash) = penumbra_plan_and_hash(&request)?;
 
-    // Derive spend key from seed phrase (account 0)
+    // The request names neither the seed nor the account. Try accounts 0..8
+    // on this seed. Effect-hash verification is the check that this plan is
+    // the one being signed, and the way the owning account is found.
     let spend_key =
-        SpendKeyBytes::from_seed_phrase(seed_phrase, 0).map_err(|e| ErrorDisplayed::Str {
-            s: format!("Key derivation failed: {e}"),
+        spend_key_owning_effect(seed_phrase, &plan.plan_bytes, &effect_hash).map_err(|e| {
+            let text = e.to_string();
+            if text.contains("No key on this device owns this request.") {
+                ErrorDisplayed::Str {
+                    s: "No key on this device owns this request.".to_string(),
+                }
+            } else if text.contains("invalid mnemonic") {
+                ErrorDisplayed::Str {
+                    s: format!("Key derivation failed: {e}"),
+                }
+            } else {
+                ErrorDisplayed::Str {
+                    s: format!("Effect hash verification failed: {e}"),
+                }
+            }
         })?;
 
     // SECURITY: Verify the effect hash from the QR matches what we compute

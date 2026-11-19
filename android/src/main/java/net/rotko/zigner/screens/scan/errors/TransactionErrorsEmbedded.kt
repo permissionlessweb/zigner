@@ -1,10 +1,10 @@
 package net.rotko.zigner.screens.scan.errors
 
 import android.content.res.Configuration
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
@@ -22,7 +22,7 @@ fun TransactionErrorEmbedded(errors: String, modifier: Modifier = Modifier) {
 	Surface(
 		modifier = modifier.fillMaxWidth(1f),
 		border = BorderStroke(1.dp, MaterialTheme.colors.fill12),
-		shape = RoundedCornerShape(dimensionResource(id = R.dimen.innerFramesCornerRadius)),
+		shape = RectangleShape,
 		color = MaterialTheme.colors.red500fill12,
 	) {
 		Text(

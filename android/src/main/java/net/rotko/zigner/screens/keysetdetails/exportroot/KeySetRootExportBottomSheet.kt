@@ -1,6 +1,7 @@
 package net.rotko.zigner.screens.keysetdetails.exportroot
 
 import android.content.res.Configuration
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -11,7 +12,6 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -44,7 +44,7 @@ fun KeySetRootExportBottomSheet(
 ) {
 	Column() {
 		val plateShape =
-			RoundedCornerShape(dimensionResource(id = R.dimen.qrShapeCornerRadius))
+			RectangleShape
 		Column(
 			modifier = Modifier
 				.padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp)

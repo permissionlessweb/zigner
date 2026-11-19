@@ -52,7 +52,8 @@ deliberately leaves iOS alone.
    `adb install -r android/build/outputs/apk/<variant>/android-<variant>.apk`
 4. Commit, push `master`, then tag: `git tag -a v0.9.0` + `git push --tags`.
    The `v*` tag triggers GitHub Actions "Android Release" (signed APK + GH
-   Release) and "Manual Android Google play distribution" (AAB → Play internal).
+   Release). There is no Google Play upload; the F-Droid repo is updated by
+   hand (`/steam/rotko/fdroid`).
 
 ## Pitfalls
 

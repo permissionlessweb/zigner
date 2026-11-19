@@ -4,111 +4,128 @@ import androidx.compose.material.Colors
 import androidx.compose.ui.graphics.Color
 
 /**
- * Zigner color scheme - dark theme with gold accent (zafu.rotko.net style)
- * Focused on Penumbra and Zcash cold wallet signing
+ * Zafu's palette, shared with the extension (packages/ui/styles/globals.css).
+ * Dark is sumi (ink), light is washi (paper). Gold is the only action colour;
+ * hanko red is for errors and the seal. Edit values here, never at call sites.
  */
 
-// Zafu-inspired dark theme colors
-val ZafuBackground = Color(0xFF0D0D12)      // Deep charcoal
-val ZafuSurface = Color(0xFF16161D)          // Slightly lighter surface
-val ZafuSurfaceSecondary = Color(0xFF1E1E26) // Card backgrounds
-val ZafuBorder = Color(0xFF2A2A35)           // Subtle borders
-val ZafuGold = Color(0xFFF4A31E)             // Primary accent - warm gold
-val ZafuGoldDim = Color(0xFFB8841A)          // Dimmed gold
-val ZafuText = Color(0xFFE0E0E4)             // Primary text
-val ZafuTextDim = Color(0xFF707078)          // Secondary/disabled text
-val ZafuOk = Color(0xFF50C878)               // Success green
-val ZafuErr = Color(0xFFC05050)              // Error red
+// sumi (dark)
+val ZafuBackground = Color(0xFF0C0A08)       // surface-canvas
+val ZafuSurface = Color(0xFF131009)          // surface-elev-1
+val ZafuSurfaceSecondary = Color(0xFF1A1611) // surface-elev-2
+val ZafuBorder = Color(0xFF241F18)           // surface-border-soft
+val ZafuBorderStrong = Color(0xFF322A21)     // surface-border
+val ZafuGold = Color(0xFFF4B728)             // the one action colour
+val ZafuGoldDim = Color(0xFFB8860B)
+val ZafuGoldLine = Color(0xFF3A2F14)
+val ZafuTextHigh = Color(0xFFF2ECDF)         // fg-high
+val ZafuText = Color(0xFFDED5C4)             // fg
+val ZafuTextDim = Color(0xFF948A79)          // fg-muted
+val ZafuOk = Color(0xFF8FBF73)
+val ZafuWarn = Color(0xFFD9773F)
+val ZafuErr = Color(0xFFC73E3A)              // hanko
+
+// washi (light)
+val WashiBackground = Color(0xFFEFE9DC)
+val WashiSurface = Color(0xFFF6F2E8)
+val WashiSurfaceSecondary = Color(0xFFFBF8F1)
+val WashiBorder = Color(0xFFDDD3C1)
+val WashiGold = Color(0xFF8A6508)
+val WashiTextHigh = Color(0xFF171310)
+val WashiText = Color(0xFF2B241C)
+val WashiTextDim = Color(0xFF6F6555)
+val WashiOk = Color(0xFF4B7A33)
+val WashiErr = Color(0xFFB3322E)
 
 val Colors.backgroundSystem: Color
 	get() = ZafuBackground
 
 val Colors.backgroundPrimary: Color
-	get() = if (isLight) Color(0xFFFAFAFA) else ZafuBackground
+	get() = if (isLight) WashiBackground else ZafuBackground
 
 val Colors.backgroundSecondary: Color
-	get() = if (isLight) Color(0xFFFFFFFF) else ZafuSurface
+	get() = if (isLight) WashiSurface else ZafuSurface
 
 val Colors.backgroundTertiary: Color
-	get() = if (isLight) Color(0xFFFFFFFF) else ZafuSurfaceSecondary
+	get() = if (isLight) WashiSurfaceSecondary else ZafuSurfaceSecondary
 
 val Colors.textSecondary: Color
-	get() = if (isLight) Color(0xA8000000) else Color(0xB0E0E0E4)
+	get() = if (isLight) WashiText else ZafuText
 
 val Colors.textTertiary: Color
-	get() = if (isLight) Color(0x73000000) else ZafuTextDim
+	get() = if (isLight) WashiTextDim else ZafuTextDim
 
 val Colors.textTertiaryDarkForced: Color
 	get() = ZafuTextDim
 
 val Colors.textDisabled: Color
-	get() = if (isLight) Color(0x40000000) else Color(0x45E0E0E4)
+	get() = if (isLight) WashiTextDim.copy(alpha = 0.5f) else ZafuTextDim.copy(alpha = 0.5f)
 
 
 val Colors.fill30: Color
-	get() = if (isLight) Color(0x4D000000) else Color(0x4DE0E0E4)
+	get() = if (isLight) Color(0x4D171310) else Color(0x4DF2ECDF)
 
 /**
  * light fill for light theme and dark for dark. Used to made button disabled
  */
 val Colors.fill30Inverted: Color
-	get() = if (!isLight) Color(0x4D000000) else Color(0x4DE0E0E4)
+	get() = if (!isLight) Color(0x4D171310) else Color(0x4DF2ECDF)
 
 val Colors.fill24: Color
-	get() = if (isLight) Color(0x3D000000) else Color(0x3DE0E0E4)
+	get() = if (isLight) Color(0x3D171310) else Color(0x3DF2ECDF)
 
 val Colors.fill18: Color
-	get() = if (isLight) Color(0x2E000000) else Color(0x2EE0E0E4)
+	get() = if (isLight) Color(0x2E171310) else Color(0x2EF2ECDF)
 
 val Colors.fill12: Color
-	get() = if (isLight) Color(0x1F000000) else Color(0x1FE0E0E4)
+	get() = if (isLight) Color(0x1F171310) else Color(0x1FF2ECDF)
 
 val Colors.fill6: Color
-	get() = if (isLight) Color(0x0F000000) else Color(0x0FE0E0E4)
+	get() = if (isLight) Color(0x0F171310) else Color(0x0FF2ECDF)
 
 
 val Colors.appliedOverlay: Color
 	get() = if (isLight) Color(0x7A000000) else Color(0xB3000000)
 
 val Colors.appliedHover: Color
-	get() = if (isLight) Color(0xD2000000) else Color(0xD2E0E0E4)
+	get() = if (isLight) Color(0xD2171310) else Color(0xD2F2ECDF)
 
 val Colors.appliedStroke: Color
-	get() = if (isLight) Color(0x1F000000) else ZafuBorder
+	get() = if (isLight) WashiBorder else ZafuBorder
 
 val Colors.appliedSeparator: Color
-	get() = if (isLight) Color(0x14000000) else Color(0x14E0E0E4)
+	get() = if (isLight) Color(0x14171310) else Color(0x14F2ECDF)
 
 
 // Gold accent replaces pink as primary accent
 val Colors.accentPink: Color
-	get() = if (isLight) ZafuGold else ZafuGold
+	get() = if (isLight) WashiGold else ZafuGold
 
 val Colors.accentRed: Color
-	get() = if (isLight) ZafuErr else Color(0xFFE06060)
+	get() = if (isLight) WashiErr else ZafuErr
 
 val Colors.accentGreen: Color
-	get() = if (isLight) ZafuOk else Color(0xFF60D890)
+	get() = if (isLight) WashiOk else ZafuOk
 
 
 // Gold variants (replacing pink variants)
 val Colors.pink500: Color
-	get() = ZafuGold
+	get() = if (isLight) WashiGold else ZafuGold
 
 val Colors.pink300: Color
-	get() = Color(0xFFFFC04A)  // Lighter gold
+	get() = Color(0xFFFCD34D)  // gold-light
 
 val Colors.backgroundDanger: Color
-	get() = Color(0x1FC05050)
+	get() = ZafuErr.copy(alpha = 0.12f)
 
 val Colors.red400: Color
 	get() = ZafuErr
 
 val Colors.red500: Color
-	get() = Color(0xFFE06060)
+	get() = if (isLight) WashiErr else ZafuErr
 
 val Colors.snackBarBackground: Color
-	get() = ZafuSurfaceSecondary
+	get() = if (isLight) WashiSurfaceSecondary else ZafuSurfaceSecondary
 
 val Colors.forcedFill30: Color
 	get() = Color(0x4D000000)
@@ -117,15 +134,15 @@ val Colors.forcedFill40: Color
 	get() = Color(0x66000000)
 
 val Colors.red500fill12: Color
-	get() = Color(0x1FE06060)
+	get() = ZafuErr.copy(alpha = 0.12f)
 
 
 // Gold button variants (replacing pink)
 val Colors.primaryButtonDisabledBackground: Color
-	get() = if (isLight) Color(0xFFE8D4A8) else Color(0xFF3D3020)
+	get() = if (isLight) WashiBorder else ZafuGoldLine
 
 val Colors.primaryButtonDisabledText: Color
-	get() = if (isLight) Color(0xFFF0E0C0) else Color(0xFF5A4A30)
+	get() = if (isLight) WashiTextDim else ZafuTextDim
 
 
 /**
@@ -136,37 +153,27 @@ val Colors.primaryButtonDisabledText: Color
  * Lookup is by [NetworkInfoModel.networkLogo] (lower-case logo slug), so the
  * same matching logic as [NetworkIcon.getResourceIdForNetwork] applies.
  */
-private val NetworkAccentZcash = Color(0xFFF4B73B)     // warm gold
-private val NetworkAccentPenumbra = Color(0xFFBD1212)  // protocol red
-private val NetworkAccentPolkadot = Color(0xFFE6007A)  // brand pink
-private val NetworkAccentKusama = Color(0xFFE0E0E4)    // bright neutral
-private val NetworkAccentCosmos = Color(0xFF5064FB)    // ATOM blue
-private val NetworkAccentNoble = Color(0xFF7B61FF)
-private val NetworkAccentOsmosis = Color(0xFF8E5BFF)
-private val NetworkAccentCelestia = Color(0xFF7B2BF9)
-private val NetworkAccentBitcoin = Color(0xFFF7931A)
-private val NetworkAccentNostr = Color(0xFF8A2BE2)
-private val NetworkAccentEthereum = Color(0xFF8A92B2)
-private val NetworkAccentAtproto = Color(0xFF1185FE)
-private val NetworkAccentSubstrate = Color(0xFFE6007A) // Polkadot pink fallback
+private val NetworkAccentZcash = ZafuGold
+private val NetworkAccentPenumbra = Color(0xFFFB923C)  // zafu penumbra orange
+private val NetworkAccentCosmos = Color(0xFF7FB3D5)    // device blue, muted to sit on sumi
+private val NetworkAccentOther = ZafuTextDim
 
 fun networkAccent(networkLogo: String): Color =
 	when (networkLogo.lowercase()) {
 		"zcash" -> NetworkAccentZcash
 		"penumbra" -> NetworkAccentPenumbra
-		"polkadot", "statemint" -> NetworkAccentPolkadot
-		"kusama", "statemine" -> NetworkAccentKusama
+		"polkadot", "statemint" -> Color(0xFFE6007A)
+		"kusama", "statemine", "westend", "rococo", "westmint" -> Color(0xFFE0E0E4)
 		"cosmos", "cosmoshub", "atom" -> NetworkAccentCosmos
-		"noble" -> NetworkAccentNoble
-		"osmosis" -> NetworkAccentOsmosis
-		"celestia" -> NetworkAccentCelestia
+		"noble" -> Color(0xFF7B61FF)
+		"osmosis" -> Color(0xFF8E5BFF)
+		"celestia" -> Color(0xFF7B2BF9)
 		"terp" -> Color(0xFF1B8A5A)
-		"bitcoin", "btc" -> NetworkAccentBitcoin
-		"nostr" -> NetworkAccentNostr
-		"ethereum", "eth" -> NetworkAccentEthereum
-		"atprotocol", "atproto", "bluesky" -> NetworkAccentAtproto
-		"westend", "rococo", "westmint" -> NetworkAccentKusama
-		else -> NetworkAccentSubstrate
+		"bitcoin", "btc" -> Color(0xFFF7931A)
+		"nostr" -> Color(0xFF8A2BE2)
+		"ethereum", "eth" -> Color(0xFF8A92B2)
+		"atprotocol", "atproto", "bluesky" -> Color(0xFF1185FE)
+		else -> NetworkAccentOther
 	}
 
 /**
@@ -174,3 +181,10 @@ fun networkAccent(networkLogo: String): Color =
  * section card backgrounds) that should still let surrounding text read clearly.
  */
 fun networkAccentTint(networkLogo: String): Color = networkAccent(networkLogo).copy(alpha = 0.12f)
+
+val Colors.warn: Color
+	get() = ZafuWarn
+
+/** Text on a gold action surface: dark ink on sumi gold, paper on washi gold. */
+val Colors.onGold: Color
+	get() = if (isLight) Color(0xFFF6EFE2) else Color(0xFF141008)

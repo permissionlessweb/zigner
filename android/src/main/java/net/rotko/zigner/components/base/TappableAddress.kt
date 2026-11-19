@@ -1,11 +1,11 @@
 package net.rotko.zigner.components.base
 
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
@@ -60,12 +60,12 @@ fun TappableAddress(
                 textAlign = TextAlign.Start,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(6.dp))
+                    .clip(RectangleShape)
                     .background(MaterialTheme.colors.fill6)
                     .padding(horizontal = 8.dp, vertical = 6.dp),
             )
             Text(
-                text = "tap to collapse",
+                text = "Tap to collapse",
                 style = SignerTypeface.CaptionM,
                 color = MaterialTheme.colors.textTertiary,
                 modifier = Modifier.padding(top = 2.dp, start = 2.dp),
@@ -77,7 +77,7 @@ fun TappableAddress(
                 color = MaterialTheme.colors.textTertiary,
             )
             Text(
-                text = "tap to reveal full address",
+                text = "Tap to reveal full address",
                 style = SignerTypeface.CaptionM,
                 color = MaterialTheme.colors.textTertiary,
                 modifier = Modifier.padding(top = 2.dp, start = 2.dp),

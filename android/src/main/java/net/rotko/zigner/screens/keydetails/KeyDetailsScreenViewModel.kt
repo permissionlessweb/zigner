@@ -227,7 +227,9 @@ class KeyDetailsScreenViewModel : ViewModel() {
 		label: String = "",
 		mainnet: Boolean = true
 	): FvkExportResult? {
-		val seedResult = repo.getSeedPhraseForceAuth(seedName)
+		// A viewing key cannot spend, so it rides on the app unlock like an
+		// address does; only private-key export forces a fresh prompt.
+		val seedResult = repo.getSeedPhrases(listOf(seedName))
 		return when (seedResult) {
 			is RepoResult.Failure -> null
 			is RepoResult.Success -> {

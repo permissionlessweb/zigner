@@ -1,6 +1,7 @@
 package net.rotko.zigner.screens.keysets.create.backupstepscreens
 
 import android.content.res.Configuration
+import androidx.compose.ui.graphics.RectangleShape
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -12,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.MaterialTheme
@@ -191,7 +191,7 @@ private fun NewKeySetSelectNetworkScreenPrivate(
 				.padding(horizontal = 8.dp, vertical = 16.dp)
 				.background(
 					MaterialTheme.colors.fill6,
-					RoundedCornerShape(dimensionResource(id = R.dimen.plateDefaultCornerRadius))
+					RectangleShape
 				)
 		) {
 			networks.forEach { network ->

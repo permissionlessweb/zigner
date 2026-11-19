@@ -1,6 +1,7 @@
 package net.rotko.zigner.screens.error.wrongversion
 
 import android.content.res.Configuration
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -10,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
@@ -59,7 +59,7 @@ fun FallbackRecoverPhraseScreen(
 					.padding(8.dp)
 					.background(
 						MaterialTheme.colors.fill6,
-						RoundedCornerShape(dimensionResource(id = R.dimen.qrShapeCornerRadius))
+						RectangleShape
 					)
 			) {
 				seedList.forEachIndexed { index, it ->

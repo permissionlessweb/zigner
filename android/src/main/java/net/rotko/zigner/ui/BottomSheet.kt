@@ -1,8 +1,8 @@
 package net.rotko.zigner.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -30,7 +30,7 @@ fun BottomSheetWrapperContent(
 
 	ModalBottomSheetLayout(
 		sheetBackgroundColor = MaterialTheme.colors.backgroundTertiary,
-		sheetShape = RoundedCornerShape(topEnd = 16.dp, topStart = 16.dp),
+		sheetShape = RectangleShape,
 		sheetState = bottomSheetState,
 		sheetContent = {
 			BottomSheetContentWrapperInternal {
@@ -88,7 +88,7 @@ fun BottomSheetWrapperRoot(
 
 	ModalBottomSheetLayout(
 		sheetBackgroundColor = MaterialTheme.colors.backgroundTertiary,
-		sheetShape = RoundedCornerShape(topEnd = 16.dp, topStart = 16.dp),
+		sheetShape = RectangleShape,
 		sheetState = modalBottomSheetState,
 		sheetContent = {
 			BottomSheetContentWrapperInternal {

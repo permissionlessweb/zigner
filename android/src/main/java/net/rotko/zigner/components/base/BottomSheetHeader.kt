@@ -88,7 +88,7 @@ private fun PreviewHeaderWithClose() {
 		Column() {
 			BottomSheetHeader(title = "Title", onClose = {})
 			Divider()
-			BottomSheetHeader(title = "Very very very very long title Very very very very long title") {}
+			BottomSheetHeader(title = "Very very very very long title very very very very long title") {}
 			Divider()
 			BottomSheetHeader(title = "Title", subtitile = "With subtitle", onClose = {})
 			Divider()

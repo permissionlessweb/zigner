@@ -135,7 +135,7 @@ jobs:
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: Zafu Zigner ${{ github.ref_name }}
+          name: Zigner ${{ github.ref_name }}
           body_path: release-notes.md
           prerelease: ${{ steps.prerelease.outputs.is_prerelease }}
           files: |

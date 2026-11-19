@@ -18,7 +18,7 @@ internal fun ConfirmOfflineModeBottomSheet(
 	onConfirm: Callback,
 ) {
 	BottomSheetConfirmDialog(
-		title = "Return to Offline Mode?",
+		title = "Return to offline mode?",
 		message = "This will re-enable airgap enforcement.\n\n" +
 			"Note: Your wallet history permanently shows that online mode was used. " +
 			"This cannot be reversed.\n\n" +

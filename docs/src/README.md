@@ -1,7 +1,6 @@
 # Zigner
 
-Air-gapped cold signer focused on **Zcash**, with full support for Penumbra
-and Substrate. Private keys never leave the device. The only I/O channel is
+The shielded air-gap signer for **Zcash** and **Penumbra**. Private keys never leave the device. The only I/O channel is
 QR codes on the screen and camera.
 
 The device MUST remain offline at all times. See
@@ -28,8 +27,8 @@ The device MUST remain offline at all times. See
   use in Zafu pro.
 - **Encrypted backup** — `ur:zigner-backup` exports group metadata,
   contacts, labels, and FROST shares under XChaCha20-Poly1305.
-- **Multi-chain** — Penumbra (full action set), Zcash Orchard +
-  transparent, Substrate (Polkadot, Kusama, Westend).
+- **Two chains** — Zcash (Orchard + transparent) and Penumbra (full
+  action set).
 
 ## Hot wallet pairing
 
@@ -37,7 +36,6 @@ The device MUST remain offline at all times. See
 |-----------|--------------------------------------------------------------|---------------------|
 | Zcash     | [Zafu](https://github.com/rotkonetworks/zafu), Zashi         | UR / PCZT / ZIP-316 |
 | Penumbra  | [Prax](https://praxwallet.com)                               | UR / CBOR           |
-| Substrate | Polkadot.js                                                  | UOS                 |
 
 ## Guides
 

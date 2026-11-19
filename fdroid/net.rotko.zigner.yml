@@ -3,7 +3,7 @@ AuthorName: Rotko Networks
 AuthorWebSite: https://rotko.net
 
 Name: Zigner
-Summary: Air-gapped hardware signer for Zcash, Penumbra & Substrate
+Summary: The shielded air-gap signer for Zcash and Penumbra
 Description: |
   Zigner is an open-source air-gapped cold wallet and hardware signer. Turn a spare
   Android phone into a secure offline transaction signer for:
@@ -13,8 +13,6 @@ Description: |
 
   • **Penumbra** — All transaction actions: shielded spends/outputs, DEX swaps, liquidity
     positions, delegations, votes, Dutch auctions, ICS20 withdrawals
-
-  • **Polkadot, Kusama & Cosmos** — Generic Substrate and Cosmos chain support
 
   **Security Model:**
 
@@ -35,7 +33,6 @@ Description: |
   - StrongBox support for high-security Android devices
   - Support for Keychain/Secure Enclave on iOS
   - QR-based transaction protocol with fountain-coded animated QR
-  - Metadata parsing from trusted sources (Substrate/Cosmos)
 
   **Recommended Setup:**
 
