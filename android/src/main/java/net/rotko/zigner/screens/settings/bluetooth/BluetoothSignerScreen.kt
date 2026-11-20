@@ -332,7 +332,7 @@ private fun KeyChips(key: ValidatorKey) {
 }
 
 @Composable
-private fun StatusPill(on: Boolean, text: String) {
+internal fun StatusPill(on: Boolean, text: String) {
 	val tint = if (on) MaterialTheme.colors.accentGreen else MaterialTheme.colors.textTertiary
 	Row(
 		verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
@@ -704,7 +704,7 @@ fun RemoteSignerHomeTab() {
 	SignerKeySets()
 }
 
-private fun runtimeBluetoothPermissions(): Array<String> {
+internal fun runtimeBluetoothPermissions(): Array<String> {
 	val base = if (Build.VERSION.SDK_INT >= 31) {
 		arrayOf(
 			Manifest.permission.BLUETOOTH_CONNECT,

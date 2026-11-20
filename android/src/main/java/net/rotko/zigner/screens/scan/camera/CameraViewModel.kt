@@ -236,6 +236,17 @@ class CameraViewModel() : ViewModel() {
 
 	val isTorchEnabled = MutableStateFlow(false)
 
+	/**
+	 * When true, [processFrame] emits [plainQr] and does not run the
+	 * signer dispatcher. Used by the SEZS ticket camera so it can reuse
+	 * this view model, the cutout, torch and permission flow.
+	 */
+	var interceptPlainQr: Boolean = false
+	private val _plainQr = MutableStateFlow<String?>(null)
+	val plainQr = _plainQr.asStateFlow()
+	fun resetPlainQr() { _plainQr.value = null }
+
+
 	private val _bananaSplitPayload = MutableStateFlow<List<String>?>(null)
 	val bananaSplitPayload: StateFlow<List<String>?> =
 		_bananaSplitPayload.asStateFlow()
@@ -350,6 +361,13 @@ class CameraViewModel() : ViewModel() {
 					Timber.d("[FROST] barcode: rawValueLen=${textValue?.length ?: -1} rawBytesLen=$rawBytesLen format=${it?.format}")
 					val frameSource: String? = textValue
 						?: it?.rawBytes?.toString(Charsets.UTF_8)
+
+					if (interceptPlainQr) {
+						if (!frameSource.isNullOrBlank()) {
+							_plainQr.value = frameSource
+						}
+						return@forEach
+					}
 
 					// Check for UR QR codes first (start with "ur:")
 					if (frameSource != null && frameSource.lowercase().startsWith("ur:")) {

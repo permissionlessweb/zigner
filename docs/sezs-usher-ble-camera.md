@@ -21,7 +21,7 @@ conflicts; see [Upstream merge status](#upstream-merge-status). This
 branch should be rebased or merged onto the resolved main once that work
 lands.
 
-**Date.** 19 November 2026 (Africa/Dakar, UTC+0).
+**Date.** 20 November 2026 (Africa/Dakar, UTC+0).
 
 ## Goal
 
@@ -438,13 +438,31 @@ out of scope.
 
 ### Device key
 
-`UsherDeviceKey.kt` generates an ed25519 *signing* key for ticket
-frames, distinct from the Noise X25519 static already used by
-`KmsGattServer`. Do not reuse `DeviceKey` / `ValidatorKeys` for this
-role. Both public keys are bound in the admin-signed
-`SEZS-DEVICE-GRANT-V1` (see the sezs-app auth doc for the exact
-canonical text).
+Device keys are derived from a selected Zigner key set, not generated
+at random. The BIP-39 seed is the same one the Terp account already
+uses (empty passphrase). From that seed:
 
+- Sign (ed25519, `SEZS-TICKET-FRAME-V1`): SLIP-0010, HMAC key
+  `"ed25519 seed"`, path `m/1009'/0'/{index}'`
+- Noise static (X25519): SLIP-0010, HMAC key `"curve25519 seed"`,
+  path `m/1009'/1'/{index}'`
+
+`1009'` is a BIP-43 purpose local to SEZS usher device keys, not a
+SLIP-44 coin type. `{index}` is chosen on the Session tab so one key
+set can hold several device keys (one per event, or reused). These
+paths cannot collide with the Terp bech32 account in the same key set,
+which stays secp256k1 BIP-32 at `m/44'/118'/0'/0/0`.
+
+`UsherDeviceKey.kt` seals the derived secrets at rest and remembers
+only the key-set name and index. The mnemonic is not stored with the
+device keys and is never logged. A change of sign public key drops the
+previous grant, which was bound to the old key. Once a key is bound,
+the existing GATT hello path (`KmsGattServer`) uses this Noise static
+for desk sessions; the KMS import path keeps the zcinti static.
+
+See `SezsDeviceDerivation.kt` and `SezsDeviceDerivationTest.kt`.
+
+### TICKET characteristic
 ### TICKET characteristic
 
 `KmsGattServer.kt` exposes a sibling characteristic on the existing
@@ -460,15 +478,28 @@ zcinti service:
 
 `SignerRuntime.notifyTicket` is the hook the camera uses.
 
-### Camera mode
+### Camera and SEZS tab
 
-Settings, then **Usher door camera** (`UsherCameraScreen.kt`) starts the
-GATT server if needed, opens the existing `ZcintiQrStream`, accepts a
-`sezs3` guest QR, checks the event tag, and signs a
+SEZS is a home tab (beside Keys and Signer) with three sub-tabs.
+Scan is for tickets only: event name, desk connected or not, and a
+single Scan ticket button. Session holds the key-set picker, index,
+device fingerprints, grant, desk status, and radio on/off (confirm
+plus the existing Bluetooth permission flow in
+`BluetoothSignerScreen`). History records sent or refused scans:
+time, short ticket tag (first 8 bytes of `sha256(payload)` as 16
+hex), sequence, and a short reason. The payload and key material are
+not stored (`SezsTicketHistory.kt`).
+
+Scan ticket opens the same full-screen scanner as the offline signer:
+`CameraViewWithPermission`, `TransparentCutoutLayout`, `ScanHeader`
+(torch and close), and the same camera permission request, in
+`SezsTicketScanScreen.kt`. A `sezs3` guest QR is signed as
 `SEZS-TICKET-FRAME-V1` with `TicketCanon.kt` (domain tag, grant hash,
 device sign pubkey, event, event tag = first 8 bytes of
-`sha256(event id)` as 16 hex, monotonic seq, timestamp, payload).
+`sha256(event id)` as 16 hex, monotonic seq, timestamp, payload) and
+sent through `SignerRuntime.notifyTicket`.
 
+### Canonical messages
 ### Canonical messages
 
 UTF-8, LF, no trailing spaces or newline. First line is the domain

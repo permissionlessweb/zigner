@@ -472,7 +472,7 @@ internal class KmsGattServer(
 		try {
 			when (admit(sessionReady(device), false, frame)) {
 				"hello" -> {
-					val phone = NoiseResponder(ValidatorKeys.noiseSeed(app))
+					val phone = NoiseResponder(UsherDeviceKey.sessionNoiseSeed(app) ?: ValidatorKeys.noiseSeed(app))
 					phone.readMessage1(frame.copyOfRange(1, frame.size))
 					val eph = ByteArray(32).also { java.security.SecureRandom().nextBytes(it) }
 					val msg2 = phone.message2(eph)

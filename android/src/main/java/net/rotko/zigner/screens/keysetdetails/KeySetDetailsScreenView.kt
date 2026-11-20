@@ -111,12 +111,14 @@ fun KeySetDetailsScreenView(
 	getSeedPhrase: suspend (String) -> String? = { null },
 ) {
 	var homeTab by remember { mutableStateOf("keys") }
+	var sezsFullscreen by remember { mutableStateOf(false) }
 	Column(modifier = Modifier.fillMaxHeight()) {
-		KeySetDetailsHeader(
-			onSettings = { navController.navigate(CoreUnlockedNavSubgraph.settings) },
-			onMenu = onMenu,
-		)
-		Row(
+		if (!sezsFullscreen) {
+			KeySetDetailsHeader(
+				onSettings = { navController.navigate(CoreUnlockedNavSubgraph.settings) },
+				onMenu = onMenu,
+			)
+			Row(
 			modifier = Modifier
 				.fillMaxWidth()
 				.padding(horizontal = 16.dp, vertical = 4.dp),
@@ -124,12 +126,16 @@ fun KeySetDetailsScreenView(
 		) {
 			HomeTabLabel("Keys", homeTab == "keys") { homeTab = "keys" }
 			HomeTabLabel("SEZS", homeTab == "sezs") { homeTab = "sezs" }
-			HomeTabLabel("Signer", homeTab == "signer") { homeTab = "signer" }
+				HomeTabLabel("Signer", homeTab == "signer") { homeTab = "signer" }
+			}
 		}
 
 		if (homeTab == "sezs") {
 			Box(modifier = Modifier.weight(1f)) {
-				SezsUsherTab()
+				SezsUsherTab(
+					currentSeedName = model.root.seedName,
+					onFullscreenScan = { sezsFullscreen = it },
+				)
 			}
 		} else if (homeTab == "signer") {
 			Box(modifier = Modifier.weight(1f)) {

@@ -273,7 +273,7 @@ fun ScanScreen(
 }
 
 @Composable
-private fun CameraBottomText() {
+internal fun CameraBottomText() {
 	Column(
 		Modifier
 			.fillMaxSize(1f)
@@ -307,7 +307,7 @@ private fun CameraBottomText() {
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
-private fun CameraViewWithPermission(viewModel: CameraViewModel) {
+internal fun CameraViewWithPermission(viewModel: CameraViewModel) {
 	if (LocalInspectionMode.current) return
 
 	val rationalShown = remember {
