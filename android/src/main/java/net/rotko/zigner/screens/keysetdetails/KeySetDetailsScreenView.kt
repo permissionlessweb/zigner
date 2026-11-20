@@ -71,6 +71,7 @@ import net.rotko.zigner.domain.NetworkState
 import net.rotko.zigner.domain.abbreviateString
 import net.rotko.zigner.domain.conditional
 import net.rotko.zigner.screens.settings.bluetooth.RemoteSignerHomeTab
+import net.rotko.zigner.screens.settings.bluetooth.SezsUsherTab
 import net.rotko.zigner.screens.keysetdetails.items.KeySetBottomBar
 import net.rotko.zigner.screens.keysetdetails.items.NetworkKeysSection
 import net.rotko.zigner.screens.keysetdetails.items.WalletHeaderCard
@@ -122,10 +123,15 @@ fun KeySetDetailsScreenView(
 			horizontalArrangement = Arrangement.spacedBy(16.dp),
 		) {
 			HomeTabLabel("Keys", homeTab == "keys") { homeTab = "keys" }
+			HomeTabLabel("SEZS", homeTab == "sezs") { homeTab = "sezs" }
 			HomeTabLabel("Signer", homeTab == "signer") { homeTab = "signer" }
 		}
 
-		if (homeTab == "signer") {
+		if (homeTab == "sezs") {
+			Box(modifier = Modifier.weight(1f)) {
+				SezsUsherTab()
+			}
+		} else if (homeTab == "signer") {
 			Box(modifier = Modifier.weight(1f)) {
 				RemoteSignerHomeTab()
 			}
@@ -186,11 +192,13 @@ fun KeySetDetailsScreenView(
 		}
 		}
 
-		KeySetBottomBar(
-			onScan = {
-				navController.navigate(CoreUnlockedNavSubgraph.Camera.destination(null))
-			},
-		)
+		if (homeTab == "keys") {
+			KeySetBottomBar(
+				onScan = {
+					navController.navigate(CoreUnlockedNavSubgraph.Camera.destination(null))
+				},
+			)
+		}
 	}
 }
 

@@ -22,7 +22,6 @@ import net.rotko.zigner.screens.settings.logs.logsNavigationSubgraph
 import net.rotko.zigner.screens.settings.releasekey.ReleaseKeyIntegratedScreen
 import net.rotko.zigner.screens.settings.verifiercert.verifierSettingsDestination
 import net.rotko.zigner.ui.mainnavigation.CoreUnlockedNavSubgraph
-import net.rotko.zigner.screens.settings.bluetooth.UsherCameraScreen
 
 /**
  * Settings screen; General purpose stuff like legal info, networks management
@@ -66,9 +65,6 @@ fun NavGraphBuilder.settingsFullSubgraph(
 			navController = coreNavController,
 		)
 		verifierSettingsDestination(coreNavController)
-		composable(SettingsNavSubgraph.usherCamera) {
-			UsherCameraScreen(onClose = { coreNavController.popBackStack() })
-		}
 		composable(SettingsNavSubgraph.multisig) {
 			FrostSettingsScreen(
 				onBack = { coreNavController.popBackStack() },
@@ -110,6 +106,5 @@ internal object SettingsNavSubgraph {
 	const val multisigBackup = "settings_multisig_backup"
 	const val multisigBackupAge = "settings_multisig_backup_age"
 	const val releaseKey = "settings_release_key"
-	const val usherCamera = "settings_usher_camera"
 }
 
