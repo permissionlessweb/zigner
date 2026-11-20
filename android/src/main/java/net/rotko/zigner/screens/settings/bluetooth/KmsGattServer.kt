@@ -60,6 +60,7 @@ internal class KmsGattServer(
 	private var sigChar: BluetoothGattCharacteristic? = null
 	private var keysChar: BluetoothGattCharacteristic? = null
 	private var granterChar: BluetoothGattCharacteristic? = null
+	private var ticketChar: BluetoothGattCharacteristic? = null
 	private val sessions = mutableMapOf<String, NoiseResponder>()
 	private val marks = mutableMapOf<String, HighWater>()
 	private val clients = linkedSetOf<BluetoothDevice>()
@@ -141,6 +142,13 @@ internal class KmsGattServer(
 						handleStatus(device, a.statusIncoming)
 						a.statusIncoming = ByteArray(0)
 						a.pendingStatus = false
+					}
+				} else if (characteristic.uuid == TICKET) {
+					if (offset == 0) a.incoming = ByteArray(0)
+					a.incoming = assemble(a.incoming, offset, value)
+					if (!preparedWrite) {
+						handleTicketWrite(device, a.incoming)
+						a.incoming = ByteArray(0)
 					}
 				} else if (characteristic.uuid == SIGN) {
 					a.pendingStatus = false
@@ -245,6 +253,19 @@ internal class KmsGattServer(
 		)
 		service.addCharacteristic(keysCh)
 		keysChar = keysCh
+		val ticket = BluetoothGattCharacteristic(
+			TICKET,
+			BluetoothGattCharacteristic.PROPERTY_NOTIFY or BluetoothGattCharacteristic.PROPERTY_WRITE or BluetoothGattCharacteristic.PROPERTY_READ,
+			BluetoothGattCharacteristic.PERMISSION_READ or BluetoothGattCharacteristic.PERMISSION_WRITE,
+		)
+		ticket.addDescriptor(
+			BluetoothGattDescriptor(
+				CCCD,
+				BluetoothGattDescriptor.PERMISSION_READ or BluetoothGattDescriptor.PERMISSION_WRITE,
+			),
+		)
+		service.addCharacteristic(ticket)
+		ticketChar = ticket
 		sigChar = sig
 		granterChar = granter
 		if (!opened.addService(service)) {
@@ -614,6 +635,47 @@ internal class KmsGattServer(
 		return v
 	}
 
+
+	/**
+	 * Phone → desk: notify a Noise-sealed ticket envelope on TICKET.
+	 * Returns false when no session is ready, so the opening never goes
+	 * out in the clear.
+	 */
+	fun notifyTicket(plain: ByteArray): Boolean {
+		val characteristic = ticketChar ?: return false
+		val current = server ?: return false
+		val ready = clients.filter { sessionReady(it) }
+		if (ready.isEmpty()) return false
+		var ok = false
+		for (device in ready) {
+			val id = deviceId(device) ?: continue
+			val session = sessions[id] ?: continue
+			if (session.ready != true) continue
+			val box = session.seal(plain)
+			notifyValue(current, device, characteristic, box)
+			ok = true
+		}
+		return ok
+	}
+
+	private fun handleTicketWrite(device: BluetoothDevice, value: ByteArray) {
+		if (!sessionReady(device)) {
+			onStatus("ticket write without a session")
+			return
+		}
+		val text = try { String(value, Charsets.UTF_8) } catch (_: Exception) { return }
+		if (text.startsWith("GRANT")) {
+			val lines = text.replace("\r", "").split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+			if (lines.size >= 3 && lines[1].matches(Regex("^[0-9a-fA-F]{64}$"))) {
+				app.getSharedPreferences("usher-device", 0).edit()
+					.putString("grant_hash", lines[1].lowercase())
+					.putString("event_id", lines[2])
+					.apply()
+				onStatus("stored a device grant for this event")
+			}
+		}
+	}
+
 	companion object {
 		val SERVICE: UUID = UUID.fromString("e7c8a1b0-4f3e-4c2a-9b6d-6b6d73000001")
 		val PUB: UUID = UUID.fromString("e7c8a1b0-4f3e-4c2a-9b6d-6b6d73000002")
@@ -622,6 +684,7 @@ internal class KmsGattServer(
 		val GRANTER: UUID = UUID.fromString("e7c8a1b0-4f3e-4c2a-9b6d-6b6d73000005")
 		val STATUS: UUID = UUID.fromString("e7c8a1b0-4f3e-4c2a-9b6d-6b6d73000006")
 		val KEYS: UUID = UUID.fromString("e7c8a1b0-4f3e-4c2a-9b6d-6b6d73000007")
+		val TICKET: UUID = UUID.fromString("e7c8a1b0-4f3e-4c2a-9b6d-6b6d73000008")
 		val CCCD: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
 	}
 }

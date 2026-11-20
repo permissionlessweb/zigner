@@ -4,7 +4,12 @@ Design for a Zigner variant in which an usher's phone is a Bluetooth
 camera extension for a desktop [Zafu](https://github.com/permissionlessweb)
 session running the Speak-Ez Sessions (SEZS) check-in flow.
 
-**Status.** Design only. No runtime code in this commit.
+**Status.** Phone-side implementation is on this branch (Android first).
+The design below still holds. The runtime additions are listed under
+[Implementation](#implementation-android-first). Pairing grants, the
+desk modal, and consume verification live in sezs-app
+(`apps/sezs/docs/USHER-BLE-AUTH.md`,
+`docs/guides/usher-ble-phone-demo.md`). No secrets are printed here.
 
 **Branch.** `sezs/usher-ble-camera`, cut from `permissionlessweb/master`
 (`2a60e1db`, *fix merge: drop removed zcash deps…*). That tip already
@@ -425,18 +430,97 @@ Cheap checks on *this* (clean) worktree, not the conflicted merge:
 `cargo check -p parser -p definitions --offline --locked` succeeded
 on 19 November 2026. No Android or iOS build was run.
 
+
+## Implementation (Android first)
+
+Landed on this branch for the local demo. iOS GATT-server work is still
+out of scope.
+
+### Device key
+
+`UsherDeviceKey.kt` generates an ed25519 *signing* key for ticket
+frames, distinct from the Noise X25519 static already used by
+`KmsGattServer`. Do not reuse `DeviceKey` / `ValidatorKeys` for this
+role. Both public keys are bound in the admin-signed
+`SEZS-DEVICE-GRANT-V1` (see the sezs-app auth doc for the exact
+canonical text).
+
+### TICKET characteristic
+
+`KmsGattServer.kt` exposes a sibling characteristic on the existing
+zcinti service:
+
+- UUID `e7c8a1b0-4f3e-4c2a-9b6d-6b6d73000008`
+- `NOTIFY`: phone to desk, a Noise-sealed `SEZS-TICKET-FRAME-V1` plus
+  the raw ed25519 signature. Notify runs only after the Noise XX
+  session is ready. Ticket openings are never sent in the clear.
+- `WRITE`: desk to phone. A `GRANT <grant_hash> <event_id>` command
+  stores the current grant hash and event so the camera can bind the
+  next frame.
+
+`SignerRuntime.notifyTicket` is the hook the camera uses.
+
+### Camera mode
+
+Settings, then **Usher door camera** (`UsherCameraScreen.kt`) starts the
+GATT server if needed, opens the existing `ZcintiQrStream`, accepts a
+`sezs3` guest QR, checks the event tag, and signs a
+`SEZS-TICKET-FRAME-V1` with `TicketCanon.kt` (domain tag, grant hash,
+device sign pubkey, event, event tag = first 8 bytes of
+`sha256(event id)` as 16 hex, monotonic seq, timestamp, payload).
+
+### Canonical messages
+
+UTF-8, LF, no trailing spaces or newline. First line is the domain
+tag. Shared with the desk and splash backend:
+
+- `SEZS-DEVICE-GRANT-V1` — admin ADR-36 (Zafu `signArbitrary`)
+- `SEZS-TICKET-FRAME-V1` — device ed25519 over the raw canonical bytes
+- `SEZS-CONSUME-V3-DEVICE` — usher/admin ADR-36 on the desk, not on
+  the phone
+
+Exact field lists are in sezs-app `apps/sezs/docs/USHER-BLE-AUTH.md`.
+`android/src/test/.../TicketCanonTest.kt` covers encode/verify of the
+frame text.
+
+### Debug APK (sideload)
+
+Built with the Android SDK (NDK `28.2.13676358`, OpenJDK 17) and the already-installed `aarch64-linux-android` rust
+target:
+
+```
+export JAVA_HOME=<path to OpenJDK 17>
+export ANDROID_HOME=<path to Android SDK>
+export ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358
+./gradlew :android:testDebugUnitTest :android:assembleDebug
+```
+
+The debug APK is written to
+`android/build/outputs/apk/debug/`.
+
+Install: `adb install -r` that file, or copy the file to the phone and
+open it (allow this source). Application id: `net.rotko.zigner`.
+Step-by-step pairing and admit: sezs-app
+`docs/guides/usher-ble-phone-demo.md`.
+
+### What this slice still does not do
+
+- iOS GATT server / camera mode
+- On-phone consume proofs or Zafu keys
+- Desk mesh / egress election
+- Camera-only firmware that refuses to boot the validator sign path
+
 ## Open questions
 
 1. Confirm `TICKET` as a new characteristic (`…000008`) versus a
-   framed message type on a new service UUID. Preference here is the
-   sibling characteristic, so sign and camera share advertising and
-   the Noise map but not a parser.
+   framed message type on a new service UUID. Implemented as the
+   sibling characteristic `…000008` on the existing service.
 2. Is the first usher phone Android-only, or is an iOS GATT-server
    path in scope despite background advertising limits?
-3. Who owns the desktop Noise static and pairing UI — a SEZS-local
-   helper, the existing KMS console, or a future Zafu surface? v1
-   preference: a thin helper next to SEZS, not the validator KMS
-   home directory.
+3. Who owns the desktop Noise static and pairing UI. v1 uses a
+   thin SEZS loopback helper (`127.0.0.1:3061`) plus the usher-phone
+   modal in the web app. Web Bluetooth is behind the same Transport
+   interface but is not the demo default.
 4. Should camera-only firmware refuse to boot the sign path even if
    validator keys are present?
 5. Desk mesh: how is the egress desk elected, and how is the
@@ -445,8 +529,9 @@ on 19 November 2026. No Android or iOS build was run.
    and the resolved upstream merge?
 7. Does the phone need a live admit/reject notify for v1, or is a
    desk-only UI enough for the first slice?
-8. Web Bluetooth in a Zafu tab: worth a time-boxed probe after the
-   helper works, or wait until the transport trait exists?
+8. Web Bluetooth in a Zafu tab. The Transport interface exists
+   in sezs-app. Web Bluetooth is a feature-detected stub in the page
+   (not inside the extension) and is not the local demo path.
 
 ## What this branch does not do
 

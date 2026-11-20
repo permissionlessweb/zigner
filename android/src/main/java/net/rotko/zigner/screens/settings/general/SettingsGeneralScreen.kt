@@ -64,6 +64,7 @@ internal fun SettingsScreenGeneralView(
 	onMultisigSettings: Callback,
 	onReleaseKey: Callback,
 	onAdvancedSettings: Callback,
+	onUsherCamera: Callback,
 	onExposedClicked: Callback,
 	onLightThemeToggle: Callback,
 	isLightThemeEnabled: Boolean,
@@ -105,6 +106,11 @@ internal fun SettingsScreenGeneralView(
 					name = "Release key",
 					icon = Icons.Outlined.Key,
 					onClick = onReleaseKey,
+				)
+				SettingsElement(
+					name = "Usher door camera",
+					icon = Icons.Outlined.Key,
+					onClick = onUsherCamera,
 				)
 				SettingsElement(
 					name = "Advanced Settings",
@@ -291,6 +297,7 @@ private fun PreviewSettingsScreen() {
 			onMultisigSettings = {},
 		onReleaseKey = {},
 			onAdvancedSettings = {},
+			onUsherCamera = {},
 			onExposedClicked = {},
 			onLightThemeToggle = {},
 			isLightThemeEnabled = false,

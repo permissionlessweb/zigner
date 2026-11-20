@@ -145,6 +145,8 @@ internal object SignerRuntime {
 		}
 	}
 
+	fun notifyTicket(plain: ByteArray): Boolean = gatt?.notifyTicket(plain) == true
+
 	fun ensureStarted(context: Context) {
 		val app = context.applicationContext
 		wantRadio = true
