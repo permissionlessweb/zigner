@@ -2,6 +2,15 @@
 
 All notable changes to zigner are documented in this file.
 
+## Unreleased
+
+### Fixes
+
+- Dropped `android.permission.FLASHLIGHT` from the manifest. Android has no
+  such permission on any version zigner supports, so F-Droid listed it as an
+  unknown permission. The scanner torch runs on the camera permission and is
+  unchanged.
+
 ## 0.15.0 - 2026-11-18
 
 Minor. Zigner takes the zafu look and its own name. No change to what it
