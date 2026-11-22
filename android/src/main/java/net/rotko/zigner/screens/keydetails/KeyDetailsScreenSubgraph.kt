@@ -96,12 +96,13 @@ fun KeyDetailsScreenSubgraph(
 			},
 			fvkResult = fvkResult,
 			fvkLoading = fvkLoading,
-			onRequestFvk = {
+			onRequestFvk = { account ->
 				scope.launch {
 					fvkLoading = true
 					fvkResult = vm.exportFvk(
 						seedName = model.address.cardBase.seedName,
 						networkLogo = model.networkInfo.networkLogo,
+						accountIndex = account,
 						label = model.address.cardBase.seedName
 					)
 					fvkLoading = false

@@ -107,7 +107,8 @@ fun KeyDetailsPublicKeyScreen(
 	onMenu: Callback,
 	fvkResult: FvkExportResult? = null,
 	fvkLoading: Boolean = false,
-	onRequestFvk: Callback = {},
+	/** the ZIP 32 account whose viewing key to show (zcash pockets); 0 elsewhere */
+	onRequestFvk: (UInt) -> Unit = {},
 	zcashDiversifiedAddress: String? = null,
 	zcashDiversifiedLoading: Boolean = false,
 	onRequestZcashDiversifiedAddress: (UInt) -> Unit = {},
@@ -130,12 +131,14 @@ fun KeyDetailsPublicKeyScreen(
 	var showFvkCompatInfo by remember { mutableStateOf(false) }
 	// Zcash diversified address state
 	var diversifierIndex by remember { mutableIntStateOf(0) }
+	// Zcash account (a zafu pocket) whose viewing key the QR carries
+	var zcashAccount by remember { mutableIntStateOf(0) }
 	var showTransparent by remember { mutableStateOf(false) }
 
 	// Auto-request FVK for Penumbra/Zcash on first load
 	LaunchedEffect(isFvkNetwork) {
 		if (isFvkNetwork && fvkResult == null && !fvkLoading) {
-			onRequestFvk()
+			onRequestFvk(0u)
 		}
 	}
 
@@ -480,6 +483,49 @@ fun KeyDetailsPublicKeyScreen(
 								.background(MaterialTheme.colors.pink500)
 								.clickable { onRequestPenumbraFreshReceive() }
 								.padding(horizontal = 24.dp, vertical = 10.dp)
+						)
+					}
+				}
+
+				// Zcash viewing key: which account (a zafu pocket) the QR carries
+				if (isZcash && showFvk) {
+					Row(
+						modifier = Modifier
+							.fillMaxWidth()
+							.padding(horizontal = 24.dp, vertical = 4.dp),
+						verticalAlignment = Alignment.CenterVertically,
+					) {
+						Text(
+							text = "Account $zcashAccount",
+							style = SignerTypeface.BodyL,
+							color = MaterialTheme.colors.primary,
+							modifier = Modifier.weight(1f)
+						)
+						if (zcashAccount > 0) {
+							Text(
+								text = "Previous",
+								style = SignerTypeface.LabelM,
+								color = MaterialTheme.colors.primary,
+								modifier = Modifier
+									.clickable(enabled = !fvkLoading) {
+										zcashAccount--
+										onRequestFvk(zcashAccount.toUInt())
+									}
+									.padding(horizontal = 12.dp, vertical = 10.dp)
+							)
+						}
+						Text(
+							text = "Next account",
+							style = SignerTypeface.LabelM,
+							color = Color.White,
+							modifier = Modifier
+								.clip(RectangleShape)
+								.background(MaterialTheme.colors.pink500)
+								.clickable(enabled = !fvkLoading) {
+									zcashAccount++
+									onRequestFvk(zcashAccount.toUInt())
+								}
+								.padding(horizontal = 16.dp, vertical = 10.dp)
 						)
 					}
 				}
