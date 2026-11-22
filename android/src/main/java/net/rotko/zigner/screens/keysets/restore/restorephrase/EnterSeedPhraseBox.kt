@@ -4,6 +4,7 @@ import android.content.res.Configuration
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -62,6 +63,8 @@ fun EnterSeedPhraseBox(
 	modifier: Modifier = Modifier,
 	onEnteredChange: (progressWord: String) -> Unit,
 	onScanOpen: Callback,
+	editingIndex: Int? = null,
+	onWordClick: (Int) -> Unit = {},
 ) {
 	// Typing a phrase in is as sensitive as displaying one.
 	DisableScreenshots()
@@ -84,7 +87,7 @@ fun EnterSeedPhraseBox(
 	// BasicTextField emits no further backspace events (deletes one, then freezes).
 	// The word-count change makes the effect re-fire and restore the " " sentinel,
 	// so each subsequent backspace can remove the next word.
-	LaunchedEffect(rawUserInput, enteredWords.size) {
+	LaunchedEffect(rawUserInput, enteredWords.size, editingIndex) {
 		seedWord.value = TextFieldValue(
 			text = rawUserInput,
 			//to always keep position after artificially added " "
@@ -99,16 +102,9 @@ fun EnterSeedPhraseBox(
 //			.clickable { focusRequester.requestFocus() }
 	) {
 
-		FlowRow(
-			horizontalArrangement = Arrangement.spacedBy(4.dp),
-			verticalArrangement = Arrangement.spacedBy(4.dp),
-			modifier = Modifier.heightIn(min = 100.dp)
-		) {
-			enteredWords.onEachIndexed { index, word ->
-				EnterSeedPhraseWord(index = index + 1, word = word)
-			}
-			val shouldShowPlaceholder =
-				enteredWords.isEmpty() && rawUserInput.isEmpty()
+		val shouldShowPlaceholder =
+			enteredWords.isEmpty() && rawUserInput.isEmpty()
+		val inputField: @Composable () -> Unit = {
 			BasicTextField(
 				textStyle = TextStyle(color = MaterialTheme.colors.primary),
 				value = seedWord.value, //as was before redesign, should been moved to rust but need to align with iOS
@@ -137,6 +133,26 @@ fun EnterSeedPhraseBox(
 				}
 			)
 		}
+		FlowRow(
+			horizontalArrangement = Arrangement.spacedBy(4.dp),
+			verticalArrangement = Arrangement.spacedBy(4.dp),
+			modifier = Modifier.heightIn(min = 100.dp)
+		) {
+			enteredWords.forEachIndexed { index, word ->
+				if (index == editingIndex) {
+					inputField()
+				} else {
+					EnterSeedPhraseWord(
+						index = index + 1,
+						word = word,
+						onClick = { onWordClick(index) },
+					)
+				}
+			}
+			if (editingIndex == null) {
+				inputField()
+			}
+		}
 		Box(
 			modifier = Modifier
 				.fillMaxWidth(1f),
@@ -147,16 +163,17 @@ fun EnterSeedPhraseBox(
 	}
 
 	KeepScreenOn()
-	LaunchedEffect(Unit) {
+	LaunchedEffect(editingIndex) {
 		focusRequester.requestFocus()
 	}
 }
 
 
 @Composable
-private fun EnterSeedPhraseWord(index: Int, word: String) {
+private fun EnterSeedPhraseWord(index: Int, word: String, onClick: () -> Unit) {
 	Row(
 		Modifier
+			.clickable(onClick = onClick)
 			.background(MaterialTheme.colors.fill6, RectangleShape)
 			.defaultMinSize(minWidth = 40.dp, minHeight = 24.dp)
 			.padding(vertical = 8.dp, horizontal = 12.dp)

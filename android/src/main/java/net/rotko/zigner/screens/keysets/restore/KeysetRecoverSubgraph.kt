@@ -69,7 +69,7 @@ fun KeysetRecoverSubgraph(
 					viewModel.onAddword(suggestedWord)
 				},
 				onDone = {
-					if (model.value.validSeed) {
+					if (model.value.canProceed) {
 						localNavController.navigate(
 							KeysetRecoverSubgraph.NetworksSelection.destination(
 								model.value.enteredWords.joinToString(separator = " ")
@@ -80,6 +80,7 @@ fun KeysetRecoverSubgraph(
 					}
 				},
 				onScanOpen = { coreNavController.navigate(CoreUnlockedNavSubgraph.Camera.destination(keysetName)) },
+				onSelectWord = { index -> viewModel.onSelectWord(index) },
 				modifier = Modifier
 					.statusBarsPadding()
 					.imePadding(),

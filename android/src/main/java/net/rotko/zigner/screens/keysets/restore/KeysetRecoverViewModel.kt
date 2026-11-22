@@ -6,51 +6,89 @@ import net.rotko.zigner.dependencygraph.ServiceLocator
 import net.rotko.zigner.domain.backend.RecoverSeedInteractor
 import net.rotko.zigner.domain.backend.mapError
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
-class KeysetRecoverViewModel : ViewModel() {
+class KeysetRecoverViewModel internal constructor(
+	private val guessWordsFn: suspend (String) -> List<String>,
+	private val validateSeedFn: suspend (List<String>) -> Boolean,
+	val existingSeeds: StateFlow<Array<String>>,
+	initialSuggestions: List<String>,
+) : ViewModel() {
 
-	private val backendInteractor = RecoverSeedInteractor()
+	constructor() : this(RecoverSeedInteractor())
+
+	private constructor(interactor: RecoverSeedInteractor) : this(
+		guessWordsFn = { input -> interactor.seedPhraseGuessWords(input).mapError() ?: emptyList() },
+		validateSeedFn = { phrase ->
+			interactor.validateSeedPhrase(phrase.joinToString(separator = " ")).mapError() ?: false
+		},
+		existingSeeds = ServiceLocator.seedStorage.lastKnownSeedNames,
+		initialSuggestions = runBlocking {
+			interactor.seedPhraseGuessWords("").mapError() ?: emptyList()
+		},
+	)
 
 	private val _recoverSeed = MutableStateFlow<KeysetRecoverModel>(
-		KeysetRecoverModel.new(getGuessWordsSync(""))
+		KeysetRecoverModel.new(initialSuggestions)
 	)
 	val recoverSeed = _recoverSeed.asStateFlow()
 
-	val existingSeeds = ServiceLocator.seedStorage.lastKnownSeedNames
-
-	private fun getGuessWordsSync(input: String): List<String> {
-		return runBlocking {
-			backendInteractor.seedPhraseGuessWords(input).mapError() ?: emptyList()
+	fun onSelectWord(index: Int) {
+		val current = _recoverSeed.value
+		if (index !in current.enteredWords.indices) return
+		val word = current.enteredWords[index]
+		val newRawInput = KeysetRecoverModel.SPACE_CHARACTER.toString() + word
+		_recoverSeed.update {
+			it.copy(
+				rawUserInput = newRawInput,
+				editingIndex = index,
+				suggestedWords = emptyList(),
+				validSeed = false,
+			)
 		}
-	}
-
-	private suspend fun getGuessWords(input: String): List<String> {
-		return backendInteractor.seedPhraseGuessWords(input).mapError() ?: emptyList()
-	}
-
-	private suspend fun validateSeedPhraseAsync(phrase: List<String>): Boolean {
-		return backendInteractor.validateSeedPhrase(phrase.joinToString(separator = " "))
-			.mapError() ?: false
+		viewModelScope.launch {
+			val guessing = guessWordsFn(word.lowercase())
+			_recoverSeed.update { state ->
+				if (state.editingIndex == index && state.rawUserInput == newRawInput) {
+					state.copy(suggestedWords = guessing)
+				} else {
+					state
+				}
+			}
+		}
 	}
 
 	fun onUserInput(rawUserInput: String) {
-		if (_recoverSeed.value.enteredWords.size > KeysetRecoverModel.WORDS_CAP) {
+		if (rawUserInput.isEmpty()) {
+			var updatedDraft: List<String>? = null
 			_recoverSeed.update {
-				it.copy(rawUserInput = KeysetRecoverModel.SPACE_CHARACTER.toString())
+				val editIdx = it.editingIndex
+				val newDraft = if (editIdx != null && editIdx in it.enteredWords.indices) {
+					it.enteredWords.filterIndexed { i, _ -> i != editIdx }
+				} else {
+					it.enteredWords.dropLast(1)
+				}
+				updatedDraft = newDraft
+				it.copy(
+					rawUserInput = KeysetRecoverModel.SPACE_CHARACTER.toString(),
+					enteredWords = newDraft,
+					editingIndex = null,
+					validSeed = false,
+				)
 			}
+			updatedDraft?.let { revalidate(it) }
 			return
 		}
 
-		if (rawUserInput.isEmpty()) {
+		if (_recoverSeed.value.editingIndex == null &&
+			_recoverSeed.value.enteredWords.size >= KeysetRecoverModel.WORDS_CAP
+		) {
 			_recoverSeed.update {
-				it.copy(
-					rawUserInput = KeysetRecoverModel.SPACE_CHARACTER.toString(),
-					enteredWords = it.enteredWords.dropLast(1)
-				)
+				it.copy(rawUserInput = KeysetRecoverModel.SPACE_CHARACTER.toString())
 			}
 			return
 		}
@@ -71,39 +109,67 @@ class KeysetRecoverViewModel : ViewModel() {
 
 		// Fetch suggestions asynchronously
 		val input = rawUserInput.trim().lowercase()
+		val editIdx = _recoverSeed.value.editingIndex
 		viewModelScope.launch {
-			val guessing = getGuessWords(input)
+			val guessing = guessWordsFn(input)
 			if (rawUserInput.length > 1 && rawUserInput.endsWith(KeysetRecoverModel.SPACE_CHARACTER)) {
-				if (guessing.contains(input)) {
+				val state = _recoverSeed.value
+				if (state.rawUserInput == rawUserInput && state.editingIndex == editIdx && guessing.contains(input)) {
 					onAddword(input)
 				}
 			} else {
-				_recoverSeed.update {
-					it.copy(suggestedWords = guessing)
+				_recoverSeed.update { current ->
+					if (current.rawUserInput == rawUserInput && current.editingIndex == editIdx) {
+						current.copy(suggestedWords = guessing)
+					} else {
+						current
+					}
 				}
 			}
 		}
 	}
 
 	fun onAddword(word: String) {
+		var committedDraft: List<String>? = null
 		_recoverSeed.update {
-			val newDraft = it.enteredWords + word
+			val editIdx = it.editingIndex
+			val newDraft = if (editIdx != null && editIdx in it.enteredWords.indices) {
+				it.enteredWords.toMutableList().apply { set(editIdx, word) }
+			} else {
+				if (it.enteredWords.size >= KeysetRecoverModel.WORDS_CAP) {
+					return@update it.copy(rawUserInput = KeysetRecoverModel.SPACE_CHARACTER.toString())
+				}
+				it.enteredWords + word
+			}
+			committedDraft = newDraft
 			it.copy(
 				rawUserInput = KeysetRecoverModel.SPACE_CHARACTER.toString(),
 				enteredWords = newDraft,
-				suggestedWords = emptyList()
+				editingIndex = null,
+				suggestedWords = emptyList(),
+				validSeed = false,
 			)
 		}
-		// Validate and refresh suggestions async
+		committedDraft?.let { revalidate(it) }
+	}
+
+	private fun revalidate(draft: List<String>) {
 		viewModelScope.launch {
-			val newDraft = _recoverSeed.value.enteredWords
-			val valid = validateSeedPhraseAsync(newDraft)
-			val suggestions = getGuessWords("")
-			_recoverSeed.update {
-				it.copy(
-					validSeed = valid,
-					suggestedWords = suggestions
-				)
+			val valid = validateSeedFn(draft)
+			val suggestions = guessWordsFn("")
+			_recoverSeed.update { current ->
+				if (current.enteredWords == draft && current.editingIndex == null) {
+					current.copy(
+						validSeed = valid,
+						suggestedWords = if (current.rawUserInput.trim().isEmpty()) {
+							suggestions
+						} else {
+							current.suggestedWords
+						},
+					)
+				} else {
+					current
+				}
 			}
 		}
 	}
@@ -114,8 +180,12 @@ data class KeysetRecoverModel(
 	val rawUserInput: String,
 	val suggestedWords: List<String>,
 	val enteredWords: List<String>,
-	val validSeed: Boolean
+	val validSeed: Boolean,
+	val editingIndex: Int? = null,
 ) {
+	val canProceed: Boolean
+		get() = validSeed && editingIndex == null && rawUserInput.isBlank()
+
 	companion object {
 
 		// Maximum word count in `bip39` standard.
@@ -131,6 +201,7 @@ data class KeysetRecoverModel(
 				suggestedWords = suggestedWords,
 				enteredWords = emptyList(),
 				validSeed = false,
+				editingIndex = null,
 			)
 		}
 
@@ -140,6 +211,7 @@ data class KeysetRecoverModel(
 				suggestedWords = listOf("ggfhg", "goha"),
 				enteredWords = listOf("somve", "words", "that", "are", "draft"),
 				validSeed = false,
+				editingIndex = null,
 			)
 		}
 	}
