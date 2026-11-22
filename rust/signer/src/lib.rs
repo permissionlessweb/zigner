@@ -2648,11 +2648,11 @@ fn sign_orchard_shaped_bundle(
 /// 1. Parses the PCZT to extract orchard actions
 /// 2. Signs each action with the spending key derived from seed
 /// 3. Injects signatures back into the PCZT
-fn sign_zcash_pczt(
+fn sign_zcash_pczt_as(
     seed_phrase: &str,
     account_index: u32,
     pczt_bytes: Vec<u8>,
-) -> Result<Vec<u8>, ErrorDisplayed> {
+) -> Result<(Vec<u8>, usize), ErrorDisplayed> {
     use pczt::roles::low_level_signer::Signer as LowLevelSigner;
     use pczt::roles::signer::Signer;
     use pczt::Pczt;
@@ -2769,12 +2769,9 @@ fn sign_zcash_pczt(
         .map_err(|e: LowLevelSignError| ErrorDisplayed::Str {
             s: format!("Failed to sign ironwood bundle: {e}"),
         })?;
-    if signed_count == 0 && total_actions > 0 {
-        return Err(ErrorDisplayed::Str {
-            s: format!(
-                "Could not sign any of the {total_actions} action(s) — none match the user's spending key."
-            ),
-        });
+    if total_actions == 0 {
+        // nothing shielded to authorize: any account "signs" it
+        signed_count = usize::MAX;
     }
 
     // Finish signing and get the signed PCZT
@@ -2786,9 +2783,55 @@ fn sign_zcash_pczt(
     // v2 encoding otherwise. A V5 response therefore still goes back to
     // Zashi/zafu as v1 bytes, byte-identical in format to what shipped; only a
     // V6 / ironwood response needs v2.
-    signed_pczt.serialize().map_err(|e| ErrorDisplayed::Str {
+    let bytes = signed_pczt.serialize().map_err(|e| ErrorDisplayed::Str {
         s: format!("Failed to serialize signed PCZT: {:?}", e),
+    })?;
+    Ok((bytes, signed_count))
+}
+
+/// How far past the requested account the signer looks for the one a
+/// transaction spends from. zafu's pockets are ZIP 32 accounts and never
+/// reuse an index; 64 covers every pocket a wallet can have with room to spare.
+const ZCASH_ACCOUNT_SEARCH: u32 = 64;
+
+/// The ZIP 32 account whose spend-auth key signs this PCZT's spends: the
+/// requested one first, then 0, 1, 2... A spend binds its account through
+/// `rk == alpha * ak`, so only the right account's key can sign it; the PCZT
+/// needs no account field and the redacted fvk is never needed to find it.
+fn zcash_pczt_signing_account(
+    seed_phrase: &str,
+    account_hint: u32,
+    pczt_bytes: &[u8],
+) -> Result<(u32, Vec<u8>), ErrorDisplayed> {
+    let candidates = std::iter::once(account_hint)
+        .chain((0..ZCASH_ACCOUNT_SEARCH).filter(|a| *a != account_hint));
+    for account in candidates {
+        let (signed, count) = sign_zcash_pczt_as(seed_phrase, account, pczt_bytes.to_vec())?;
+        if count > 0 {
+            return Ok((account, signed));
+        }
+    }
+    Err(ErrorDisplayed::Str {
+        s: format!(
+            "none of this seed's first {ZCASH_ACCOUNT_SEARCH} zcash accounts can sign this transaction"
+        ),
     })
+}
+
+/// Signs with the account the transaction spends from (see
+/// `zcash_pczt_signing_account`); `account_index` is only where the search starts.
+fn sign_zcash_pczt(
+    seed_phrase: &str,
+    account_index: u32,
+    pczt_bytes: Vec<u8>,
+) -> Result<Vec<u8>, ErrorDisplayed> {
+    zcash_pczt_signing_account(seed_phrase, account_index, &pczt_bytes).map(|(_, signed)| signed)
+}
+
+/// The account a PCZT spends from, for the review screen ("signing as ...
+/// account 2"). Signs a throwaway copy; nothing leaves the device.
+fn zcash_pczt_account(seed_phrase: &str, pczt_bytes: Vec<u8>) -> Result<u32, ErrorDisplayed> {
+    zcash_pczt_signing_account(seed_phrase, 0, &pczt_bytes).map(|(account, _)| account)
 }
 
 /// Encode signed PCZT as UR string(s) for QR display
@@ -5244,7 +5287,12 @@ mod zcash_pczt_tests {
     /// would break these tests rather than silently produce fixtures
     /// this key cannot sign.
     fn wallet_keys() -> (orchard::keys::SpendingKey, orchard::keys::FullViewingKey) {
-        let sk = OrchardSpendingKey::from_seed_phrase(MNEMONIC, 0)
+        wallet_keys_at(0)
+    }
+
+    /// The same at another ZIP 32 account: a zafu pocket.
+    fn wallet_keys_at(account: u32) -> (orchard::keys::SpendingKey, orchard::keys::FullViewingKey) {
+        let sk = OrchardSpendingKey::from_seed_phrase(MNEMONIC, account)
             .expect("derive orchard spending key")
             .to_spending_key()
             .expect("orchard spending key");
@@ -5303,8 +5351,13 @@ mod zcash_pczt_tests {
     /// `prove` runs the Halo2 Prover first, which the wallet must do before the
     /// PCZT crosses the airgap if it is going to be extracted afterwards.
     fn build_v5_fixture(redact: bool, prove: bool) -> V5Fixture {
+        build_v5_fixture_at(0, redact, prove)
+    }
+
+    /// A V5 send spending a note of ZIP 32 `account` (a zafu pocket).
+    fn build_v5_fixture_at(account: u32, redact: bool, prove: bool) -> V5Fixture {
         let net = params(false);
-        let (_sk, fvk) = wallet_keys();
+        let (_sk, fvk) = wallet_keys_at(account);
         let (note, witness, anchor) = wallet_note(&fvk);
 
         let recipient_sk = orchard::keys::SpendingKey::from_bytes([9u8; 32]).unwrap();
@@ -5696,6 +5749,44 @@ mod zcash_pczt_tests {
                 n
             );
         }
+    }
+
+    /// A zafu pocket is ZIP 32 account N. The phone screens ask for account 0,
+    /// yet the device must sign as the account the spend belongs to: only its
+    /// key satisfies `rk == alpha * ak`.
+    #[test]
+    fn a_pocket_spend_is_signed_as_its_own_account() {
+        let fx = build_v5_fixture_at(2, true, false);
+        assert_eq!(
+            super::zcash_pczt_account(MNEMONIC, fx.pczt.clone()).expect("find account"),
+            2
+        );
+        let signed_bytes = sign_zcash_pczt(MNEMONIC, 0, fx.pczt).expect("sign pocket 2 spend");
+        let signed = Pczt::parse(&signed_bytes).expect("signed PCZT parses");
+        for (n, a) in signed.orchard().actions().iter().enumerate() {
+            assert!(
+                a.spend().spend_auth_sig().is_some(),
+                "orchard action {n} left unsigned"
+            );
+        }
+    }
+
+    #[test]
+    fn account_zero_is_still_found_first() {
+        let fx = build_v5_fixture(true, false);
+        assert_eq!(
+            super::zcash_pczt_account(MNEMONIC, fx.pczt).expect("find account"),
+            0
+        );
+    }
+
+    /// A seed that owns none of the spends refuses, whatever account is asked.
+    #[test]
+    fn another_seed_refuses_to_sign() {
+        let fx = build_v5_fixture_at(1, true, false);
+        let other = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
+        assert!(sign_zcash_pczt(other, 0, fx.pczt.clone()).is_err());
+        assert!(super::zcash_pczt_account(other, fx.pczt).is_err());
     }
 
     /// The ironwood/turnstile path must survive the same redaction. Not the

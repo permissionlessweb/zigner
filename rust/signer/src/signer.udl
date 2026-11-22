@@ -931,6 +931,10 @@ namespace signer {
     [Throws=ErrorDisplayed]
     sequence<u8> sign_zcash_pczt([ByRef] string seed_phrase, u32 account_index, sequence<u8> pczt_bytes);
 
+    // The ZIP 32 account this PCZT spends from (searched from 0), for the review screen
+    [Throws=ErrorDisplayed]
+    u32 zcash_pczt_account([ByRef] string seed_phrase, sequence<u8> pczt_bytes);
+
     // Encode signed PCZT as UR string(s) for QR display
     // max_fragment_len: max bytes per QR (0 = no limit, single QR)
     // Returns vector of UR strings (animated QR parts)
