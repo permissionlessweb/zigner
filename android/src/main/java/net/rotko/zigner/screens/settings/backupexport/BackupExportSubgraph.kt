@@ -1,6 +1,8 @@
 package net.rotko.zigner.screens.settings.backupexport
 
 import androidx.compose.runtime.Composable
+import net.rotko.zigner.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,7 +47,7 @@ fun BackupExportSubgraph(
 			)
 		}
 		else -> {
-			WaitingScreen()
+			WaitingScreen(stringResource(R.string.waiting_unlocking_seed))
 		}
 	}
 }

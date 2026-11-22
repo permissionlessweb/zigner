@@ -398,6 +398,10 @@
 
 	<string name="key_set_menu_option_everyday_wallet">Everyday wallet</string>
 	<string name="key_set_menu_option_add_key">Add derived key</string>
+	<string name="waiting_checking_device">Checking the device</string>
+	<string name="waiting_loading_keys">Loading keys</string>
+	<string name="waiting_unlocking_seed">Unlocking the seed phrase</string>
+	<string name="waiting_reading_log">Reading the log</string>
 </resources>
 
 

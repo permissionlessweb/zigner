@@ -1,6 +1,8 @@
 package net.rotko.zigner.screens.keysetdetails
 
 import androidx.compose.foundation.layout.Box
+import net.rotko.zigner.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -89,7 +91,7 @@ fun KeySetDetailsScreenSubgraph(
 			)
 		}
 
-		KeySetDetailsScreenState.LoadingState, null -> WaitingScreen()
+		KeySetDetailsScreenState.LoadingState, null -> WaitingScreen(stringResource(R.string.waiting_loading_keys))
 		is KeySetDetailsScreenState.Data -> {
 
 			Box(Modifier.statusBarsPadding()) {

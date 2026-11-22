@@ -49,7 +49,7 @@ fun LogDetailsScreen(navController: NavController, logDetailsId: UInt) {
 			}
 
 			CompletableResult.InProgress -> {
-				WaitingScreen()
+				WaitingScreen(stringResource(R.string.waiting_reading_log))
 			}
 
 			is CompletableResult.Ok -> {

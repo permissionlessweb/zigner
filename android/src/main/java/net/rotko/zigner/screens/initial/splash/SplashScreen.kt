@@ -10,6 +10,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
+import androidx.compose.ui.res.stringResource
+import net.rotko.zigner.R
 import net.rotko.zigner.screens.initial.WaitingScreen
 import net.rotko.zigner.ui.rootnavigation.MainGraphRoutes
 
@@ -20,7 +22,7 @@ import net.rotko.zigner.ui.rootnavigation.MainGraphRoutes
 fun NavGraphBuilder.splashScreen(globalNavController: NavHostController) {
 	composable(route = MainGraphRoutes.splashRoute) {
 		AnimatedVisibility(visible = true) {
-			WaitingScreen()
+			WaitingScreen(stringResource(R.string.waiting_checking_device))
 		}
 
 		val viewModel: SplashScreenViewModel = viewModel()
@@ -55,6 +57,6 @@ fun NavGraphBuilder.splashScreen(globalNavController: NavHostController) {
 @Composable
 private fun PreviewSplash() {
 	AnimatedVisibility(visible = true) {
-		WaitingScreen()
+		WaitingScreen(stringResource(R.string.waiting_checking_device))
 	}
 }
