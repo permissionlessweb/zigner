@@ -41,37 +41,41 @@ fn penumbra_shown_address_is_owned_by_the_exported_fvk() {
 fn zcash_shown_address_is_the_exported_ufvk_default() {
     use zcash_address::unified::{Address, Container, Encoding, Fvk, Receiver, Ufvk};
 
-    let seed = SEEDS[1];
-    for account in [0u32, 1] {
-        let ufvk = transaction_signing::zcash::OrchardSpendingKey::get_ufvk_with_transparent(
-            seed, account, true,
-        )
-        .unwrap();
-        let (_, ufvk) = Ufvk::decode(&ufvk).unwrap();
-        let fvk = ufvk
-            .items()
-            .into_iter()
-            .find_map(|f| match f {
-                Fvk::Orchard(b) => orchard::keys::FullViewingKey::from_bytes(&b),
-                _ => None,
-            })
+    for seed in SEEDS {
+        for account in [0u32, 1] {
+            let ufvk = transaction_signing::zcash::OrchardSpendingKey::get_ufvk_with_transparent(
+                seed, account, true,
+            )
             .unwrap();
-        let expected = fvk
-            .address_at(0u32, orchard::keys::Scope::External)
-            .to_raw_address_bytes();
-
-        let (_, shown) =
-            db_handling::zcash::derive_zcash_keys(seed, &format!("m/32'/133'/{account}'"), true)
+            let (_, ufvk) = Ufvk::decode(&ufvk).unwrap();
+            let fvk = ufvk
+                .items()
+                .into_iter()
+                .find_map(|f| match f {
+                    Fvk::Orchard(b) => orchard::keys::FullViewingKey::from_bytes(&b),
+                    _ => None,
+                })
                 .unwrap();
-        let (_, shown) = Address::decode(&shown).unwrap();
-        let shown = shown
-            .items()
-            .into_iter()
-            .find_map(|r| match r {
-                Receiver::Orchard(b) => Some(b),
-                _ => None,
-            })
+            let expected = fvk
+                .address_at(0u32, orchard::keys::Scope::External)
+                .to_raw_address_bytes();
+
+            let (_, shown) = db_handling::zcash::derive_zcash_keys(
+                seed,
+                &format!("m/32'/133'/{account}'"),
+                true,
+            )
             .unwrap();
-        assert_eq!(shown, expected, "account {account}");
+            let (_, shown) = Address::decode(&shown).unwrap();
+            let shown = shown
+                .items()
+                .into_iter()
+                .find_map(|r| match r {
+                    Receiver::Orchard(b) => Some(b),
+                    _ => None,
+                })
+                .unwrap();
+            assert_eq!(shown, expected, "account {account}");
+        }
     }
 }
