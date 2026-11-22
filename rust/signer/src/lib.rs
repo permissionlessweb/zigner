@@ -2826,14 +2826,19 @@ fn single_request_pczt(payload: &[u8]) -> Option<pczt::Pczt> {
     }
 }
 
-/// The mainnet ZIP 32 account whose `ak`, randomized by a spend's `alpha`,
+/// The ZIP 32 account whose `ak`, randomized by a spend's `alpha`,
 /// is that spend's `rk`: the account the transaction spends from. Public
 /// data and one point multiplication per account and spend; no signing.
 /// None when it can't tell (no shielded spend carries an `alpha`); Some(None)
 /// when no account of this seed owns the spends.
-fn zcash_spend_account(seed_phrase: &str, pczt: &pczt::Pczt, hint: u32) -> Option<Option<u32>> {
+fn zcash_spend_account(
+    seed_phrase: &str,
+    pczt: &pczt::Pczt,
+    mainnet: bool,
+    hint: u32,
+) -> Option<Option<u32>> {
     use pczt::roles::low_level_signer::Signer as LowLevelSigner;
-    use transaction_signing::zcash::OrchardSpendingKey;
+    use std::convert::TryFrom;
     // read each spend's (rk, alpha) through the signer role, signing nothing
     let mut spends: Vec<(
         orchard::primitives::redpallas::VerificationKey<orchard::primitives::redpallas::SpendAuth>,
@@ -2860,14 +2865,17 @@ fn zcash_spend_account(seed_phrase: &str, pczt: &pczt::Pczt, hint: u32) -> Optio
     if spends.is_empty() {
         return None;
     }
+    let seed = bip39::Mnemonic::from_phrase(seed_phrase, bip39::Language::English).ok()?;
+    let seed = bip39::Seed::new(&seed, "");
+    // ZIP 32 coin type: 133 on mainnet, 1 on testnet
+    let coin = if mainnet { 133 } else { 1 };
     Some(
         std::iter::once(hint)
             .chain((0..ZCASH_ACCOUNT_SEARCH).filter(|a| *a != hint))
             .find(|&account| {
-                let Some(sk) = OrchardSpendingKey::from_seed_phrase(seed_phrase, account)
-                    .ok()
-                    .and_then(|k| k.to_spending_key().ok())
-                else {
+                let Some(sk) = zip32::AccountId::try_from(account).ok().and_then(|id| {
+                    orchard::keys::SpendingKey::from_zip32_seed(seed.as_bytes(), coin, id).ok()
+                }) else {
                     return false;
                 };
                 let ak = orchard::keys::SpendValidatingKey::from(
@@ -2886,12 +2894,6 @@ fn sign_zcash_pczt(
     pczt_bytes: Vec<u8>,
 ) -> Result<Vec<u8>, ErrorDisplayed> {
     zcash_pczt_signing_account(seed_phrase, account_index, &pczt_bytes).map(|(_, signed)| signed)
-}
-
-/// The account a PCZT spends from, for the review screen ("signing as ...
-/// account 2"). Signs a throwaway copy; nothing leaves the device.
-fn zcash_pczt_account(seed_phrase: &str, pczt_bytes: Vec<u8>) -> Result<u32, ErrorDisplayed> {
-    zcash_pczt_signing_account(seed_phrase, 0, &pczt_bytes).map(|(account, _)| account)
 }
 
 /// Encode signed PCZT as UR string(s) for QR display
@@ -5116,10 +5118,8 @@ pub fn module_sign_request(
     // a single shielded request: find the account natively, so the slow
     // interpreted module signs once. Spends no account of this seed owns go
     // to the module once too, for its own refusal.
-    if let Some(found) = mainnet
-        .then(|| single_request_pczt(payload))
-        .flatten()
-        .and_then(|pczt| zcash_spend_account(seed_phrase, &pczt, account))
+    if let Some(found) = single_request_pczt(payload)
+        .and_then(|pczt| zcash_spend_account(seed_phrase, &pczt, mainnet, account))
     {
         return sign_as(found.unwrap_or(account));
     }
@@ -5845,7 +5845,9 @@ mod zcash_pczt_tests {
     fn a_pocket_spend_is_signed_as_its_own_account() {
         let fx = build_v5_fixture_at(2, true, false);
         assert_eq!(
-            super::zcash_pczt_account(MNEMONIC, fx.pczt.clone()).expect("find account"),
+            super::zcash_pczt_signing_account(MNEMONIC, 0, &fx.pczt)
+                .expect("find account")
+                .0,
             2
         );
         let signed_bytes = sign_zcash_pczt(MNEMONIC, 0, fx.pczt).expect("sign pocket 2 spend");
@@ -5863,7 +5865,9 @@ mod zcash_pczt_tests {
     fn account_zero_is_still_found_first() {
         let fx = build_v5_fixture(true, false);
         assert_eq!(
-            super::zcash_pczt_account(MNEMONIC, fx.pczt).expect("find account"),
+            super::zcash_pczt_signing_account(MNEMONIC, 0, &fx.pczt)
+                .expect("find account")
+                .0,
             0
         );
     }
@@ -5889,13 +5893,56 @@ mod zcash_pczt_tests {
         assert!(super::module_sign_request(MODULE, &request, other, 0, true).is_err());
     }
 
+    /// zafu's real compact requests (zcli-dumped fixtures, cmx / ciphertexts /
+    /// cv_net cleared) still show each spend's rk and alpha, so the kernel finds
+    /// the account without the interpreted module.
+    #[test]
+    fn the_account_is_found_in_real_compact_requests() {
+        let abandon = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
+        for shape in [
+            "send",
+            "single",
+            "memo",
+            "zt",
+            "multinote",
+            "nu7_single",
+            "nu7_memo",
+            "nu7_zt",
+            "nu7_multinote",
+        ] {
+            let path = format!(
+                "{}/../pczt_signing/tests/fixtures/ironwood_{}_compact.hex",
+                env!("CARGO_MANIFEST_DIR"),
+                shape
+            );
+            let bytes = hex::decode(std::fs::read_to_string(&path).expect("fixture").trim())
+                .expect("fixture hex");
+            let mut request = vec![0x53, 0x04, 0x05];
+            request.extend_from_slice(&bytes);
+            let pczt = super::single_request_pczt(&request)
+                .unwrap_or_else(|| panic!("[{}] compact request parses", shape));
+            assert_eq!(
+                super::zcash_spend_account(abandon, &pczt, false, 0),
+                Some(Some(0)),
+                "[{}] account 0 found natively",
+                shape
+            );
+            assert_eq!(
+                super::zcash_spend_account(MNEMONIC, &pczt, false, 0),
+                Some(None),
+                "[{}] another seed owns none of it",
+                shape
+            );
+        }
+    }
+
     /// A seed that owns none of the spends refuses, whatever account is asked.
     #[test]
     fn another_seed_refuses_to_sign() {
         let fx = build_v5_fixture_at(1, true, false);
         let other = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
         assert!(sign_zcash_pczt(other, 0, fx.pczt.clone()).is_err());
-        assert!(super::zcash_pczt_account(other, fx.pczt).is_err());
+        assert!(super::zcash_pczt_signing_account(other, 0, &fx.pczt).is_err());
     }
 
     /// The ironwood/turnstile path must survive the same redaction. Not the

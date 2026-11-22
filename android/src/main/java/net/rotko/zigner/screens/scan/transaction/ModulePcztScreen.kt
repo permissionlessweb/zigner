@@ -87,6 +87,8 @@ fun ModulePcztScreen(
 	// Captured at summarize time so the on-screen identity matches the seed
 	// that will sign (see ZcashPcztScreen for rationale).
 	var signingSeedName by remember { mutableStateOf("") }
+	// where the signer starts looking: it signs as the account the spends
+	// belong to (a zafu pocket), whatever is passed here
 	val accountIndex: UInt = 0u
 	// v1: module #0 signs mainnet PCZTs; the payload prelude carries no
 	// network byte, testnet arrives with a later module slot.
@@ -143,7 +145,7 @@ fun ModulePcztScreen(
 
 			ModulePcztState.REVIEW -> {
 				Text(
-					text = "Signing as: ${signingSeedName.ifEmpty { "(no seed available)" }} · account $accountIndex",
+					text = "Signing as: ${signingSeedName.ifEmpty { "(no seed available)" }}",
 					style = SignerTypeface.LabelM,
 					color = MaterialTheme.colors.textTertiary,
 					modifier = Modifier.padding(bottom = 8.dp),
