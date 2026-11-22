@@ -7440,6 +7440,7 @@ dependencies = [
  "zakura-protocol",
  "zakura-transparent",
  "zeroize",
+ "zip32 0.2.1",
  "zoda-vss",
 ]
 
