@@ -116,6 +116,8 @@ fun ZcashPcztScreen(
 	// that will sign (vs. re-fetching at click time and risking a different
 	// map-iteration first value if seeds change between review and sign).
 	var signingSeedName by remember { mutableStateOf("") }
+	// where the signer starts looking: it signs as the account the spends
+	// belong to (a zafu pocket), whatever is passed here
 	val accountIndex: UInt = 0u
 
 	LaunchedEffect(Unit) {
@@ -179,7 +181,7 @@ fun ZcashPcztScreen(
 				// about to sign. Account index is currently hardcoded; this
 				// row at least surfaces "what you're authorizing with."
 				Text(
-					text = "Signing as: ${signingSeedName.ifEmpty { "(no seed available)" }} · account $accountIndex",
+					text = "Signing as: ${signingSeedName.ifEmpty { "(no seed available)" }}",
 					style = SignerTypeface.LabelM,
 					color = MaterialTheme.colors.textTertiary,
 					modifier = Modifier.padding(bottom = 8.dp),

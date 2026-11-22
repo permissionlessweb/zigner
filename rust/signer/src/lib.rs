@@ -2791,8 +2791,8 @@ fn sign_zcash_pczt_as(
 
 /// How far past the requested account the signer looks for the one a
 /// transaction spends from. zafu's pockets are ZIP 32 accounts and never
-/// reuse an index; 64 covers every pocket a wallet can have with room to spare.
-const ZCASH_ACCOUNT_SEARCH: u32 = 64;
+/// reuse an index, and a wallet has at most a handful (zafu caps them at 10).
+const ZCASH_ACCOUNT_SEARCH: u32 = 32;
 
 /// The ZIP 32 account whose spend-auth key signs this PCZT's spends: the
 /// requested one first, then 0, 1, 2... A spend binds its account through
@@ -2816,6 +2816,66 @@ fn zcash_pczt_signing_account(
             "none of this seed's first {ZCASH_ACCOUNT_SEARCH} zcash accounts can sign this transaction"
         ),
     })
+}
+
+/// The PCZT of a single (non-batch) module request, full or compact.
+fn single_request_pczt(payload: &[u8]) -> Option<pczt::Pczt> {
+    match payload {
+        [0x53, 0x04, 0x03 | 0x05, body @ ..] => pczt::Pczt::parse(body).ok(),
+        _ => None,
+    }
+}
+
+/// The mainnet ZIP 32 account whose `ak`, randomized by a spend's `alpha`,
+/// is that spend's `rk`: the account the transaction spends from. Public
+/// data and one point multiplication per account and spend; no signing.
+/// None when it can't tell (no shielded spend carries an `alpha`); Some(None)
+/// when no account of this seed owns the spends.
+fn zcash_spend_account(seed_phrase: &str, pczt: &pczt::Pczt, hint: u32) -> Option<Option<u32>> {
+    use pczt::roles::low_level_signer::Signer as LowLevelSigner;
+    use transaction_signing::zcash::OrchardSpendingKey;
+    // read each spend's (rk, alpha) through the signer role, signing nothing
+    let mut spends: Vec<(
+        orchard::primitives::redpallas::VerificationKey<orchard::primitives::redpallas::SpendAuth>,
+        _,
+    )> = Vec::new();
+    let mut collect = |bundle: &mut orchard::pczt::Bundle| {
+        for action in bundle.actions() {
+            if let Some(alpha) = action.spend().alpha() {
+                spends.push((action.spend().rk().clone(), *alpha));
+            }
+        }
+    };
+    LowLevelSigner::new(pczt.clone())
+        .sign_orchard_with(|_, bundle, _| {
+            collect(bundle);
+            Ok::<(), LowLevelSignError>(())
+        })
+        .ok()?
+        .sign_ironwood_with(|_, bundle, _| {
+            collect(bundle);
+            Ok::<(), LowLevelSignError>(())
+        })
+        .ok()?;
+    if spends.is_empty() {
+        return None;
+    }
+    Some(
+        std::iter::once(hint)
+            .chain((0..ZCASH_ACCOUNT_SEARCH).filter(|a| *a != hint))
+            .find(|&account| {
+                let Some(sk) = OrchardSpendingKey::from_seed_phrase(seed_phrase, account)
+                    .ok()
+                    .and_then(|k| k.to_spending_key().ok())
+                else {
+                    return false;
+                };
+                let ak = orchard::keys::SpendValidatingKey::from(
+                    &orchard::keys::SpendAuthorizingKey::from(&sk),
+                );
+                spends.iter().any(|(rk, alpha)| ak.randomize(alpha) == *rk)
+            }),
+    )
 }
 
 /// Signs with the account the transaction spends from (see
@@ -5039,11 +5099,38 @@ pub fn module_sign_request(
     account: u32,
     mainnet: bool,
 ) -> Result<Vec<u8>, ErrorDisplayed> {
+    // The phone asks for account 0; a zafu pocket spends from another ZIP 32
+    // account. The module refuses an account that authorizes nothing ("wrong
+    // account") and a transparent input whose key isn't in the account, so
+    // the next account is tried on a refusal. The first refusal is the one
+    // reported if none signs.
+    // one loaded module for every try: a refusal is a returned error, not a
+    // trap, so the instance stays usable (loading it is the slow part)
     let mut rt = module_runtime(module_wasm)?;
-    rt.sign_request(payload, seed_phrase, account, mainnet)
-        .map_err(|e| ErrorDisplayed::Str {
-            s: format!("{e:?}"),
-        })
+    let mut sign_as = |account: u32| {
+        rt.sign_request(payload, seed_phrase, account, mainnet)
+            .map_err(|e| ErrorDisplayed::Str {
+                s: format!("{e:?}"),
+            })
+    };
+    // a single shielded request: find the account natively, so the slow
+    // interpreted module signs once. Spends no account of this seed owns go
+    // to the module once too, for its own refusal.
+    if let Some(found) = mainnet
+        .then(|| single_request_pczt(payload))
+        .flatten()
+        .and_then(|pczt| zcash_spend_account(seed_phrase, &pczt, account))
+    {
+        return sign_as(found.unwrap_or(account));
+    }
+    let first = sign_as(account);
+    if first.is_ok() {
+        return first;
+    }
+    (0..ZCASH_ACCOUNT_SEARCH)
+        .filter(|a| *a != account)
+        .find_map(|a| sign_as(a).ok())
+        .map_or(first, Ok)
 }
 
 /// Fountain-decode `ur:zigner-module` protocol-module REQUEST frames back to
@@ -5766,7 +5853,8 @@ mod zcash_pczt_tests {
         for (n, a) in signed.orchard().actions().iter().enumerate() {
             assert!(
                 a.spend().spend_auth_sig().is_some(),
-                "orchard action {n} left unsigned"
+                "orchard action {} left unsigned",
+                n
             );
         }
     }
@@ -5778,6 +5866,27 @@ mod zcash_pczt_tests {
             super::zcash_pczt_account(MNEMONIC, fx.pczt).expect("find account"),
             0
         );
+    }
+
+    /// zafu's cold sends go through the signing module as a compact request
+    /// naming no account. The module refuses account 0 for a pocket-3 spend;
+    /// the kernel tries the next accounts and the pocket's own signs.
+    #[test]
+    fn the_module_signs_a_pocket_request_as_its_account() {
+        const MODULE: &[u8] =
+            include_bytes!("../../../android/src/main/assets/modules/module0.wasm");
+        let fx = build_v5_fixture_at(3, true, false);
+        let mut request = vec![0x53, 0x04, 0x05];
+        request.extend_from_slice(&fx.pczt);
+        let response = super::module_sign_request(MODULE, &request, MNEMONIC, 0, true)
+            .expect("the pocket's account signs");
+        assert_eq!(
+            response[2], 0x07,
+            "a compact request gets a signatures-only response"
+        );
+
+        let other = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
+        assert!(super::module_sign_request(MODULE, &request, other, 0, true).is_err());
     }
 
     /// A seed that owns none of the spends refuses, whatever account is asked.
