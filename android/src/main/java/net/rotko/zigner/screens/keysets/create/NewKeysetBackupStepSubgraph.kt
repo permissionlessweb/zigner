@@ -14,6 +14,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import net.rotko.zigner.domain.BackupReminder
 import net.rotko.zigner.domain.backend.AuthOperationResult
 import net.rotko.zigner.domain.backend.toOperationResult
 import net.rotko.zigner.domain.popUpToTop
@@ -35,6 +36,11 @@ fun NewKeysetSubgraph(
 	val vm: NewKeysetNameViewModel = viewModel()
 	var seedName by rememberSaveable() {
 		mutableStateOf("")
+	}
+	// True when the key set is finished without a confirmed paper backup;
+	// the key set screen then keeps a backup prompt up (BackupReminder).
+	var backupPending by rememberSaveable() {
+		mutableStateOf(false)
 	}
 	val seedPhrase = rememberSaveable() {
 		vm.createNewSeedPhrase().toOperationResult().handleErrorAppState(coreNavController) ?: ""
@@ -69,6 +75,15 @@ fun NewKeysetSubgraph(
 				},
 				onBananaSplit = {
 					// Skip to network selection - Banana Split backup can be created after key set creation
+					backupPending = true
+					subgraphNavController.navigate(NewKeySetBackupStepSubgraph.NewKeySetSelectNetworks) {
+						popUpTo(NewKeySetBackupStepSubgraph.NewKeySetBackup)
+					}
+				},
+				onBackupLater = {
+					// Create the key set without showing the phrase; the backup
+					// is offered from the key set screen until it is done.
+					backupPending = true
 					subgraphNavController.navigate(NewKeySetBackupStepSubgraph.NewKeySetSelectNetworks) {
 						popUpTo(NewKeySetBackupStepSubgraph.NewKeySetBackup)
 					}
@@ -80,6 +95,7 @@ fun NewKeysetSubgraph(
 		composable(NewKeySetBackupStepSubgraph.NewKeySetBackupConfirmation) {
 			NewKeySetBackupScreen(
 				seedPhrase = seedPhrase,
+				initiallyRevealed = true,
 				onProceed = {
 					subgraphNavController.navigate(
 						NewKeySetBackupStepSubgraph.NewKeySetBackupConfirmation
@@ -97,6 +113,7 @@ fun NewKeysetSubgraph(
 			BottomSheetWrapperRoot(onClosedAction = subgraphNavController::popBackStack) {
 				NewKeySetBackupBottomSheet(
 					onProceed = {
+						backupPending = false
 						subgraphNavController.navigate(NewKeySetBackupStepSubgraph.NewKeySetSelectNetworks) {
 							popUpTo(NewKeySetBackupStepSubgraph.NewKeySetBackup)
 						}
@@ -111,6 +128,9 @@ fun NewKeysetSubgraph(
 				seedName = seedName,
 				seedPhrase = seedPhrase,
 				onSuccess = {
+					if (backupPending) {
+						BackupReminder.markPending(seedName, context)
+					}
 					coreNavController.navigate(
 						CoreUnlockedNavSubgraph.KeySet.destination(
 							seedName

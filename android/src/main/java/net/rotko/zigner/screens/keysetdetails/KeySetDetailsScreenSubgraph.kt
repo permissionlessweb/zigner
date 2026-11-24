@@ -14,6 +14,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -22,6 +23,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import net.rotko.zigner.components.exposesecurity.ExposedAlert
+import net.rotko.zigner.domain.BackupReminder
 import net.rotko.zigner.domain.Callback
 import net.rotko.zigner.domain.submitErrorState
 import net.rotko.zigner.screens.error.handleErrorAppState
@@ -52,6 +54,9 @@ fun KeySetDetailsScreenSubgraph(
 	val coroutineScope = rememberCoroutineScope()
 
 	val keySetViewModel: KeySetDetailsViewModel = viewModel()
+	val context = LocalContext.current
+	LaunchedEffect(Unit) { BackupReminder.init(context) }
+	val backupPending = BackupReminder.pending.collectAsStateWithLifecycle()
 	val seedName = keySetViewModel.shownSeedName.collectAsStateWithLifecycle()
 
 	LaunchedEffect(key1 = originalSeedName) {
@@ -133,6 +138,12 @@ fun KeySetDetailsScreenSubgraph(
 						)
 					},
 					getSeedPhrase = { seedName -> keySetViewModel.getSeedPhrase(seedName) },
+					backupPending = state.filteredModel.root.seedName in backupPending.value,
+					onBackupNow = {
+						menuNavController.navigate(KeySetDetailsMenuSubgraph.backup_method_select) {
+							popUpTo(KeySetDetailsMenuSubgraph.empty)
+						}
+					},
 				)
 			}
 
@@ -258,6 +269,7 @@ fun KeySetDetailsScreenSubgraph(
 								coroutineScope.launch {
 									keySetViewModel.removeSeed(root)
 										.handleErrorAppState(coreNavController)
+									BackupReminder.clear(root.seedName, context)
 									closeAction()
 								}
 							},
@@ -303,7 +315,11 @@ fun KeySetDetailsScreenSubgraph(
 						KeySetBackupFullOverlayBottomSheet(
 							model = backupModel,
 							getSeedPhraseForBackup = keySetViewModel::getSeedPhrase,
-							onClose = closeAction,
+							onClose = {
+								// the phrase has been shown in a backup: drop the prompt
+								BackupReminder.clear(backupModel.seedName, context)
+								closeAction()
+							},
 						)
 					}
 				}

@@ -13,6 +13,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -32,7 +36,9 @@ import io.parity.signer.uniffi.MNewSeedBackup
 /**
  * 2/2 stage to create new key set
  * first is NewKeySetNameScreen
- * Offers both paper backup and Banana Split backup options
+ * Offers both paper backup and Banana Split backup options.
+ * The phrase stays hidden until the user asks to see it, and the backup can
+ * be left for later (onboarding in public places).
  */
 @Composable
 internal fun NewKeySetBackupScreen(
@@ -41,7 +47,10 @@ internal fun NewKeySetBackupScreen(
 	onBananaSplit: Callback,
 	onBack: Callback,
 	modifier: Modifier = Modifier,
+	onBackupLater: Callback? = null,
+	initiallyRevealed: Boolean = false,
 ) {
+	var revealed by rememberSaveable { mutableStateOf(initiallyRevealed) }
 	Column(
 		modifier = modifier
 			.fillMaxSize(1f)
@@ -65,6 +74,27 @@ internal fun NewKeySetBackupScreen(
 				.padding(horizontal = 24.dp)
 				.padding(bottom = 8.dp),
 		)
+		if (!revealed) {
+			NotificationFrameTextImportant(
+				message = stringResource(R.string.new_key_set_backup_hidden_message),
+				modifier = Modifier
+					.padding(horizontal = 16.dp)
+			)
+			Spacer(modifier = Modifier.weight(1f))
+			if (onBackupLater != null) {
+				SecondaryButtonWide(
+					label = stringResource(R.string.new_key_set_backup_later_button),
+					modifier = Modifier.padding(horizontal = 32.dp).padding(top = 16.dp),
+					onClicked = onBackupLater,
+				)
+			}
+			PrimaryButtonWide(
+				label = stringResource(R.string.new_key_set_backup_show_button),
+				modifier = Modifier.padding(horizontal = 32.dp, vertical = 16.dp),
+				onClicked = { revealed = true },
+			)
+			return@Column
+		}
 		SeedPhraseBox(seedPhrase = seedPhrase)
 		NotificationFrameTextImportant(
 			message = stringResource(R.string.new_key_set_backup_warning_message),

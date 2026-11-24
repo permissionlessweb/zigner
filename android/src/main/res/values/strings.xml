@@ -121,6 +121,10 @@
 	<string name="new_key_set_backup_warning_message">Choose a backup method: Write it down securely or use Banana Split for sharded backup.</string>
 	<string name="new_key_set_backup_banana_split_button">Banana Split backup</string>
 	<string name="new_key_set_backup_paper_button">I\'ve written it down</string>
+	<string name="new_key_set_backup_hidden_message">Your recovery phrase is hidden. Show it only where no one can see your screen, or back it up later from this key set.</string>
+	<string name="new_key_set_backup_show_button">Show recovery phrase</string>
+	<string name="new_key_set_backup_later_button">Back up later</string>
+	<string name="key_set_backup_reminder_message">Back up your recovery phrase. Until you do, losing this device means losing this key set. Tap to back up somewhere private.</string>
 	<string name="new_key_set_backup_bottomsheet_title">Please confirm that you have written down your secret recovery phrase</string>
 	<string name="new_key_set_backup_bottomsheet_checkbox_written">I\'ve written down my secret recovery phrase</string>
 	<string name="new_key_set_backup_bottomsheet_checkbox_keep_careful">I understand that if I lose my secret phrase, my funds will be lost forever</string>
