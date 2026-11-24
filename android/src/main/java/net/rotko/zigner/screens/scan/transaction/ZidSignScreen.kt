@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -231,7 +232,6 @@ fun ZidSignScreen(
 						Box(
 							modifier = Modifier
 								.fillMaxWidth()
-								.padding(horizontal = 24.dp)
 								.aspectRatio(1f)
 								.clip(RectangleShape)
 								.background(Color.White),
@@ -241,7 +241,12 @@ fun ZidSignScreen(
 								bitmap = bitmap,
 								contentDescription = "ZID response QR",
 								contentScale = ContentScale.Fit,
-								modifier = Modifier.padding(8.dp)
+								// Scale the bitmap up to the frame: without a size modifier
+								// Compose draws it at its intrinsic (small) pixel size.
+								filterQuality = FilterQuality.None,
+								modifier = Modifier
+									.fillMaxSize()
+									.padding(8.dp)
 							)
 						}
 					}
