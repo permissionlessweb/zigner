@@ -64,6 +64,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.rotko.zigner.R
+import net.rotko.zigner.components.base.NotificationFrameTextImportant
 import net.rotko.zigner.components.base.SecondaryButtonWide
 import net.rotko.zigner.components.base.SettingsIcon
 import net.rotko.zigner.domain.BASE58_STYLE_ABBREVIATE
@@ -110,6 +111,8 @@ fun KeySetDetailsScreenView(
 	onShowRoot: Callback,
 	onOpenKey: (keyAddr: String, keySpecs: String) -> Unit,
 	getSeedPhrase: suspend (String) -> String? = { null },
+	backupPending: Boolean = false,
+	onBackupNow: Callback = {},
 ) {
 	Column(modifier = Modifier.fillMaxHeight()) {
 		KeySetDetailsHeader(
@@ -132,6 +135,15 @@ fun KeySetDetailsScreenView(
 					onExposedClicked = onExposedClicked,
 					modifier = Modifier.padding(top = 8.dp, bottom = 24.dp),
 				)
+				if (backupPending) {
+					NotificationFrameTextImportant(
+						message = stringResource(R.string.key_set_backup_reminder_message),
+						modifier = Modifier
+							.padding(horizontal = 16.dp)
+							.padding(bottom = 16.dp)
+							.clickable(onClick = onBackupNow),
+					)
+				}
 
 				if (model.keysAndNetwork.isNotEmpty()) {
 					val groups = remember(model.keysAndNetwork) {

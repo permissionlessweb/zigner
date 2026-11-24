@@ -9,8 +9,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import net.rotko.zigner.domain.BackupReminder
 import net.rotko.zigner.domain.Callback
 
 
@@ -25,6 +27,7 @@ fun SeedBackupIntegratedScreen(
 		selectedSeed = null
 	}
 	val viewModel = viewModel<SeedBackupViewModel>()
+	val context = LocalContext.current
 	val seeds = viewModel.getSeeds()
 
 	// content
@@ -43,7 +46,11 @@ fun SeedBackupIntegratedScreen(
 		SeedBackupFullOverlayBottomSheet(
 			seedName = selectedSeedValue,
 			getSeedPhraseForBackup = viewModel::getSeedPhrase,
-			onClose = { selectedSeed = null }
+			onClose = {
+				// the phrase has been shown in a backup: drop the key set's prompt
+				BackupReminder.clear(selectedSeedValue, context)
+				selectedSeed = null
+			}
 		)
 	}
 }
