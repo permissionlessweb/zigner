@@ -51,19 +51,17 @@ impl TransparentSpendingKey {
         change: u32,
         index: u32,
     ) -> Result<Self> {
-        use bip32::{Mnemonic, XPrv};
+        use bip32::XPrv;
 
-        // parse mnemonic
-        let mnemonic = Mnemonic::new(seed_phrase, bip32::Language::English)
-            .map_err(|e| Error::ZcashKeyDerivation(format!("invalid mnemonic: {e}")))?;
-
-        // derive seed
-        let seed = mnemonic.to_seed("");
+        // derive seed (BIP39 allows 12/15/18/21/24 words; bip32's Mnemonic
+        // only accepted 24, which rejected valid 12-word Zcash phrases)
+        let seed = db_handling::zcash::bip39_seed(seed_phrase)
+            .map_err(|e| Error::ZcashKeyDerivation(e.to_string()))?;
 
         // derive child key from bip44 path
         let path = transparent_path(account, change, index);
         let child_key = XPrv::derive_from_path(
-            &seed,
+            seed.as_bytes(),
             &path
                 .parse()
                 .map_err(|e| Error::ZcashKeyDerivation(format!("invalid derivation path: {e}")))?,
@@ -149,16 +147,13 @@ impl OrchardSpendingKey {
     /// this implements the orchard key derivation from ZIP-32:
     /// m_orchard / purpose' / coin_type' / account'
     pub fn from_seed_phrase(seed_phrase: &str, account: u32) -> Result<Self> {
-        use bip32::Mnemonic;
         use orchard::keys::SpendingKey;
         use zip32::AccountId;
 
-        // parse mnemonic
-        let mnemonic = Mnemonic::new(seed_phrase, bip32::Language::English)
-            .map_err(|e| Error::ZcashKeyDerivation(format!("invalid mnemonic: {e}")))?;
-
-        // derive seed
-        let seed = mnemonic.to_seed("");
+        // derive seed (BIP39 allows 12/15/18/21/24 words; bip32's Mnemonic
+        // only accepted 24, which rejected valid 12-word Zcash phrases)
+        let seed = db_handling::zcash::bip39_seed(seed_phrase)
+            .map_err(|e| Error::ZcashKeyDerivation(e.to_string()))?;
         let seed_bytes: &[u8] = seed.as_bytes();
 
         // convert account to AccountId
@@ -187,12 +182,10 @@ impl OrchardSpendingKey {
     /// length byte before hashing (ZIP 32), which is why we defer to the crate
     /// rather than hand-rolling BLAKE2b.
     pub fn seed_fingerprint(seed_phrase: &str) -> Result<[u8; 32]> {
-        use bip32::Mnemonic;
         use zip32::fingerprint::SeedFingerprint;
 
-        let mnemonic = Mnemonic::new(seed_phrase, bip32::Language::English)
-            .map_err(|e| Error::ZcashKeyDerivation(format!("invalid mnemonic: {e}")))?;
-        let seed = mnemonic.to_seed("");
+        let seed = db_handling::zcash::bip39_seed(seed_phrase)
+            .map_err(|e| Error::ZcashKeyDerivation(e.to_string()))?;
         SeedFingerprint::from_seed(seed.as_bytes())
             .map(|fp| fp.to_bytes())
             .ok_or_else(|| {
@@ -297,9 +290,8 @@ impl OrchardSpendingKey {
         use zcash_address::unified::{Encoding, Fvk, Ufvk};
         use zcash_protocol::consensus::NetworkType as Network;
 
-        let mnemonic = bip32::Mnemonic::new(seed_phrase, bip32::Language::English)
-            .map_err(|e| Error::ZcashKeyDerivation(format!("invalid mnemonic: {e}")))?;
-        let seed = mnemonic.to_seed("");
+        let seed = db_handling::zcash::bip39_seed(seed_phrase)
+            .map_err(|e| Error::ZcashKeyDerivation(e.to_string()))?;
         let seed_bytes: &[u8] = seed.as_bytes();
 
         // orchard FVK
@@ -1303,6 +1295,40 @@ mod tests {
     fn test_orchard_path() {
         assert_eq!(orchard_path(0), "m/32'/133'/0'");
         assert_eq!(orchard_path(5), "m/32'/133'/5'");
+    }
+
+    #[test]
+    fn twelve_word_phrases_derive_zcash_keys() {
+        // Standard 12-word BIP39 test vector (abandon x11 about).
+        let m = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
+
+        let osk = super::OrchardSpendingKey::from_seed_phrase(m, 0).unwrap();
+        assert_eq!(osk.as_bytes().len(), 32);
+        assert!(osk.get_address(true).starts_with("u1"));
+
+        let tsk = super::TransparentSpendingKey::from_seed_phrase(m, 0, 0, 0).unwrap();
+        assert_eq!(tsk.as_bytes().len(), 32);
+
+        assert_eq!(
+            super::OrchardSpendingKey::seed_fingerprint(m)
+                .unwrap()
+                .len(),
+            32
+        );
+        assert!(
+            super::OrchardSpendingKey::get_ufvk_with_transparent(m, 0, true)
+                .unwrap()
+                .starts_with("uview1")
+        );
+    }
+
+    #[test]
+    fn invalid_phrase_is_a_clear_error() {
+        // 12 valid words but a bad BIP39 checksum.
+        let invalid = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon";
+        assert!(super::OrchardSpendingKey::from_seed_phrase(invalid, 0).is_err());
+        assert!(super::TransparentSpendingKey::from_seed_phrase(invalid, 0, 0, 0).is_err());
+        assert!(super::OrchardSpendingKey::seed_fingerprint(invalid).is_err());
     }
 
     #[test]

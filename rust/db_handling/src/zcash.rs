@@ -5,6 +5,17 @@ use crate::error::{Error, Result};
 use constants::{ZCASH_ADDRESS_TREE, ZCASH_NOTES_TREE};
 use zeroize::Zeroize;
 
+/// Derive the standard BIP39 seed (empty passphrase) for a phrase.
+///
+/// tiny-bip39 accepts 12/15/18/21/24-word phrases, while bip32's `Mnemonic`
+/// only accepts 24, which rejected valid 12-word Zcash recovery phrases.
+/// Both the mnemonic and the returned seed zeroize on drop.
+pub fn bip39_seed(seed_phrase: &str) -> Result<bip39::Seed> {
+    let mnemonic = bip39::Mnemonic::from_phrase(seed_phrase, bip39::Language::English)
+        .map_err(|e| Error::Other(anyhow::anyhow!("Invalid mnemonic: {e}")))?;
+    Ok(bip39::Seed::new(&mnemonic, ""))
+}
+
 /// Store Zcash address in database (keyed by public key hex)
 pub fn store_zcash_address(database: &sled::Db, pubkey_hex: &str, address: &str) -> Result<()> {
     let addresses = database.open_tree(ZCASH_ADDRESS_TREE)?;
@@ -35,16 +46,11 @@ pub fn derive_zcash_keys(
     let account = parse_account_from_path(path)?;
 
     // Use the orchard crate for ZIP-32 key derivation
-    use bip32::Mnemonic;
     use orchard::keys::SpendingKey;
     use zip32::AccountId;
 
-    // Parse mnemonic
-    let mnemonic = Mnemonic::new(seed_phrase, bip32::Language::English)
-        .map_err(|e| Error::Other(anyhow::anyhow!("Invalid mnemonic: {e}")))?;
-
-    // Derive seed
-    let seed = mnemonic.to_seed("");
+    // Derive seed (BIP39 allows 12/15/18/21/24 words)
+    let seed = bip39_seed(seed_phrase)?;
     let seed_bytes: &[u8] = seed.as_bytes();
 
     // Convert account to AccountId
@@ -296,8 +302,57 @@ mod tests {
         assert_eq!(pubkey.len(), 32);
         assert!(address.starts_with("u1")); // Unified address prefix
 
-        println!("Zcash pubkey: {}", hex::encode(pubkey));
-        println!("Zcash address: {}", address);
+        // 24-word behaviour must stay byte-for-byte unchanged.
+        assert_eq!(
+            hex::encode(pubkey),
+            "83b0e991c4f124b311108e30ea961d74bb97bd10d195f2085fd3ae4af8a6b01b"
+        );
+        assert_eq!(
+            address,
+            "u1gsqvqxx6lmmqg05uvx57gjdg5j3a54nxw09z4vq4z0yp7dfdcjrqk5wq64quwzrufmujd5e8xu5jn7cyewjaptxc8lsqwa2lk559u4cd"
+        );
+    }
+
+    #[test]
+    fn test_twelve_word_key_derivation() {
+        // Standard 12-word BIP39 test vector (abandon x11 about).
+        let test_mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
+
+        let (pubkey, address) = derive_zcash_keys(test_mnemonic, "m/32'/133'/0'", true).unwrap();
+
+        assert_eq!(pubkey.len(), 32);
+        assert!(address.starts_with("u1"));
+
+        // Deterministic for the same phrase.
+        let (pubkey2, address2) = derive_zcash_keys(test_mnemonic, "m/32'/133'/0'", true).unwrap();
+        assert_eq!((pubkey, address), (pubkey2, address2));
+    }
+
+    #[test]
+    fn test_invalid_mnemonic_is_rejected() {
+        // 12 valid words but a bad BIP39 checksum.
+        let invalid = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon";
+        assert!(derive_zcash_keys(invalid, "m/32'/133'/0'", true).is_err());
+    }
+
+    #[test]
+    fn bip39_seed_matches_standard_vectors() {
+        // Standard BIP39 seeds (empty passphrase) for the all-zero entropy
+        // vectors, cross-checkable with any BIP39 implementation.
+        let vectors = [
+            (
+                "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+                "5eb00bbddcf069084889a8ab9155568165f5c453ccb85e70811aaed6f6da5fc19a5ac40b389cd370d086206dec8aa6c43daea6690f20ad3d8d48b2d2ce9e38e4",
+            ),
+            (
+                "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon art",
+                "408b285c123836004f4b8842c89324c1f01382450c0d439af345ba7fc49acf705489c6fc77dbd4e3dc1dd8cc6bc9f043db8ada1e243c4a0eafb290d399480840",
+            ),
+        ];
+        for (phrase, expected) in vectors {
+            let seed = bip39_seed(phrase).unwrap();
+            assert_eq!(hex::encode(seed.as_bytes()), expected);
+        }
     }
 
     #[test]

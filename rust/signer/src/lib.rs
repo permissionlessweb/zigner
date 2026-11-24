@@ -5334,8 +5334,7 @@ mod zcash_pczt_tests {
         consensus::BlockHeight, local_consensus::LocalNetwork, memo::MemoBytes, value::Zatoshis,
     };
 
-    /// 24 words: `bip32` 0.5 (what the shipped `OrchardSpendingKey` derivation
-    /// uses) only accepts 256-bit entropy, i.e. 24-word mnemonics.
+    /// 24-word BIP39 test vector.
     const MNEMONIC: &str = "abandon abandon abandon abandon abandon abandon abandon abandon \
                             abandon abandon abandon abandon abandon abandon abandon abandon \
                             abandon abandon abandon abandon abandon abandon abandon art";
