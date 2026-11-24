@@ -123,6 +123,7 @@ fun ScanNavSubgraph(
 
 	val zcashPcztParts = scanViewModel.zcashPcztUrParts.collectAsStateWithLifecycle()
 	val modulePcztPayload = scanViewModel.modulePcztPayload.collectAsStateWithLifecycle()
+	val zcashSignBatchParts = scanViewModel.zcashSignBatchUrParts.collectAsStateWithLifecycle()
 	val frostData = scanViewModel.frostPayload.collectAsStateWithLifecycle()
 
 	// Module package update flow (stage -> confirm -> activate)
@@ -187,6 +188,15 @@ fun ScanNavSubgraph(
 			getSeedName = { scanViewModel.getFirstSeedName() },
 			modifier = Modifier.statusBarsPadding(),
 			onDone = { scanViewModel.modulePcztPayload.value = null },
+		)
+	} else if (zcashSignBatchParts.value != null) {
+		ModulePcztScreen(
+			payloadHex = "",
+			keystoneBatchUrParts = zcashSignBatchParts.value!!,
+			getSeedPhrase = { scanViewModel.getFirstSeedPhrase() },
+			getSeedName = { scanViewModel.getFirstSeedName() },
+			modifier = Modifier.statusBarsPadding(),
+			onDone = { scanViewModel.zcashSignBatchUrParts.value = null },
 		)
 	} else if (zcashPcztParts.value != null) {
 		ZcashPcztScreen(
@@ -453,6 +463,9 @@ fun ScanNavSubgraph(
 			},
 			onZcashPczt = { urParts ->
 				scanViewModel.zcashPcztUrParts.value = urParts
+			},
+			onZcashSignBatch = { urParts ->
+				scanViewModel.zcashSignBatchUrParts.value = urParts
 			},
 			onZcashModulePczt = { payloadHex ->
 				scanViewModel.modulePcztPayload.value = payloadHex

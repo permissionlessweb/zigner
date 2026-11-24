@@ -11,7 +11,9 @@ import net.rotko.zigner.domain.submitErrorState
 import io.parity.signer.uniffi.BananaSplitRecoveryResult
 import io.parity.signer.uniffi.DecodeSequenceResult
 import io.parity.signer.uniffi.decodeUrModuleRequest
+import io.parity.signer.uniffi.ErrorDisplayed
 import io.parity.signer.uniffi.decodeUrZcashPczt
+import io.parity.signer.uniffi.decodeUrZcashSignBatch
 import io.parity.signer.uniffi.releaseClassifyRequest
 import io.parity.signer.uniffi.zcashNotesScanProgress
 import io.parity.signer.uniffi.qrparserGetPacketsTotal
@@ -276,6 +278,11 @@ class CameraViewModel() : ViewModel() {
 	private val _zcashPcztFrames = MutableStateFlow<List<String>>(emptyList())
 	private val _zcashPcztComplete = MutableStateFlow<List<String>?>(null)
 	val zcashPcztComplete: StateFlow<List<String>?> = _zcashPcztComplete.asStateFlow()
+
+	// UR zcash-sign-batch frames (Keystone batch request, e.g. a vizor swap)
+	private val _zcashSignBatchFrames = MutableStateFlow<List<String>>(emptyList())
+	private val _zcashSignBatchComplete = MutableStateFlow<List<String>?>(null)
+	val zcashSignBatchComplete: StateFlow<List<String>?> = _zcashSignBatchComplete.asStateFlow()
 
 	// UR zigner-module request frames (ur:zigner-module protocol-module PCZT request
 	// or module package via animated QR); fountain-decoded to either
@@ -603,6 +610,26 @@ class CameraViewModel() : ViewModel() {
 					_zcashNotesComplete.value = frames
 				}
 			}
+			// Keystone batch request (vizor swaps, payment links). Complete
+			// once the fountain decodes; a batch zigner refuses (transparent
+			// inputs, Sapling, over 40 PCZTs) still completes so the review
+			// screen can say why instead of the camera going quiet.
+			normalizedUr.startsWith("ur:zcash-sign-batch") -> {
+				if (!allow(ScanCapability.ZCASH)) return
+				processUrFountainFrame(urString, normalizedUr, "ur:zcash-sign-batch", _zcashSignBatchFrames,
+					tryDecode = { frames ->
+						try {
+							decodeUrZcashSignBatch(frames); true
+						} catch (e: ErrorDisplayed.Str) {
+							e.s.startsWith("zcash-sign-batch:")
+						} catch (_: Exception) {
+							false
+						}
+					},
+				) { frames ->
+					_zcashSignBatchComplete.value = frames
+				}
+			}
 			normalizedUr.startsWith("ur:zcash-pczt") -> {
 				if (!allow(ScanCapability.ZCASH)) return
 				processUrFountainFrame(urString, normalizedUr, "ur:zcash-pczt", _zcashPcztFrames,
@@ -843,6 +870,9 @@ class CameraViewModel() : ViewModel() {
 		_zcashPcztFrames.value = emptyList()
 		forgetFrames(_zcashPcztFrames)
 		_zcashPcztComplete.value = null
+		_zcashSignBatchFrames.value = emptyList()
+		forgetFrames(_zcashSignBatchFrames)
+		_zcashSignBatchComplete.value = null
 		_zignerModuleFrames.value = emptyList()
 		forgetFrames(_zignerModuleFrames)
 		_modulePackageBytes.value = null
@@ -869,6 +899,12 @@ class CameraViewModel() : ViewModel() {
 		_zcashPcztFrames.value = emptyList()
 		forgetFrames(_zcashPcztFrames)
 		_zcashPcztComplete.value = null
+	}
+
+	fun resetZcashSignBatch() {
+		_zcashSignBatchFrames.value = emptyList()
+		forgetFrames(_zcashSignBatchFrames)
+		_zcashSignBatchComplete.value = null
 	}
 
 	fun resetZignerModuleFrames() {

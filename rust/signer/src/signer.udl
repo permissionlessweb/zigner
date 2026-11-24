@@ -29,6 +29,13 @@ dictionary ReleaseSigningRequest {
     string description;
 };
 
+// A decoded Keystone ur:zcash-sign-batch request (see decode_ur_zcash_sign_batch).
+dictionary ZcashSignBatchRequest {
+    sequence<u8> payload;
+    sequence<u8> request_id;
+    u32 count;
+};
+
 dictionary ModulePackageInfo {
     u32 module_version;
     u32 min_kernel_version;
@@ -666,6 +673,19 @@ namespace signer {
     // the request side ships the bare envelope through the UR fountain.
     [Throws=ErrorDisplayed]
     sequence<u8> decode_ur_module_request(sequence<string> ur_parts);
+
+    // Keystone batch signing (vizor swaps): fountain-decode ur:zcash-sign-batch
+    // into the module's compact batch envelope (0x06) plus the request id.
+    // Refuses transparent inputs, Sapling and anything outside 1..=40 PCZTs.
+    [Throws=ErrorDisplayed]
+    ZcashSignBatchRequest decode_ur_zcash_sign_batch(sequence<string> ur_parts);
+
+    // Answer a Keystone batch: the module's compact batch response (0x08) as
+    // ur:zcash-batch-sig-result, echoing request_id. All or nothing: fails
+    // unless every one of the request's `count` PCZTs was signed.
+    // firmware_version: [major, minor, build]. max_fragment_len: 0 = single QR.
+    [Throws=ErrorDisplayed]
+    sequence<string> encode_ur_zcash_batch_sig_result([ByRef] sequence<u8> module_response, [ByRef] sequence<u8> request_id, u32 count, [ByRef] sequence<u8> firmware_version, u32 max_fragment_len);
 
 
     [Throws=ErrorDisplayed]

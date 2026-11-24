@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import net.rotko.zigner.BuildConfig
 import net.rotko.zigner.components.security.TapjackGuard
 import net.rotko.zigner.components.base.PrimaryButtonWide
 import net.rotko.zigner.components.base.SecondaryButtonWide
@@ -32,7 +33,11 @@ import net.rotko.zigner.domain.QrPlaybackSpeed
 import net.rotko.zigner.domain.decodeHex
 import net.rotko.zigner.domain.module.ProtocolModule
 import net.rotko.zigner.ui.theme.*
+import io.parity.signer.uniffi.ErrorDisplayed
 import io.parity.signer.uniffi.ModulePcztSummary
+import io.parity.signer.uniffi.ZcashSignBatchRequest
+import io.parity.signer.uniffi.decodeUrZcashSignBatch
+import io.parity.signer.uniffi.encodeUrZcashBatchSigResult
 import io.parity.signer.uniffi.encodeToQr
 import io.parity.signer.uniffi.moduleResponseToUr
 import kotlinx.coroutines.Dispatchers
@@ -64,6 +69,10 @@ internal const val MODULE_CANNOT_PARSE_MESSAGE =
 @Composable
 fun ModulePcztScreen(
 	payloadHex: String,
+	// Keystone batch request (ur:zcash-sign-batch) frames: when set, the
+	// request is read from these instead of payloadHex and the answer goes
+	// back as ur:zcash-batch-sig-result.
+	keystoneBatchUrParts: List<String>? = null,
 	getSeedPhrase: suspend () -> String,
 	getSeedName: suspend () -> String,
 	onDone: Callback,
@@ -94,12 +103,20 @@ fun ModulePcztScreen(
 	// network byte, testnet arrives with a later module slot.
 	val mainnet = true
 
-	val payload = remember(payloadHex) {
-		runCatching { payloadHex.decodeHex() }.getOrDefault(ByteArray(0))
+	var payload by remember(payloadHex) {
+		mutableStateOf(runCatching { payloadHex.decodeHex() }.getOrDefault(ByteArray(0)))
 	}
+	var keystoneBatch by remember { mutableStateOf<ZcashSignBatchRequest?>(null) }
 
-	LaunchedEffect(payloadHex) {
+	LaunchedEffect(payloadHex, keystoneBatchUrParts) {
 		try {
+			if (keystoneBatchUrParts != null) {
+				val batch = withContext(Dispatchers.Default) {
+					decodeUrZcashSignBatch(keystoneBatchUrParts)
+				}
+				keystoneBatch = batch
+				payload = batch.payload.map { it.toByte() }.toByteArray()
+			}
 			if (payload.isEmpty()) error("empty payload")
 			val result = withContext(Dispatchers.Default) {
 				ProtocolModule.summarize(context, payload)
@@ -111,7 +128,7 @@ fun ModulePcztScreen(
 		} catch (e: Exception) {
 			// Any module/runtime failure fails closed into the update hint.
 			Timber.e(e, "protocol module summarize failed")
-			errorDetail = e.message ?: ""
+			errorDetail = (e as? ErrorDisplayed.Str)?.s ?: e.message ?: ""
 			state = ModulePcztState.MODULE_ERROR
 		}
 	}
@@ -197,11 +214,24 @@ fun ModulePcztScreen(
 											(response[2] == 0x07.toByte() || response[2] == 0x08.toByte())
 										// 200-byte fragments keep frames webcam-readable
 										// (same bound as the signed-PCZT UR path).
-										moduleResponseToUr(
-											response.map { it.toUByte() },
-											ProtocolModule.activeVersion(context),
-											200u,
-										)
+										val batch = keystoneBatch
+										if (batch != null) {
+											// Keystone answer: one signature list per PCZT,
+											// all or nothing, echoing the request id.
+											encodeUrZcashBatchSigResult(
+												response.map { it.toUByte() },
+												batch.requestId,
+												batch.count,
+												signerVersionTriple(),
+												200u,
+											)
+										} else {
+											moduleResponseToUr(
+												response.map { it.toUByte() },
+												ProtocolModule.activeVersion(context),
+												200u,
+											)
+										}
 									}
 									compactResponse = isCompact
 									// Pre-render bitmaps so the ticker only swaps images.
@@ -311,6 +341,17 @@ fun ModulePcztScreen(
 				SecondaryButtonWide(label = "Dismiss", onClicked = onDone)
 			}
 		}
+	}
+}
+
+/**
+ * App version as Keystone's [major, minor, build] firmware triple, which a
+ * zcash-batch-sig-result reports once for the whole answer.
+ */
+private fun signerVersionTriple(): List<UByte> {
+	val parts = BuildConfig.VERSION_NAME.substringBefore('-').split('.')
+	return (0..2).map { i ->
+		(parts.getOrNull(i)?.toIntOrNull() ?: 0).coerceIn(0, 255).toUByte()
 	}
 }
 

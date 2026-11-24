@@ -48,6 +48,7 @@ fun ScanScreen(
 	onUrBackupRestore: (List<String>) -> Unit = {},
 	onZcashNotes: (List<String>) -> Unit = {},
 	onZcashPczt: (List<String>) -> Unit = {},
+	onZcashSignBatch: (List<String>) -> Unit = {},
 	onFrost: (org.json.JSONObject) -> Unit = {},
 	onAuth: (org.json.JSONObject) -> Unit = {},
 	onZidSign: (org.json.JSONObject) -> Unit = {},
@@ -101,6 +102,7 @@ fun ScanScreen(
 	val currentOnUrBackupRestore by rememberUpdatedState(onUrBackupRestore)
 	val currentOnZcashNotes by rememberUpdatedState(onZcashNotes)
 	val currentOnZcashPczt by rememberUpdatedState(onZcashPczt)
+	val currentOnZcashSignBatch by rememberUpdatedState(onZcashSignBatch)
 	val currentOnFrost by rememberUpdatedState(onFrost)
 	val currentOnAuth by rememberUpdatedState(onAuth)
 	val currentOnZidSign by rememberUpdatedState(onZidSign)
@@ -211,6 +213,17 @@ fun ScanScreen(
 				.collect { urFrames ->
 					currentOnZcashPczt(urFrames)
 					viewModel.resetZcashPczt()
+				}
+		}
+
+		// Keystone batch handler (ur:zcash-sign-batch)
+		launch {
+			viewModel.zcashSignBatchComplete
+				.filterNotNull()
+				.filter { it.isNotEmpty() }
+				.collect { urFrames ->
+					currentOnZcashSignBatch(urFrames)
+					viewModel.resetZcashSignBatch()
 				}
 		}
 
