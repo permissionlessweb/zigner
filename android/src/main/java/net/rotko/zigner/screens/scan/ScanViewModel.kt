@@ -127,6 +127,9 @@ class ScanViewModel : ViewModel() {
 	// PCZT signing state
 	var zcashPcztUrParts: MutableStateFlow<List<String>?> = MutableStateFlow(null)
 
+	// Keystone batch request (ur:zcash-sign-batch frames), signed by the module
+	var zcashSignBatchUrParts: MutableStateFlow<List<String>?> = MutableStateFlow(null)
+
 	// Protocol-module PCZT request state (prelude 530403/530404, hex payload)
 	var modulePcztPayload: MutableStateFlow<String?> = MutableStateFlow(null)
 
@@ -394,7 +397,7 @@ class ScanViewModel : ViewModel() {
 
 
 	fun ifHasStateThenClear(): Boolean {
-		return if (transactions.value != null || signature.value != null || passwordModel.value != null || transactionError.value != null || transactionIsInProgress.value || errorWrongPassword.value || bananaSplitPassword.value != null || penumbraSignRequest.value != null || penumbraSignatureQr.value != null || cosmosSignRequest.value != null || cosmosSignatureQr.value != null || urBackupFrames.value != null || zcashNoteSyncResult.value != null || zcashNoteSyncFrames.value != null || modulePcztPayload.value != null || modulePackageBytes.value != null || releaseSignPrefix.value != null) {
+		return if (transactions.value != null || signature.value != null || passwordModel.value != null || transactionError.value != null || transactionIsInProgress.value || errorWrongPassword.value || bananaSplitPassword.value != null || penumbraSignRequest.value != null || penumbraSignatureQr.value != null || cosmosSignRequest.value != null || cosmosSignatureQr.value != null || urBackupFrames.value != null || zcashNoteSyncResult.value != null || zcashNoteSyncFrames.value != null || modulePcztPayload.value != null || zcashSignBatchUrParts.value != null || modulePackageBytes.value != null || releaseSignPrefix.value != null) {
 			clearState()
 			true
 		} else {
@@ -418,6 +421,7 @@ class ScanViewModel : ViewModel() {
 		zcashNoteSyncResult.value = null
 		zcashNoteSyncFrames.value = null
 		zcashPcztUrParts.value = null
+		zcashSignBatchUrParts.value = null
 		modulePcztPayload.value = null
 		modulePackageBytes.value = null
 		modulePackageInfo.value = null

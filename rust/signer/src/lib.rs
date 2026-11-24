@@ -5242,6 +5242,266 @@ pub fn module_response_to_ur(
     Ok(parts)
 }
 
+// ── Keystone batch signing (ur:zcash-sign-batch / ur:zcash-batch-sig-result) ──
+//
+// Keystone's batch request (vizor swaps, payment links, some sends):
+//
+//   zcash-sign-batch       = { 1: bytes, ; BatchSignRequest::serialize ("PCZB" ...)
+//                              2: bytes } ; request-id
+//   zcash-batch-sig-result = { 1: bytes, ; BatchSignResponse::serialize ("PCZS" ...)
+//                              2: bytes,  ; echoed request-id
+//                              3: bytes } ; firmware version [major, minor, build]
+//
+// The PCZT codec is the pinned `pczt` crate's `roles::signer::batch`. The PCZTs
+// are handed to the protocol module as the compact batch envelope (0x06), so
+// the review, the redaction checks, the on-device sighash and the account
+// search are the ones every other cold batch goes through. Keystone's rules:
+// 1..=40 PCZTs, all or nothing, Orchard and Ironwood spends only.
+
+/// Keystone's cap on the batch data plus the request id.
+const KEYSTONE_BATCH_MAX_BYTES: usize = 512 * 1024;
+/// Keystone's batch cap (ZCASH_BATCH_MAX_PCZTS), the same as the module's.
+const KEYSTONE_BATCH_MAX_PCZTS: usize = 40;
+
+/// A decoded `ur:zcash-sign-batch` request, ready for the protocol module.
+pub struct ZcashSignBatchRequest {
+    /// Compact batch envelope `[0x53][0x04][0x06] || ...`, one message per
+    /// PCZT in request order.
+    pub payload: Vec<u8>,
+    /// Request id to echo in the answer.
+    pub request_id: Vec<u8>,
+    /// Number of PCZTs in the batch.
+    pub count: u32,
+}
+
+/// Read a definite-length CBOR map of small uint keys to byte strings.
+fn parse_cbor_bytes_map(cbor: &[u8]) -> Result<Vec<(u8, Vec<u8>)>, ErrorDisplayed> {
+    let err = |s: String| ErrorDisplayed::Str { s };
+    let (&head, mut rest) = cbor
+        .split_first()
+        .ok_or_else(|| err("CBOR data too short".to_string()))?;
+    if head >> 5 != 5 || head & 0x1f > 23 {
+        return Err(err(format!("Expected a small CBOR map, got: 0x{head:02x}")));
+    }
+    let mut entries = Vec::new();
+    for _ in 0..(head & 0x1f) {
+        let (&key, r) = rest
+            .split_first()
+            .ok_or_else(|| err("Truncated CBOR map".to_string()))?;
+        if key > 23 {
+            return Err(err(format!("Unexpected CBOR key: 0x{key:02x}")));
+        }
+        if entries.iter().any(|(k, _)| *k == key) {
+            return Err(err(format!("Duplicate CBOR key {key}")));
+        }
+        let (value, used) = parse_cbor_bytes(r).map_err(err)?;
+        entries.push((key, value));
+        rest = &r[used..];
+    }
+    if !rest.is_empty() {
+        return Err(err("Trailing bytes after CBOR map".to_string()));
+    }
+    Ok(entries)
+}
+
+/// Fountain-decode a Keystone `ur:zcash-sign-batch` request and turn it into
+/// the protocol module's compact batch envelope.
+pub fn decode_ur_zcash_sign_batch(
+    ur_parts: Vec<String>,
+) -> Result<ZcashSignBatchRequest, ErrorDisplayed> {
+    use pczt::roles::signer::batch::BatchSignRequest;
+    let err = |s: String| ErrorDisplayed::Str { s };
+
+    for part in &ur_parts {
+        if !part.to_lowercase().starts_with("ur:zcash-sign-batch/") {
+            return Err(err(format!(
+                "Expected ur:zcash-sign-batch/... got: {}",
+                part.chars().take(30).collect::<String>()
+            )));
+        }
+    }
+    // Keystone wallets show the UR upper-cased (QR alphanumeric mode); the
+    // decoder only takes the lower-case form.
+    let ur_parts: Vec<String> = ur_parts.iter().map(|p| p.to_lowercase()).collect();
+    let entries = parse_cbor_bytes_map(&ur_message(&ur_parts)?)?;
+    if entries.len() != 2 {
+        return Err(err(format!(
+            "zcash-sign-batch: expected 2 CBOR fields, got {}",
+            entries.len()
+        )));
+    }
+    let field = |key: u8| {
+        entries
+            .iter()
+            .find(|(k, _)| *k == key)
+            .map(|(_, v)| v.clone())
+            .ok_or_else(|| err(format!("zcash-sign-batch: missing field {key}")))
+    };
+    let data = field(1)?;
+    let request_id = field(2)?;
+    if request_id.is_empty() {
+        return Err(err("zcash-sign-batch: request id must not be empty".to_string()));
+    }
+    if data.len().saturating_add(request_id.len()) > KEYSTONE_BATCH_MAX_BYTES {
+        return Err(err(format!(
+            "zcash-sign-batch: request exceeds {KEYSTONE_BATCH_MAX_BYTES} bytes"
+        )));
+    }
+
+    let batch = BatchSignRequest::parse(&data)
+        .map_err(|e| err(format!("zcash-sign-batch: invalid PCZT batch: {e:?}")))?;
+    let pczts = batch.pczts();
+    if pczts.is_empty() || pczts.len() > KEYSTONE_BATCH_MAX_PCZTS {
+        return Err(err(format!(
+            "zcash-sign-batch: expected 1 to {} PCZTs, got {}",
+            KEYSTONE_BATCH_MAX_PCZTS,
+            pczts.len()
+        )));
+    }
+
+    // compact batch envelope: prelude || count:u8 ||
+    //   count * ( id_len:u8 || id || pczt_len:u32 LE || pczt )
+    let mut payload = vec![0x53, 0x04, 0x06, pczts.len() as u8];
+    for (i, pczt) in pczts.iter().enumerate() {
+        // Keystone signs shielded Orchard / Ironwood spends only, and refuses
+        // the whole batch otherwise rather than signing part of it.
+        if !pczt.transparent().inputs().is_empty() {
+            return Err(err(format!(
+                "zcash-sign-batch: PCZT {i} spends transparent inputs, which batch signing refuses"
+            )));
+        }
+        if !pczt.sapling().spends().is_empty() || !pczt.sapling().outputs().is_empty() {
+            return Err(err(format!(
+                "zcash-sign-batch: PCZT {i} has Sapling spends or outputs, which batch signing refuses"
+            )));
+        }
+        let bytes = pczt
+            .clone()
+            .serialize()
+            .map_err(|e| err(format!("zcash-sign-batch: PCZT {i} re-encode: {e:?}")))?;
+        let id = i.to_string().into_bytes();
+        payload.push(id.len() as u8);
+        payload.extend_from_slice(&id);
+        payload.extend_from_slice(&(bytes.len() as u32).to_le_bytes());
+        payload.extend_from_slice(&bytes);
+    }
+    Ok(ZcashSignBatchRequest {
+        payload,
+        request_id,
+        count: pczts.len() as u32,
+    })
+}
+
+/// Turn the module's compact batch response (0x08) into Keystone's
+/// `ur:zcash-batch-sig-result`, echoing `request_id`. `count` is the number
+/// of PCZTs in the request: the answer carries one signature list per PCZT,
+/// in request order, or nothing at all.
+pub fn encode_ur_zcash_batch_sig_result(
+    module_response: &[u8],
+    request_id: &[u8],
+    count: u32,
+    firmware_version: &[u8],
+    max_fragment_len: u32,
+) -> Result<Vec<String>, ErrorDisplayed> {
+    use pczt::roles::signer::{batch::BatchSignResponse, SpendAuthSignature};
+    const UR_TYPE: &str = "zcash-batch-sig-result";
+    let err = |s: String| ErrorDisplayed::Str { s };
+
+    if request_id.is_empty() {
+        return Err(err("request id must not be empty".to_string()));
+    }
+    if firmware_version.len() != 3 {
+        return Err(err("firmware version must be [major, minor, build]".to_string()));
+    }
+
+    // prelude || ver_len:u8 || version || count:u8 ||
+    //   count * ( id_len:u8 || id || sig_count:u16 LE ||
+    //             sig_count * ( pool:u8 || action_index:u32 LE || sig:64 ) )
+    let truncated = || err("module response truncated".to_string());
+    let [0x53, 0x04, 0x08, rest @ ..] = module_response else {
+        return Err(err(
+            "module did not answer with a compact batch response".to_string(),
+        ));
+    };
+    let (&ver_len, rest) = rest.split_first().ok_or_else(truncated)?;
+    let rest = rest.get(ver_len as usize..).ok_or_else(truncated)?;
+    let (&n, mut rest) = rest.split_first().ok_or_else(truncated)?;
+    if u32::from(n) != count {
+        return Err(err(format!(
+            "module signed {n} of {count} PCZTs; batch signing is all or nothing"
+        )));
+    }
+    let mut signatures = Vec::with_capacity(n as usize);
+    for i in 0..n as usize {
+        let (&id_len, r) = rest.split_first().ok_or_else(truncated)?;
+        let id = r.get(..id_len as usize).ok_or_else(truncated)?;
+        if id != i.to_string().as_bytes() {
+            return Err(err("module response is out of request order".to_string()));
+        }
+        let r = &r[id_len as usize..];
+        let sig_count = r.get(..2).ok_or_else(truncated)?;
+        let sig_count = u16::from_le_bytes([sig_count[0], sig_count[1]]) as usize;
+        let mut r = &r[2..];
+        let mut sigs = Vec::with_capacity(sig_count.min(r.len() / 69 + 1));
+        for _ in 0..sig_count {
+            let rec = r.get(..69).ok_or_else(truncated)?;
+            let pool = match rec[0] {
+                0 => ::orchard::ValuePool::Orchard,
+                1 => ::orchard::ValuePool::Ironwood,
+                other => return Err(err(format!("unknown value pool {other}"))),
+            };
+            let action_index = u32::from_le_bytes(rec[1..5].try_into().unwrap()) as usize;
+            let sig: [u8; 64] = rec[5..69].try_into().unwrap();
+            sigs.push(SpendAuthSignature::from_parts(pool, action_index, sig));
+            r = &r[69..];
+        }
+        if sigs.is_empty() {
+            return Err(err(format!("PCZT {i}: this device authorized no action")));
+        }
+        signatures.push(sigs);
+        rest = r;
+    }
+    if !rest.is_empty() {
+        return Err(err("trailing bytes after module response".to_string()));
+    }
+
+    let data = BatchSignResponse::new(signatures)
+        .serialize()
+        .map_err(|e| err(format!("encode PCZT batch signing response: {e:?}")))?;
+
+    // { 1: data, 2: request-id, 3: firmware version }
+    let mut cbor = vec![0xa3];
+    for (key, value) in [(1u32, data.as_slice()), (2, request_id), (3, firmware_version)] {
+        cbor_uint(&mut cbor, key);
+        cbor_bytes(&mut cbor, value);
+    }
+
+    if max_fragment_len == 0 || cbor.len() <= max_fragment_len as usize {
+        return Ok(vec![ur::ur::encode(&cbor, &ur::Type::Custom(UR_TYPE))]);
+    }
+    let mut encoder = ur::ur::Encoder::new(&cbor, max_fragment_len as usize, UR_TYPE)
+        .map_err(|e| err(format!("Failed to create UR encoder: {e:?}")))?;
+    // 1.3x redundancy, matching encode_signed_pczt_ur.
+    let total_parts = (encoder.fragment_count() * 13).div_ceil(10);
+    let mut parts = Vec::with_capacity(total_parts);
+    for _ in 0..total_parts {
+        parts.push(
+            encoder
+                .next_part()
+                .map_err(|e| err(format!("Failed to encode UR part: {e:?}")))?,
+        );
+    }
+    Ok(parts)
+}
+
+/// CBOR byte string (major type 2), shortest-form length.
+fn cbor_bytes(out: &mut Vec<u8>, bytes: &[u8]) {
+    let start = out.len();
+    cbor_uint(out, bytes.len() as u32);
+    out[start] |= 0x40;
+    out.extend_from_slice(bytes);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -5891,6 +6151,111 @@ mod zcash_pczt_tests {
 
         let other = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
         assert!(super::module_sign_request(MODULE, &request, other, 0, true).is_err());
+    }
+
+    // ── Keystone batch signing (vizor's ur:zcash-sign-batch) ──
+
+    /// What vizor shows: `{1: BatchSignRequest, 2: request-id}` fountain
+    /// encoded as `ur:zcash-sign-batch`.
+    fn keystone_batch_ur(pczts: &[Vec<u8>], request_id: &[u8]) -> Vec<String> {
+        use pczt::roles::signer::batch::BatchSignRequest;
+        let batch = BatchSignRequest::new(
+            pczts.iter().map(|b| Pczt::parse(b).expect("fixture parses")).collect(),
+        );
+        let data = batch.serialize().expect("batch encodes");
+        let mut cbor = vec![0xa2];
+        for (key, value) in [(1u32, data.as_slice()), (2, request_id)] {
+            super::cbor_uint(&mut cbor, key);
+            super::cbor_bytes(&mut cbor, value);
+        }
+        let mut encoder = ur::ur::Encoder::new(&cbor, 200, "zcash-sign-batch").expect("encoder");
+        (0..encoder.fragment_count())
+            .map(|_| encoder.next_part().expect("part").to_uppercase())
+            .collect()
+    }
+
+    /// Sign a vizor batch the way the phone does and read the answer back the
+    /// way vizor's `decode_zcash_batch_sign_response` does.
+    fn sign_keystone_batch(
+        pczts: &[Vec<u8>],
+    ) -> pczt::roles::signer::batch::BatchSignResponse {
+        use pczt::roles::signer::batch::BatchSignResponse;
+        const MODULE: &[u8] =
+            include_bytes!("../../../android/src/main/assets/modules/module0.wasm");
+        let parts = keystone_batch_ur(pczts, b"swap-1");
+        let request = super::decode_ur_zcash_sign_batch(parts).expect("batch decodes");
+        assert_eq!(request.count as usize, pczts.len());
+        assert_eq!(request.request_id, b"swap-1");
+        assert_eq!(&request.payload[..3], &[0x53, 0x04, 0x06]);
+
+        let response = super::module_sign_request(MODULE, &request.payload, MNEMONIC, 0, true)
+            .expect("the module signs the batch");
+        let ur_parts = super::encode_ur_zcash_batch_sig_result(
+            &response,
+            &request.request_id,
+            request.count,
+            &[0, 14, 0],
+            200,
+        )
+        .expect("answer encodes");
+        assert!(ur_parts
+            .iter()
+            .all(|p| p.starts_with("ur:zcash-batch-sig-result/")));
+
+        let fields = super::parse_cbor_bytes_map(&super::ur_message(&ur_parts).expect("reassembles"))
+            .expect("answer is a CBOR map");
+        let keys: Vec<u8> = fields.iter().map(|(k, _)| *k).collect();
+        assert_eq!(keys, [1, 2, 3]);
+        assert_eq!(fields[1].1, b"swap-1", "the request id is echoed");
+        assert_eq!(fields[2].1, [0, 14, 0]);
+        BatchSignResponse::parse(&fields[0].1).expect("PCZS response parses")
+    }
+
+    #[test]
+    fn a_vizor_swap_batch_is_signed_as_a_keystone_batch() {
+        let fx = build_v5_fixture(true, false);
+        let response = sign_keystone_batch(&[fx.pczt]);
+        assert_eq!(response.signatures().len(), 1);
+        assert!(!response.signatures()[0].is_empty());
+    }
+
+    #[test]
+    fn a_two_pczt_keystone_batch_answers_in_request_order() {
+        // one account, as vizor batches are; the builder's randomness keeps
+        // the two PCZTs distinct (the module refuses a duplicate)
+        let a = build_v5_fixture(true, false);
+        let b = build_v5_fixture(true, false);
+        assert_ne!(a.pczt, b.pczt);
+        let response = sign_keystone_batch(&[a.pczt, b.pczt]);
+        assert_eq!(response.signatures().len(), 2);
+        assert!(response.signatures().iter().all(|s| !s.is_empty()));
+    }
+
+    #[test]
+    fn a_keystone_batch_without_a_request_id_is_refused() {
+        let fx = build_v5_fixture(true, false);
+        let parts = keystone_batch_ur(&[fx.pczt], b"");
+        assert!(super::decode_ur_zcash_sign_batch(parts).is_err());
+    }
+
+    #[test]
+    fn another_ur_type_is_not_read_as_a_keystone_batch() {
+        let fx = build_v5_fixture(true, false);
+        let parts: Vec<String> = keystone_batch_ur(&[fx.pczt], b"swap-1")
+            .into_iter()
+            .map(|p| p.replacen("UR:ZCASH-SIGN-BATCH", "UR:ZCASH-PCZT", 1))
+            .collect();
+        assert!(super::decode_ur_zcash_sign_batch(parts).is_err());
+    }
+
+    #[test]
+    fn a_partial_module_answer_to_a_keystone_batch_is_refused() {
+        // module answered 1 message for a 2-PCZT request
+        let mut response = vec![0x53, 0x04, 0x08, 1, b'1', 1, 1, b'0', 1, 0, 0];
+        response.extend_from_slice(&[0u8; 4]);
+        response.extend_from_slice(&[7u8; 64]);
+        assert!(super::encode_ur_zcash_batch_sig_result(&response, b"r", 2, &[0, 14, 0], 0).is_err());
+        assert!(super::encode_ur_zcash_batch_sig_result(&response, b"r", 1, &[0, 14, 0], 0).is_ok());
     }
 
     /// zafu's real compact requests (zcli-dumped fixtures, cmx / ciphertexts /
