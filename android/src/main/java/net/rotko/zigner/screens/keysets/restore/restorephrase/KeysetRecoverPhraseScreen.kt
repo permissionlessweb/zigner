@@ -39,7 +39,7 @@ fun KeysetRecoverPhraseScreen(
 			.verticalScroll(rememberScrollState()),
 	) {
 		ScreenHeaderProgressWithButton(
-			canProceed = model.validSeed,
+			canProceed = model.canProceed,
 			currentStep = 2,
 			allSteps = 3,
 			btnText = stringResource(R.string.button_next),
