@@ -12,6 +12,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -22,8 +23,8 @@ class KeysetRecoverViewModelTest {
 	private val testDispatcher = StandardTestDispatcher()
 
 	private val wordlist = listOf("abandon", "ability", "able", "about", "art")
-	private val valid24 = List(23) { "abandon" } + "art"
 	private val valid12 = List(11) { "abandon" } + "about"
+	private val valid24 = List(23) { "abandon" } + "art"
 
 	@Before
 	fun setUp() {
@@ -36,7 +37,7 @@ class KeysetRecoverViewModelTest {
 	}
 
 	private fun makeViewModel(
-		validate: suspend (List<String>) -> Boolean = { it == valid24 || it == valid12 },
+		validate: suspend (List<String>) -> Boolean = { it == valid12 || it == valid24 },
 	): KeysetRecoverViewModel {
 		return KeysetRecoverViewModel(
 			guessWordsFn = { prefix -> wordlist.filter { it.startsWith(prefix) } },
@@ -44,6 +45,97 @@ class KeysetRecoverViewModelTest {
 			existingSeeds = MutableStateFlow(emptyArray()),
 			initialSuggestions = wordlist,
 		)
+	}
+
+	@Test
+	fun editingEarlierWordReplacesItWithoutDroppingLaterWords() = runTest(testDispatcher) {
+		val vm = makeViewModel()
+		// Mistype word 2 as "ability" in an otherwise valid 12-word phrase.
+		vm.onAddword("abandon")
+		vm.onAddword("ability")
+		repeat(9) { vm.onAddword("abandon") }
+		vm.onAddword("about")
+		advanceUntilIdle()
+		assertFalse(vm.recoverSeed.value.canProceed)
+
+		// Tap word 2 (index 1) to edit it.
+		vm.onSelectWord(1)
+		advanceUntilIdle()
+		assertEquals(1, vm.recoverSeed.value.editingIndex)
+		assertEquals(" ability", vm.recoverSeed.value.rawUserInput)
+		assertEquals(listOf("ability"), vm.recoverSeed.value.suggestedWords)
+		assertFalse(vm.recoverSeed.value.canProceed)
+
+		// Edit to "abandon" and commit with space.
+		vm.onUserInput(" aband")
+		advanceUntilIdle()
+		assertTrue(vm.recoverSeed.value.suggestedWords.contains("abandon"))
+		vm.onUserInput(" abandon ")
+		advanceUntilIdle()
+
+		val state = vm.recoverSeed.value
+		assertNull(state.editingIndex)
+		assertEquals(" ", state.rawUserInput)
+		assertEquals(valid12, state.enteredWords)
+		assertTrue(state.validSeed)
+		assertTrue(state.canProceed)
+	}
+
+	@Test
+	fun editingEarlierWordIn24WordPhraseWorksAtWordsCap() = runTest(testDispatcher) {
+		val vm = makeViewModel()
+		vm.onAddword("ability")
+		repeat(22) { vm.onAddword("abandon") }
+		vm.onAddword("art")
+		advanceUntilIdle()
+		assertEquals(24, vm.recoverSeed.value.enteredWords.size)
+		assertFalse(vm.recoverSeed.value.validSeed)
+
+		// Replace word 1 via suggestion tap while at 24 words.
+		vm.onSelectWord(0)
+		advanceUntilIdle()
+		vm.onUserInput(" ab")
+		advanceUntilIdle()
+		vm.onAddword("abandon")
+		advanceUntilIdle()
+
+		val state = vm.recoverSeed.value
+		assertNull(state.editingIndex)
+		assertEquals(valid24, state.enteredWords)
+		assertTrue(state.validSeed)
+		assertTrue(state.canProceed)
+	}
+
+	@Test
+	fun backspacingEditedWordToEmptyDeletesThatWordOnly() = runTest(testDispatcher) {
+		val vm = makeViewModel()
+		vm.onAddword("abandon")
+		vm.onAddword("ability")
+		vm.onAddword("about")
+		advanceUntilIdle()
+
+		vm.onSelectWord(1)
+		advanceUntilIdle()
+		vm.onUserInput("")
+		advanceUntilIdle()
+
+		val state = vm.recoverSeed.value
+		assertNull(state.editingIndex)
+		assertEquals(listOf("abandon", "about"), state.enteredWords)
+		assertFalse(state.validSeed)
+	}
+
+	@Test
+	fun startingEditClearsValidSeedUntilRecommitted() = runTest(testDispatcher) {
+		val vm = makeViewModel()
+		repeat(11) { vm.onAddword("abandon") }
+		vm.onAddword("about")
+		advanceUntilIdle()
+		assertTrue(vm.recoverSeed.value.canProceed)
+
+		vm.onSelectWord(5)
+		assertFalse(vm.recoverSeed.value.validSeed)
+		assertFalse(vm.recoverSeed.value.canProceed)
 	}
 
 	@Test

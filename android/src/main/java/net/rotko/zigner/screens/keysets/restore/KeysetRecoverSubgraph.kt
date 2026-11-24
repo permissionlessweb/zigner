@@ -80,6 +80,7 @@ fun KeysetRecoverSubgraph(
 					}
 				},
 				onScanOpen = { coreNavController.navigate(CoreUnlockedNavSubgraph.Camera.destination(keysetName)) },
+				onSelectWord = { index -> viewModel.onSelectWord(index) },
 				modifier = Modifier
 					.statusBarsPadding()
 					.imePadding(),
