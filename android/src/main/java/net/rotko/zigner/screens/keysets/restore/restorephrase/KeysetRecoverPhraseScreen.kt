@@ -10,6 +10,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -33,11 +35,16 @@ fun KeysetRecoverPhraseScreen(
 	modifier: Modifier = Modifier,
 	onSelectWord: (index: Int) -> Unit = {},
 ) {
+	val scrollState = rememberScrollState()
+	LaunchedEffect(model.enteredWords.size) {
+		withFrameNanos { }
+		scrollState.scrollTo(scrollState.maxValue)
+	}
+
 	Column(
 		modifier
 			.fillMaxSize(1f)
-			.background(MaterialTheme.colors.background)
-			.verticalScroll(rememberScrollState()),
+			.background(MaterialTheme.colors.background),
 	) {
 		ScreenHeaderProgressWithButton(
 			canProceed = model.canProceed,
@@ -48,35 +55,44 @@ fun KeysetRecoverPhraseScreen(
 			onButton = onDone,
 			backNotClose = true,
 		)
-		Text(
-			text = stringResource(R.string.recover_key_set_phrase_title),
-			color = MaterialTheme.colors.primary,
-			style = SignerTypeface.TitleL,
-			modifier = Modifier.padding(horizontal = 24.dp),
-		)
-		Text(
-			text = stringResource(R.string.recover_key_set_phrase_subtitle),
-			color = MaterialTheme.colors.primary,
-			style = SignerTypeface.BodyL,
+		Column(
 			modifier = Modifier
-				.padding(horizontal = 24.dp)
-				.padding(top = 8.dp, bottom = 2.dp),
-		)
-		EnterSeedPhraseBox(
-			enteredWords = model.enteredWords,
-			rawUserInput = model.rawUserInput,
-			editingIndex = model.editingIndex,
-			onWordClick = onSelectWord,
-			modifier = Modifier
-				.padding(horizontal = 16.dp)
-				.padding(top = 8.dp, bottom = 12.dp),
-			onEnteredChange = onNewInput,
-			onScanOpen = onScanOpen,
-		)
-		RestoreSeedPhraseSuggest(
-			guessWord = model.suggestedWords,
-			onClicked = onAddSuggestedWord,
-		)
+				.weight(1f)
+				.verticalScroll(scrollState),
+		) {
+			Text(
+				text = stringResource(R.string.recover_key_set_phrase_title),
+				color = MaterialTheme.colors.primary,
+				style = SignerTypeface.TitleL,
+				modifier = Modifier.padding(horizontal = 24.dp),
+			)
+			Text(
+				text = stringResource(R.string.recover_key_set_phrase_subtitle),
+				color = MaterialTheme.colors.primary,
+				style = SignerTypeface.BodyL,
+				modifier = Modifier
+					.padding(horizontal = 24.dp)
+					.padding(top = 8.dp, bottom = 2.dp),
+			)
+			EnterSeedPhraseBox(
+				enteredWords = model.enteredWords,
+				rawUserInput = model.rawUserInput,
+				editingIndex = model.editingIndex,
+				onWordClick = onSelectWord,
+				modifier = Modifier
+					.padding(horizontal = 16.dp)
+					.padding(top = 8.dp, bottom = 12.dp),
+				onEnteredChange = onNewInput,
+				onScanOpen = onScanOpen,
+			)
+		}
+		if (model.suggestedWords.isNotEmpty()) {
+			RestoreSeedPhraseSuggest(
+				guessWord = model.suggestedWords,
+				modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
+				onClicked = onAddSuggestedWord,
+			)
+		}
 	}
 }
 
