@@ -1,7 +1,7 @@
 package net.rotko.zigner.screens.keysets.restore.keysetname
 
 import android.content.res.Configuration
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import net.rotko.zigner.components.base.ScrollArt
 import timber.log.Timber
 import androidx.compose.foundation.background
@@ -71,7 +71,13 @@ fun KeysetRecoverNameScreen(
 			},
 			backNotClose = false,
 		)
-		ScrollArt(art = R.drawable.art_castle, modifier = Modifier.height(200.dp))
+		ScrollArt(
+			art = R.drawable.art_castle,
+			// shrinks first when the keyboard opens, so the name field keeps its height
+			modifier = Modifier
+				.weight(1f, fill = false)
+				.heightIn(max = 200.dp),
+		)
 		Text(
 			text = stringResource(R.string.recovert_key_set_title),
 			color = MaterialTheme.colors.primary,
