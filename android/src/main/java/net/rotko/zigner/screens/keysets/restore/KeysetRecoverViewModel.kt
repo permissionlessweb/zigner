@@ -88,8 +88,50 @@ class KeysetRecoverViewModel internal constructor(
 						current
 					}
 				}
+				if (guessing.contains(input)) {
+					checkCompletingWord(rawUserInput, input)
+				}
 			}
 		}
+	}
+
+	/**
+	 * The last word is often left in the field without a trailing space (a
+	 * keyboard suggestion pick, or simply typing it out). If that word completes
+	 * a valid phrase, remember the full phrase so Next can be enabled; it is
+	 * committed by [commitForProceed] before continuing.
+	 */
+	private suspend fun checkCompletingWord(rawUserInput: String, word: String) {
+		val committed = _recoverSeed.value.enteredWords
+		if (committed.size >= KeysetRecoverModel.WORDS_CAP) return
+		val candidate = committed + word
+		if (!validateSeedFn(candidate)) return
+		_recoverSeed.update { current ->
+			if (current.rawUserInput == rawUserInput && current.enteredWords == committed) {
+				current.copy(completingPhrase = candidate)
+			} else {
+				current
+			}
+		}
+	}
+
+	/**
+	 * Commits a valid final word still in the input field, so the phrase used to
+	 * continue is exactly the one on screen. Returns null if Next must stay disabled.
+	 */
+	fun commitForProceed(): List<String>? {
+		var phrase: List<String>? = null
+		_recoverSeed.update {
+			phrase = it.proceedPhrase
+			val complete = phrase ?: return@update it
+			it.copy(
+				rawUserInput = KeysetRecoverModel.SPACE_CHARACTER.toString(),
+				enteredWords = complete,
+				validSeed = true,
+				completingPhrase = null,
+			)
+		}
+		return phrase
 	}
 
 	fun onAddword(word: String) {
@@ -137,10 +179,21 @@ data class KeysetRecoverModel(
 	val rawUserInput: String,
 	val suggestedWords: List<String>,
 	val enteredWords: List<String>,
-	val validSeed: Boolean
+	val validSeed: Boolean,
+	// Committed words plus the word still in the field, when that completes a valid phrase.
+	val completingPhrase: List<String>? = null,
 ) {
+	/** Phrase Next would continue with, or null while Next must stay disabled. */
+	val proceedPhrase: List<String>?
+		get() = when {
+			validSeed && rawUserInput.isBlank() -> enteredWords
+			completingPhrase != null &&
+				completingPhrase == enteredWords + rawUserInput.trim().lowercase() -> completingPhrase
+			else -> null
+		}
+
 	val canProceed: Boolean
-		get() = validSeed && rawUserInput.isBlank()
+		get() = proceedPhrase != null
 
 	companion object {
 
