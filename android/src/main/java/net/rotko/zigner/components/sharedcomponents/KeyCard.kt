@@ -1,6 +1,10 @@
 package net.rotko.zigner.components.sharedcomponents
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.res.Configuration
+import android.widget.Toast
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
@@ -14,11 +18,14 @@ import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.stringResource
@@ -157,8 +164,11 @@ fun KeyPath(
 fun ShowBase58Collapsible(
 	base58: String,
 	modifier: Modifier = Modifier,
+	/** show a copy icon next to the expanded string; for public values only */
+	copyable: Boolean = false,
 ) {
 	val expanded = remember { mutableStateOf(false) }
+	val context = LocalContext.current
 	Box(
 		contentAlignment = Alignment.CenterStart,
 		modifier = modifier
@@ -166,11 +176,37 @@ fun ShowBase58Collapsible(
 			.animateContentSize()
 	) {
 		if (expanded.value) {
-			Text(
-				base58,
-				color = MaterialTheme.colors.textTertiary,
-				style = SignerTypeface.BodyM
-			)
+			Row(verticalAlignment = Alignment.Top) {
+				Text(
+					base58,
+					color = MaterialTheme.colors.textTertiary,
+					style = SignerTypeface.BodyM,
+					modifier = Modifier.weight(1f, fill = false),
+				)
+				if (copyable) {
+					Box(
+						modifier = Modifier
+							.padding(start = 8.dp)
+							.size(32.dp)
+							.clip(RectangleShape)
+							.background(MaterialTheme.colors.fill6)
+							.clickable {
+								val cm = context.getSystemService(Context.CLIPBOARD_SERVICE)
+									as? ClipboardManager
+								cm?.setPrimaryClip(ClipData.newPlainText("zigner", base58))
+								Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
+							},
+						contentAlignment = Alignment.Center,
+					) {
+						Icon(
+							imageVector = Icons.Outlined.ContentCopy,
+							contentDescription = "Copy",
+							tint = MaterialTheme.colors.textSecondary,
+							modifier = Modifier.size(16.dp),
+						)
+					}
+				}
+			}
 		} else {
 			ShowBase58Collapsed(base58)
 		}
