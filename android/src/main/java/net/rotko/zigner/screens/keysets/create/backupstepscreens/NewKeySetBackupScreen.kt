@@ -93,28 +93,28 @@ internal fun NewKeySetBackupScreen(
 				modifier = Modifier.padding(horizontal = 32.dp, vertical = 16.dp),
 				onClicked = { revealed = true },
 			)
-			return@Column
-		}
-		SeedPhraseBox(seedPhrase = seedPhrase)
-		NotificationFrameTextImportant(
-			message = stringResource(R.string.new_key_set_backup_warning_message),
-			modifier = Modifier
-				.padding(horizontal = 16.dp)
-		)
-		Spacer(modifier = Modifier.weight(1f))
+		} else {
+			SeedPhraseBox(seedPhrase = seedPhrase)
+			NotificationFrameTextImportant(
+				message = stringResource(R.string.new_key_set_backup_warning_message),
+				modifier = Modifier
+					.padding(horizontal = 16.dp)
+			)
+			Spacer(modifier = Modifier.weight(1f))
 
-		// Banana Split backup option
-		SecondaryButtonWide(
-			label = stringResource(R.string.new_key_set_backup_banana_split_button),
-			modifier = Modifier.padding(horizontal = 32.dp).padding(top = 16.dp),
-			onClicked = onBananaSplit,
-		)
-		// Paper backup / continue option
-		PrimaryButtonWide(
-			label = stringResource(R.string.new_key_set_backup_paper_button),
-			modifier = Modifier.padding(horizontal = 32.dp, vertical = 16.dp),
-			onClicked = onProceed,
-		)
+			// Banana Split backup option
+			SecondaryButtonWide(
+				label = stringResource(R.string.new_key_set_backup_banana_split_button),
+				modifier = Modifier.padding(horizontal = 32.dp).padding(top = 16.dp),
+				onClicked = onBananaSplit,
+			)
+			// Paper backup / continue option
+			PrimaryButtonWide(
+				label = stringResource(R.string.new_key_set_backup_paper_button),
+				modifier = Modifier.padding(horizontal = 32.dp, vertical = 16.dp),
+				onClicked = onProceed,
+			)
+		}
 	}
 }
 
