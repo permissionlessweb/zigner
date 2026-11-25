@@ -332,29 +332,31 @@ fun KeyDetailsPublicKeyScreen(
 							)
 						} else if (isPenumbra && !showFvk) {
 							val receiveAddress = penumbraFreshReceive?.address ?: fvkResult?.receiveAddress.orEmpty()
-							Text(
-								text = if (receiveAddress.isEmpty()) "" else receiveAddress.take(14) + "..." + receiveAddress.takeLast(8),
-								style = SignerTypeface.CaptionM,
-								color = MaterialTheme.colors.textTertiary,
-								modifier = Modifier.weight(1f)
-							)
+							if (receiveAddress.isEmpty()) {
+								Spacer(modifier = Modifier.weight(1f))
+							} else {
+								ShowBase58Collapsible(
+									base58 = receiveAddress,
+									copyable = true,
+									modifier = Modifier.weight(1f)
+								)
+							}
 						} else if (isZcash && !showFvk && showTransparent && zcashTransparentAddress != null) {
-							Text(
-								text = zcashTransparentAddress.take(12) + "..." + zcashTransparentAddress.takeLast(8),
-								style = SignerTypeface.CaptionM,
-								color = MaterialTheme.colors.textTertiary,
+							ShowBase58Collapsible(
+								base58 = zcashTransparentAddress,
+								copyable = true,
 								modifier = Modifier.weight(1f)
 							)
 						} else if (isZcash && !showFvk && zcashDiversifiedAddress != null) {
-							Text(
-								text = zcashDiversifiedAddress.take(12) + "..." + zcashDiversifiedAddress.takeLast(8),
-								style = SignerTypeface.CaptionM,
-								color = MaterialTheme.colors.textTertiary,
+							ShowBase58Collapsible(
+								base58 = zcashDiversifiedAddress,
+								copyable = true,
 								modifier = Modifier.weight(1f)
 							)
 						} else {
 							ShowBase58Collapsible(
 								base58 = model.address.cardBase.base58,
+								copyable = true,
 								modifier = Modifier
 									.weight(1f)
 							)
