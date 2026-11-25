@@ -139,12 +139,12 @@ class KeysetRecoverViewModelTest {
 	}
 
 	@Test
-	fun twentyFourWordsWithLastWordUncommittedCannotProceed() = runTest(testDispatcher) {
+	fun twentyFourWordsWithPartialLastWordCannotProceed() = runTest(testDispatcher) {
 		val vm = makeViewModel()
 		repeat(23) { vm.onAddword("abandon") }
 		advanceUntilIdle()
 
-		vm.onUserInput(" art")
+		vm.onUserInput(" ar")
 		advanceUntilIdle()
 
 		val state = vm.recoverSeed.value
@@ -167,8 +167,8 @@ class KeysetRecoverViewModelTest {
 		assertFalse(vm.recoverSeed.value.validSeed)
 		assertFalse(vm.recoverSeed.value.canProceed)
 
-		// Typing the 24th word without committing keeps Next disabled.
-		vm.onUserInput(" art")
+		// Typing part of the 24th word keeps Next disabled.
+		vm.onUserInput(" ar")
 		advanceUntilIdle()
 		assertEquals(23, vm.recoverSeed.value.enteredWords.size)
 		assertFalse(vm.recoverSeed.value.canProceed)
@@ -212,6 +212,65 @@ class KeysetRecoverViewModelTest {
 
 		assertEquals(11, vm.recoverSeed.value.enteredWords.size)
 		assertFalse(vm.recoverSeed.value.validSeed)
+		assertFalse(vm.recoverSeed.value.canProceed)
+	}
+
+	@Test
+	fun lastWordLeftInFieldEnablesNextAndIsCommittedOnProceed() = runTest(testDispatcher) {
+		val vm = makeViewModel()
+		repeat(23) { vm.onAddword("abandon") }
+		advanceUntilIdle()
+
+		// Typed out, or picked from the keyboard, with no trailing space.
+		vm.onUserInput(" art")
+		advanceUntilIdle()
+		assertEquals(23, vm.recoverSeed.value.enteredWords.size)
+		assertTrue(vm.recoverSeed.value.canProceed)
+
+		// Proceeding commits the 24th word, so the full phrase is used.
+		assertEquals(valid24, vm.commitForProceed())
+		val state = vm.recoverSeed.value
+		assertEquals(valid24, state.enteredWords)
+		assertEquals(" ", state.rawUserInput)
+		assertTrue(state.canProceed)
+	}
+
+	@Test
+	fun lastWordLeftInFieldWorksForTwelveWords() = runTest(testDispatcher) {
+		val vm = makeViewModel()
+		repeat(11) { vm.onAddword("abandon") }
+		advanceUntilIdle()
+
+		vm.onUserInput(" about")
+		advanceUntilIdle()
+		assertTrue(vm.recoverSeed.value.canProceed)
+		assertEquals(valid12, vm.commitForProceed())
+		assertEquals(valid12, vm.recoverSeed.value.enteredWords)
+	}
+
+	@Test
+	fun partialOrInvalidLastWordKeepsNextDisabled() = runTest(testDispatcher) {
+		val vm = makeViewModel()
+		repeat(23) { vm.onAddword("abandon") }
+		advanceUntilIdle()
+
+		// Prefix only.
+		vm.onUserInput(" ar")
+		advanceUntilIdle()
+		assertFalse(vm.recoverSeed.value.canProceed)
+		assertNull(vm.commitForProceed())
+		assertEquals(23, vm.recoverSeed.value.enteredWords.size)
+
+		// A real word, but the phrase checksum fails.
+		vm.onUserInput(" able")
+		advanceUntilIdle()
+		assertFalse(vm.recoverSeed.value.canProceed)
+
+		// Valid, then edited back to a prefix: Next is disabled again at once.
+		vm.onUserInput(" art")
+		advanceUntilIdle()
+		assertTrue(vm.recoverSeed.value.canProceed)
+		vm.onUserInput(" ar")
 		assertFalse(vm.recoverSeed.value.canProceed)
 	}
 }

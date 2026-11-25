@@ -69,10 +69,11 @@ fun KeysetRecoverSubgraph(
 					viewModel.onAddword(suggestedWord)
 				},
 				onDone = {
-					if (model.value.canProceed) {
+					val phrase = viewModel.commitForProceed()
+					if (phrase != null) {
 						localNavController.navigate(
 							KeysetRecoverSubgraph.NetworksSelection.destination(
-								model.value.enteredWords.joinToString(separator = " ")
+								phrase.joinToString(separator = " ")
 							)
 						)
 					} else {
