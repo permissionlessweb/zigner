@@ -3,6 +3,8 @@ package net.rotko.zigner.screens.keysetdetails.seedselectmenu
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -34,14 +36,21 @@ internal fun SeedSelectMenuView(
 			onClose = onClose
 		)
 		SignerDivider()
-		keySetsListModel.keys.forEach { item ->
-			KeySetItem(
-				model = item,
-				isSelected = item.seedName == selectedSeed,
-				onClick = {
-					onSelectSeed(item.seedName)
-				},
-			)
+		//scrollable part, so the add and recover rows stay on screen
+		Column(
+			modifier = Modifier
+				.verticalScroll(rememberScrollState())
+				.weight(weight = 1f, fill = false)
+		) {
+			keySetsListModel.keys.forEach { item ->
+				KeySetItem(
+					model = item,
+					isSelected = item.seedName == selectedSeed,
+					onClick = {
+						onSelectSeed(item.seedName)
+					},
+				)
+			}
 		}
 		SignerDivider()
 		MenuItemForBottomSheet(
